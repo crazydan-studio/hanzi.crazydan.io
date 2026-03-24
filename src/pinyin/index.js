@@ -10,12 +10,18 @@ if (!pinyin) {
     title: `拼音 “${pinyin}” 的汉字列表`
   });
 
-  fetch(`/assets/pinyin/${pinyin}/data.json`)
+  fetch(`/assets/pinyin/${pinyin}/data1.json`)
     .then((resp) => {
       if (!resp.ok) {
-        throw new Error(
-          `HTTP ${resp.status} - 无法获取拼音 “${pinyin}” 的数据`
-        );
+        if (resp.status == 404) {
+          throw new Error(
+            `拼音 “${pinyin}” 不存在或未收录`
+          );
+        } else {
+          throw new Error(
+            `HTTP ${resp.status} - 无法获取拼音 “${pinyin}” 的数据`
+          );
+        }
       }
       return resp.json();
     })

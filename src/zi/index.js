@@ -11,7 +11,11 @@ async function fetchCharMetaData(char) {
   const unicode = 'U+' + char.codePointAt(0).toString(16).toUpperCase();
   const resp = await fetch(`/assets/zi/${unicode}/meta.json`);
   if (!resp.ok) {
-    throw new Error(`HTTP ${resp.status} - 无法获取汉字 “${char}” 的数据`);
+    if (resp.status == 404) {
+      throw new Error(`汉字 “${char}” 不存在或未收录`);
+    } else {
+      throw new Error(`HTTP ${resp.status} - 无法获取汉字 “${char}” 的数据`);
+    }
   }
 
   return await resp.json();
