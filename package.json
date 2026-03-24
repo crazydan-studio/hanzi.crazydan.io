@@ -2,7 +2,18 @@
   "name": "hanzi.crazydan.io",
   "version": "0.1.0",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build"
   },
-  "packageManager": "pnpm@10.28.0"
+  "imports": {
+    "#*": "./src/*"
+  },
+  "packageManager": "pnpm@10.28.0",
+  "devDependencies": {
+    "vite": "^8.0.2"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "tailwindcss": "^4.2.2"
+  }
 }

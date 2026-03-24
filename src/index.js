@@ -1,0 +1,108 @@
+import { render } from '#utils/render.js';
+
+// ------------------------------
+// 汉字查询
+// ------------------------------
+const searchBtn = document.getElementById('searchBtn');
+const queryInput = document.getElementById('queryInput');
+
+// 判断是否为纯拼音字母 (a-z，允许小写大写)
+function isPinyinString(str) {
+  return /^[a-zA-Z]+$/.test(str.trim());
+}
+// 判断是否为单个汉字 (基本汉字范围)
+function isChineseChar(str) {
+  return /^[\u4e00-\u9fff]$/.test(str.trim());
+}
+
+function redirectToPlaceholder(type, value) {
+  let url = '#';
+  let v = encodeURIComponent(value);
+
+  if (type === 'pinyin') {
+    url = `/pinyin/?v=${v}`;
+  } else if (type === 'hanzi') {
+    url = `/zi/?v=${v}`;
+  }
+  window.location.href = url;
+}
+
+function performQuery() {
+  let rawValue = queryInput.value.trim();
+  if (rawValue === '') {
+    alert('请输入汉字或拼音 (例如 “爱” 或 “ai”)');
+    return;
+  }
+
+  // 拼音检测 (纯字母)
+  if (isPinyinString(rawValue)) {
+    redirectToPlaceholder('pinyin', rawValue.toLowerCase());
+    return;
+  }
+  // 单个汉字检测
+  if (isChineseChar(rawValue)) {
+    const char = rawValue;
+    redirectToPlaceholder('hanzi', char);
+    return;
+  }
+
+  // 若输入多个汉字或混合情况：提示
+  if (/[\u4e00-\u9fff]/.test(rawValue)) {
+    // 包含汉字但不是单字 -> 提取第一个汉字
+    const firstChar = rawValue.match(/[\u4e00-\u9fff]/)[0];
+    alert(`检测到汉字序列，将为您跳转至第一个汉字“${firstChar}”的详情页。`);
+    redirectToPlaceholder('hanzi', firstChar);
+  } else {
+    alert('无法识别查询类型。请使用纯汉字（如 “爱”）或纯拼音小写（如 “ai”）。');
+  }
+}
+
+searchBtn.addEventListener('click', performQuery);
+queryInput.addEventListener('keypress', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    performQuery();
+  }
+});
+
+// ------------------------------
+// 常用字
+// ------------------------------
+fetch('/assets/zi/commons.json')
+  .then((resp) => {
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status} - 无法获取常用字列表`);
+    }
+    return resp.json();
+  })
+  .then((chars) => {
+    render(document.getElementById('template_commonsGridCard'), {
+      chars: chars.slice(0, 15)
+    });
+  })
+  .catch((e) => {
+    render(document.getElementById('template_commonsGridNetError'), {
+      msg: e.message
+    });
+  });
+
+// ------------------------------
+// 资源下载
+// ------------------------------
+const downloadBtn = document.getElementById('downloadResourceBtn');
+
+function showDownloadConfirm() {
+  const confirmMsg =
+    '📦 汉字字形 & 笔顺资源包下载前须知\n\n' +
+    '1. 本站所有资源（包含字形、笔顺 SVG）仅限于个人学习、教学等非商业用途。\n' +
+    '2. 您不得将资源用于任何商业目的或盈利性行为。\n' +
+    '3. 若传播或二次利用此资源包，必须保留包中的 LICENSE 说明文件，并注明来源。\n' +
+    '4. 本站不为用户因使用本站资源所产生的任何法律纠纷负责，用户需自行承担风险。\n\n' +
+    '是否确认下载并遵守以上条款？';
+
+  if (confirm(confirmMsg)) {
+    window.open('/assets/hanzi-assets-bundled.zip', '_blank');
+  }
+}
+
+downloadBtn.addEventListener('click', showDownloadConfirm);

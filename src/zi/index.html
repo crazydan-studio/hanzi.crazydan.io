@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>汉字 | 汉字详情与笔顺</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="stylesheet" href="../index.css" />
+    <style>
+      .glyph-container svg {
+        filter: drop-shadow(2px 4px 8px rgba(0, 0, 0, 0.1));
+      }
+      .copy-tooltip {
+        transition: opacity 0.2s ease;
+      }
+      .stroke-step {
+        transition: all 0.1s ease;
+      }
+      .stroke-step:hover {
+        transform: scale(1.02);
+        background-color: #fffbeb;
+      }
+      button:active {
+        transform: scale(0.97);
+      }
+    </style>
+    <script type="module" src="./index.js"></script>
+  </head>
+  <body
+    class="bg-gradient-to-br from-amber-50 to-orange-50 font-sans antialiased"
+  >
+    <div class="max-w-5xl mx-auto px-4 py-6 md:py-10">
+      <div class="text-center mb-8">
+        <h1
+          class="text-3xl md:text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-amber-700 to-orange-700"
+        >
+          汉字详情
+        </h1>
+        <div class="w-20 h-0.5 bg-amber-400 mx-auto mt-3 rounded-full"></div>
+      </div>
+
+      <div class="mb-5 text-sm">
+        <a
+          href="/"
+          class="inline-flex items-center gap-1 text-amber-700 hover:text-amber-900 transition"
+        >
+          ← 返回首页
+        </a>
+      </div>
+
+      <div
+        id="detailCard"
+        class="bg-white/90 shadow-md rounded-2xl shadow-2xl overflow-hidden border border-amber-200"
+      >
+        <div class="p-8 text-center text-amber-600" id="loadingPlaceholder">
+          <div class="inline-block animate-pulse">📖 汉字信息加载中...</div>
+        </div>
+
+        <div id="dynamicContent" class="hidden"></div>
+      </div>
+
+      <!--% thanksHtmlFragment %-->
+    </div>
+  </body>
+</html>

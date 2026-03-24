@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover"
+    />
+    <title>汉字 | 传承千年的人类文明瑰宝</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="stylesheet" href="./index.css" />
+    <style>
+      .card-touch {
+        transition: all 0.2s ease;
+      }
+      .card-touch:active {
+        transform: scale(0.97);
+      }
+    </style>
+    <script type="module" src="./index.js"></script>
+  </head>
+  <body
+    class="bg-gradient-to-br from-amber-50 to-orange-50 font-sans antialiased"
+  >
+    <main class="max-w-3xl mx-auto px-4 py-5 md:py-8">
+      <div class="text-center mb-8">
+        <h1 class="flex justify-center">
+          <img src="/logo.svg" width="96" />
+        </h1>
+        <p class="text-amber-700/80 text-sm md:text-base mt-2 max-w-md mx-auto">
+          传承千年的人类文明瑰宝
+        </p>
+        <div class="w-16 h-0.5 bg-amber-400 mx-auto mt-3 rounded-full"></div>
+      </div>
+
+      <div
+        class="bg-white rounded-2xl shadow-lg p-5 border border-amber-100 mb-6"
+      >
+        <div class="flex flex-col sm:flex-row gap-3 mt-1">
+          <input
+            type="text"
+            id="queryInput"
+            class="flex-1 px-4 py-3 border border-amber-200 rounded-xl focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none text-gray-700 text-base"
+          />
+          <button
+            id="searchBtn"
+            class="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span>查询</span>
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 7l5 5m0 0l-5 5m5-5H6"
+              ></path>
+            </svg>
+          </button>
+        </div>
+        <p class="text-gray-500 mt-2 ml-1">
+          ✍️ 请输入单个汉字或拼音，如：
+          <strong class="text-amber-800">爱 / 中 / ai / zhong</strong>
+          ，再点击查询按钮
+        </p>
+      </div>
+
+      <div class="mb-8">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xl font-bold text-amber-800 flex items-center gap-2">
+            <span>📚</span> 常用字速览
+          </h2>
+          <a
+            href="/zi/commons/"
+            class="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded-full hover:bg-amber-200 transition"
+          >
+            查看全部 →
+          </a>
+        </div>
+        <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+          <r-template id="template_commonsGridNetError">
+            <div
+              class="col-span-full text-center py-8 bg-red-50 rounded-xl border border-red-200 shadow-sm"
+            >
+              <div class="text-red-600 text-lg mb-1">⚠️ 加载失败</div>
+              <p class="text-sm text-red-500">{{msg}}</p>
+            </div>
+          </r-template>
+          <r-template id="template_commonsGridCard">
+            <a
+              for="char in chars"
+              class="common-char-card bg-white border border-amber-200 rounded-xl text-center py-3 shadow-sm card-touch active:bg-amber-50 cursor-pointer transition"
+              href="/zi/?v={{char}}"
+            >
+              {{char}}
+            </a>
+          </r-template>
+
+          <div
+            class="col-span-full text-center py-10 text-amber-600 loading-pulse"
+          >
+            <div class="inline-block">⏳ 正在加载常用字...</div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="mb-8 bg-gradient-to-r from-amber-100/70 to-orange-100/70 rounded-2xl p-5 border border-amber-300 shadow-md"
+      >
+        <div
+          class="flex flex-col sm:flex-row items-center justify-between gap-4"
+        >
+          <div class="flex items-center gap-3">
+            <div class="text-4xl">📦</div>
+            <div>
+              <h3 class="font-bold text-amber-800 text-lg">
+                汉字字形 & 笔顺资源包
+              </h3>
+              <p class="text-xs text-gray-600">
+                高质量 SVG 矢量图 | 基于 StrokeOrder.com 动画转换
+              </p>
+            </div>
+          </div>
+          <button
+            id="downloadResourceBtn"
+            class="bg-amber-700 hover:bg-amber-800 text-white font-semibold py-2.5 px-6 rounded-full shadow-md transition flex items-center gap-2 text-sm active:scale-95"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              ></path>
+            </svg>
+            下载资源包
+          </button>
+        </div>
+        <div class="text-xs text-gray-500 mt-3 flex flex-wrap gap-x-4 gap-y-1">
+          <span>📄 包含: 汉字 SVG 笔顺图 + 字形数据</span>
+          <span>⚖️ 遵循 StrokeOrder.com 使用条款 & 汉典网 CC0 1.0 协议</span>
+        </div>
+      </div>
+
+      <!--% thanksHtmlFragment %-->
+    </main>
+  </body>
+</html>

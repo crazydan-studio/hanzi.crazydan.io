@@ -1,0 +1,36 @@
+import { render } from '#utils/render.js';
+
+const urlParams = new URLSearchParams(window.location.search);
+const pinyin = (urlParams.get('v') || '').toLowerCase();
+
+if (!pinyin) {
+  render(document.getElementById('template_charGridUserError'), {});
+} else {
+  render(document.getElementById('template_pageTitle'), {
+    title: `拼音 “${pinyin}” 的汉字列表`
+  });
+
+  fetch(`/assets/pinyin/${pinyin}/data.json`)
+    .then((resp) => {
+      if (!resp.ok) {
+        throw new Error(
+          `HTTP ${resp.status} - 无法获取拼音 “${pinyin}” 的数据`
+        );
+      }
+      return resp.json();
+    })
+    .then((chars) => {
+      if (chars.length == 0) {
+        render(document.getElementById('template_charGridEmpty'), {});
+      } else {
+        render(document.getElementById('template_charGridCard'), {
+          chars
+        });
+      }
+    })
+    .catch((e) => {
+      render(document.getElementById('template_charGridNetError'), {
+        msg: e.message || '无法获取常用字列表，请检查网络或稍后重试。'
+      });
+    });
+}
