@@ -65,7 +65,7 @@ function renderCharDetail(char) {
                   `$1 class="${cls}"`
                 );
               }
-              return svg;
+              return { svg, index: index + 1 };
             }
           );
         }

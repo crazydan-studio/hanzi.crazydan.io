@@ -197,7 +197,9 @@
 
               <div class="bg-white rounded-xl p-4 border border-amber-200">
                 <div class="flex justify-between items-center">
-                  <h3 class="font-bold text-amber-800">🖌️ 笔画分解</h3>
+                  <h3 class="font-bold text-amber-800">
+                    🖌️ 笔画分解（共 {{stroke_count}} 步）
+                  </h3>
                   <div class="flex gap-2 text-xs">
                     <a
                       if="has_stroke"
@@ -210,14 +212,14 @@
                   </div>
                 </div>
                 <div if="has_stroke" class="flex flex-wrap gap-2 mt-3">
-                  <div
-                    for="step in stroke_steps"
-                    class="tianzi-grid stroke-step bg-amber-50"
-                  >
-                    <div
-                      class="zi-glyph w-32 h-32 md:w-32 md:h-32"
-                      html="{{step}}"
-                    ></div>
+                  <div for="step in stroke_steps" class="stroke-step flex flex-col items-center">
+                    <div class="tianzi-grid bg-amber-50">
+                      <div
+                        class="zi-glyph w-32 h-32 md:w-32 md:h-32"
+                        html="{{step.svg}}"
+                      ></div>
+                    </div>
+                    <div class="label">({{step.index}})</div>
                   </div>
                 </div>
 
