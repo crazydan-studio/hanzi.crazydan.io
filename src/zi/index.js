@@ -34,11 +34,47 @@ if (!char) {
 }
 
 function renderCharDetail(char) {
-  render(document.getElementById('template_charDetailCard'), {
+  const data = {
     ...char,
     glyph_svg: char.stroke_svg || char.glyph_svg,
-    onTextCopy: 'javascript:window.$copyCharText(arguments[0])'
-  });
+    has_stroke: false
+  };
+
+  const doRender = () =>
+    render(document.getElementById('template_charDetailCard'), data);
+
+  if (char.stroke_svg) {
+    fetch(`/assets/zi/${char.unicode}/${char.stroke_svg}`)
+      .then((resp) => (resp.ok ? resp.text() : ''))
+      .then((svg) => {
+        data.stroke_svg = svg.replace(/<\?xml .+\?>/g, '');
+        data.has_stroke = !!data.stroke_svg;
+
+        if (data.has_stroke) {
+          data.stroke_steps = Array.from(
+            { length: data.stroke_count },
+            (_, index) => {
+              let svg = data.stroke_svg;
+
+              for (let f = 0; f <= index; f++) {
+                const id = `s-${f}`;
+                const cls = f < index ? 'actived' : 'active';
+
+                svg = svg.replace(
+                  new RegExp(`(id="${id}")`),
+                  `$1 class="${cls}"`
+                );
+              }
+              return svg;
+            }
+          );
+        }
+
+        doRender();
+      });
+  } else {
+    doRender();
+  }
 }
 
 // -----------------------------------------------------------------------
