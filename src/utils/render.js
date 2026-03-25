@@ -52,6 +52,27 @@ function getValueByPath(obj, path) {
   return value;
 }
 
+// 表达式求值（支持变量、比较、逻辑运算）
+function evaluateExpression(expr, context) {
+  // 匹配变量名（允许字母、数字、下划线、点，且不能是数字）
+  const varPattern = /[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*/g;
+
+  // 替换变量为 getValueByPath 调用
+  const replaced = expr.replace(varPattern, (match) => {
+    // 避免替换数字字面量
+    if (/^\d+$/.test(match)) return match;
+    return `getValueByPath(context, '${match}')`;
+  });
+  try {
+    // 使用 Function 构造求值函数，避免 eval 的全局污染
+    const fn = new Function('context', 'getValueByPath', `return ${replaced}`);
+    return fn(context, getValueByPath);
+  } catch (e) {
+    console.warn('表达式求值错误:', expr, e);
+    return false;
+  }
+}
+
 // 替换文本节点中的 {{xxx}}
 function replaceText(text, context) {
   return text.replace(/\{\{([^}]+)\}\}/g, (_, expr) => {
@@ -88,6 +109,18 @@ function processNode(node, context) {
 
   // 元素节点
   if (node.nodeType === Node.ELEMENT_NODE) {
+    // 处理 if（优先级最高）
+    if (node.hasAttribute('if')) {
+      const condition = node.getAttribute('if');
+
+      const result = evaluateExpression(condition, context);
+      if (!result) {
+        // 条件为假，跳过该节点及其子树
+        return document.createDocumentFragment();
+      }
+      // 条件为真，继续处理（已移除 if 属性，避免重复判断）
+    }
+
     // 处理 for 循环
     if (node.hasAttribute('for')) {
       const forAttr = node.getAttribute('for');
@@ -111,7 +144,9 @@ function processNode(node, context) {
         // 创建新上下文，优先使用循环变量
         const newContext = { ...context, [itemName]: item, index };
         const cloned = node.cloneNode(true); // 深克隆
-        cloned.removeAttribute('for'); // 移除属性，避免干扰后续处理
+        // 移除属性，避免干扰后续处理
+        cloned.removeAttribute('if');
+        cloned.removeAttribute('for');
 
         // 递归处理克隆节点及其子节点（注意：子节点可能还有循环）
         const processed = processNode(cloned, newContext);
@@ -127,6 +162,8 @@ function processNode(node, context) {
 
     // 普通元素：克隆节点，处理属性和子节点
     const cloned = node.cloneNode(false); // 浅克隆，稍后填充子节点
+    cloned.removeAttribute('if');
+
     processAttributes(cloned, context);
 
     // 处理子节点
