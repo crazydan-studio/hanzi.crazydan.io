@@ -1,6 +1,7 @@
 import { render } from '#utils/render.js';
 import { getParamFromLocation } from '#utils/url.js';
 import { getUnicode } from '#utils/char.js';
+import { message } from '#utils/message/index.js';
 
 const char = getParamFromLocation('v');
 
@@ -44,8 +45,12 @@ function renderCharDetail(char) {
 window.$copyText = function (value) {
   navigator.clipboard
     .writeText(value)
-    .then(() => alert(`✅ ${value} 已复制`))
-    .catch((e) => console.error(e.message));
+    .then(() => {
+      message.show({ type: 'success', message: '已复制' });
+    })
+    .catch((e) => {
+      message.show({ type: 'error', message: '复制发生异常：' + e.message });
+    });
 };
 
 let currentAudio = null;
@@ -56,6 +61,8 @@ window.$playAudio = function (url) {
   }
 
   const audio = new Audio(url);
-  audio.play().catch(console.error);
+  audio.play().catch((e) => {
+    message.show({ type: 'error', message: '音频播放发生异常：' + e.message });
+  });
   currentAudio = audio;
 };

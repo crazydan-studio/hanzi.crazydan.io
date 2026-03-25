@@ -1,4 +1,5 @@
 import { render } from '#utils/render.js';
+import { message } from '#utils/message/index.js';
 
 // ------------------------------
 // 汉字查询
@@ -30,7 +31,7 @@ function redirectToPlaceholder(type, value) {
 function performQuery() {
   let rawValue = queryInput.value.trim();
   if (rawValue === '') {
-    alert('请输入汉字或拼音 (例如 “爱” 或 “ai”)');
+    message.show({ type: 'warning', message: '请输入汉字或拼音 (例如 “爱” 或 “ai”)' });
     return;
   }
 
@@ -50,10 +51,11 @@ function performQuery() {
   if (/[\u4e00-\u9fff]/.test(rawValue)) {
     // 包含汉字但不是单字 -> 提取第一个汉字
     const firstChar = rawValue.match(/[\u4e00-\u9fff]/)[0];
+
     alert(`检测到汉字序列，将为您跳转至第一个汉字“${firstChar}”的详情页。`);
     redirectToPlaceholder('hanzi', firstChar);
   } else {
-    alert('无法识别查询类型。请使用纯汉字（如 “爱”）或纯拼音小写（如 “ai”）。');
+    message.show({ type: 'error', message: '无法识别查询类型。请使用纯汉字（如 “爱”）或纯拼音小写（如 “ai”）' });
   }
 }
 
