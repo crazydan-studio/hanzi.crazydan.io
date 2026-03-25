@@ -121,6 +121,30 @@ function processNode(node, context) {
       // 条件为真，继续处理（已移除 if 属性，避免重复判断）
     }
 
+    // 处理 html（完全替换子内容）
+    if (node.hasAttribute('html')) {
+      const htmlExpr = node.getAttribute('html');
+
+      const htmlStr = replaceText(htmlExpr, context);
+      // 将字符串转换为 HTML 节点（注意 XSS 风险，此处不转义，由调用者负责）
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = htmlStr || '';
+
+      // 克隆所有子节点
+      const fragment = document.createDocumentFragment();
+      while (tempDiv.firstChild) {
+        fragment.appendChild(tempDiv.firstChild);
+      }
+
+      // 创建新节点，保留当前节点的属性（除 html 已移除）
+      const cloned = node.cloneNode(false);
+      cloned.removeAttribute('html');
+
+      cloned.appendChild(fragment);
+
+      return cloned;
+    }
+
     // 处理 for 循环
     if (node.hasAttribute('for')) {
       const forAttr = node.getAttribute('for');
