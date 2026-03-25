@@ -1,22 +1,20 @@
 import { render } from '#utils/render.js';
+import { getParamFromLocation } from '#utils/url.js';
 
-const urlParams = new URLSearchParams(window.location.search);
-const pinyin = (urlParams.get('v') || '').toLowerCase();
+const pinyin = getParamFromLocation('v').toLowerCase();
 
 if (!pinyin) {
-  render(document.getElementById('template_charGridUserError'), {});
+  render(document.getElementById('template_charGridInvalidURL'), {});
 } else {
   render(document.getElementById('template_pageTitle'), {
     title: `拼音 “${pinyin}” 的汉字列表`
   });
 
-  fetch(`/assets/pinyin/${pinyin}/data1.json`)
+  fetch(`/assets/pinyin/${pinyin}/data.json`)
     .then((resp) => {
       if (!resp.ok) {
         if (resp.status == 404) {
-          throw new Error(
-            `拼音 “${pinyin}” 不存在或未收录`
-          );
+          throw new Error(`拼音 “${pinyin}” 不存在或未收录`);
         } else {
           throw new Error(
             `HTTP ${resp.status} - 无法获取拼音 “${pinyin}” 的数据`
@@ -36,7 +34,7 @@ if (!pinyin) {
     })
     .catch((e) => {
       render(document.getElementById('template_charGridNetError'), {
-        msg: e.message || '无法获取常用字列表，请检查网络或稍后重试。'
+        msg: e.message || '无法获取拼音字列表，请检查网络或稍后重试。'
       });
     });
 }
