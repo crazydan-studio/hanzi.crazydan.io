@@ -2,7 +2,7 @@
 
 <img src="./public/logo.svg" width="172px" />
 
-本站点为 [筷字输入法](https://github.com/crazydan-studio/kuaizi-ime) 项目的衍生产物，
+本站点为 [筷字输入法](https://github.com/crazydan-studio/kuaizi-ime) 的衍生项目，
 用于汇总汉字信息和资源，向公共领域提供高质量的汉字笔顺矢量图，方便个人以及教学使用，
 从而为汉字的广泛传播和学习、增强汉字的世界影响力贡献一份自己的力量。
 
