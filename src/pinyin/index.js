@@ -7,17 +7,17 @@ if (!pinyin) {
   render(document.getElementById('template_charGridInvalidURL'), {});
 } else {
   render(document.getElementById('template_pageTitle'), {
-    title: `拼音 “${pinyin}” 的汉字列表`
+    title: `拼音「${pinyin}」的汉字列表`
   });
 
   fetch(`/assets/pinyin/${pinyin}/data.json`)
     .then((resp) => {
       if (!resp.ok) {
         if (resp.status == 404) {
-          throw new Error(`拼音 “${pinyin}” 不存在或未收录`);
+          throw new Error(`拼音「${pinyin}」不存在或未收录`);
         } else {
           throw new Error(
-            `HTTP ${resp.status} - 无法获取拼音 “${pinyin}” 的数据`
+            `HTTP ${resp.status} - 无法获取拼音「${pinyin}」的数据`
           );
         }
       }

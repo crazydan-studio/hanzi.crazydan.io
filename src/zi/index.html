@@ -47,57 +47,103 @@
           <div class="p-5 md:p-8">
             <div class="flex flex-col gap-8">
               <div class="flex flex-col lg:flex-row gap-8">
-                <div class="lg:w-1/2">
-                  <div
-                    class="bg-amber-50 rounded-2xl p-4 border border-amber-200"
-                  >
-                    <div class="flex justify-center mb-4">
-                      <div class="tianzi-grid bg-white">
-                        <div
-                          class="zi-glyph w-72 h-72 md:w-56 md:h-56"
-                          html="{{stroke_svg}}"
-                        ></div>
-                      </div>
-                    </div>
-                    <div if="stroke_svg" class="mt-2 bg-white p-3 rounded-xl">
+                <div
+                  id="strokeAnim_Demo"
+                  class="lg:w-1/2 bg-amber-50 rounded-2xl p-4 border border-amber-200"
+                >
+                  <div class="flex justify-center mb-4">
+                    <div class="tianzi-grid bg-white">
                       <div
-                        class="flex flex-wrap gap-3 justify-center items-center"
+                        role="glyph"
+                        class="zi-glyph w-72 h-72 md:w-56 md:h-56"
+                        html="{{stroke_svg}}"
+                      ></div>
+                    </div>
+                  </div>
+                  <div if="has_stroke" class="mt-2 bg-white p-3 rounded-xl">
+                    <div
+                      class="flex flex-wrap flex-col gap-4 justify-center items-center"
+                    >
+                      <div
+                        class="flex flex-wrap flex-row gap-2 justify-center items-center"
                       >
-                        <div class="flex gap-2">
-                          <button
-                            id="playAnimBtn"
-                            class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-full text-sm flex items-center gap-1"
+                        <button
+                          role="btn-play"
+                          class="flex items-center bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-full text-sm gap-1 cursor-pointer"
+                        >
+                          <r-template id="template_strokeAnimPlayBtn">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke-width="1.5"
+                              stroke="currentColor"
+                              class="size-6"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"
+                              />
+                            </svg>
+                            <span>播放</span>
+                          </r-template>
+                          <r-template id="template_strokeAnimPauseBtn">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke-width="1.5"
+                              stroke="currentColor"
+                              class="size-6"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M15.75 5.25v13.5m-7.5-13.5v13.5"
+                              />
+                            </svg>
+                            <span>暂停</span>
+                          </r-template>
+                        </button>
+                        <button
+                          role="btn-stop"
+                          class="flex items-center border border-amber-300 text-amber-700 px-4 py-1 rounded-full text-sm cursor-pointer"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="size-6"
                           >
-                            ▶ 播放
-                          </button>
-                          <button
-                            id="pauseAnimBtn"
-                            class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-1.5 rounded-full text-sm"
-                          >
-                            ⏸ 暂停
-                          </button>
-                          <button
-                            id="resetAnimBtn"
-                            class="border border-amber-300 text-amber-700 px-3 py-1.5 rounded-full text-sm"
-                          >
-                            ⟳ 重置
-                          </button>
-                        </div>
-                        <div class="flex items-center gap-2 text-sm">
-                          <span class="text-gray-600">速度</span>
-                          <input
-                            type="range"
-                            id="speedSlider"
-                            min="0.5"
-                            max="3"
-                            step="0.05"
-                            value="1"
-                            class="w-28"
-                          />
-                          <span id="speedValue" class="w-10 text-amber-700">
-                            1.0x
-                          </span>
-                        </div>
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z"
+                            />
+                          </svg>
+                          <span>结束</span>
+                        </button>
+                      </div>
+
+                      <div class="flex items-center gap-2 text-sm">
+                        <span class="text-gray-600">快进</span>
+                        <input
+                          role="btn-speed"
+                          type="range"
+                          min="0.5"
+                          max="8"
+                          step="0.5"
+                          value="1"
+                          class="w-28"
+                        />
+                        <span class="w-10 text-amber-700">
+                          <r-template id="template_strokeAnimSpeedLabel">
+                            {{stroke_anim_speed_label}}
+                          </r-template>
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -212,7 +258,10 @@
                   </div>
                 </div>
                 <div if="has_stroke" class="flex flex-wrap gap-2 mt-3">
-                  <div for="step in stroke_steps" class="stroke-step flex flex-col items-center">
+                  <div
+                    for="step in stroke_steps"
+                    class="stroke-step flex flex-col items-center"
+                  >
                     <div class="tianzi-grid bg-amber-50">
                       <div
                         class="zi-glyph w-32 h-32 md:w-32 md:h-32"
