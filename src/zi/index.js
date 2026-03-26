@@ -146,7 +146,7 @@ function initStrokeAnimDemo($target) {
   // https://animejs.com/documentation/timeline/timeline-playback-settings
   const t1 = createTimeline({
     defaults: {
-      duration: 100,
+      duration: 200,
       ease: 'linear'
     },
     autoplay: false,
