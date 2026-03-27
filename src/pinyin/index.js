@@ -1,5 +1,6 @@
 import { render } from '#utils/render.js';
 import { getParamFromLocation } from '#utils/url.js';
+import { convertSimpleCharData } from '#data/schema.mjs';
 
 const pinyin = getParamFromLocation('v').toLowerCase();
 
@@ -10,7 +11,7 @@ if (!pinyin) {
     title: `拼音「${pinyin}」的汉字列表`
   });
 
-  fetch(`/assets/pinyin/${pinyin}/data.json`)
+  fetch(`/assets/pinyin/${pinyin}/meta.json`)
     .then((resp) => {
       if (!resp.ok) {
         if (resp.status == 404) {
@@ -23,12 +24,12 @@ if (!pinyin) {
       }
       return resp.json();
     })
-    .then((chars) => {
+    .then(({ chars }) => {
       if (chars.length == 0) {
         render(document.getElementById('template_charGridEmpty'), {});
       } else {
         render(document.getElementById('template_charGridCard'), {
-          chars
+          chars: chars.map(convertSimpleCharData)
         });
       }
     })

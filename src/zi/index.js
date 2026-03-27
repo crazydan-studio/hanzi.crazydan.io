@@ -4,6 +4,7 @@ import { render } from '#utils/render.js';
 import { getParamFromLocation } from '#utils/url.js';
 import { getUnicode } from '#utils/char.js';
 import { message } from '#utils/message/index.js';
+import { convertCharMetaData, convertPinyinData } from '#data/schema.mjs';
 
 const char = getParamFromLocation('v');
 
@@ -26,7 +27,16 @@ if (!char) {
       return resp.json();
     })
     .then((char) => {
-      renderCharDetail(char);
+      const data = { char: convertCharMetaData(char) };
+
+      fetch('/assets/pinyin/data.json')
+        .then((resp) => resp.json())
+        .then((pinyins) => {
+          data.pinyins = pinyins;
+        })
+        .finally(() => {
+          renderCharDetail(data);
+        });
     })
     .catch((e) => {
       render(document.getElementById('template_charDetailNetError'), {
@@ -35,9 +45,13 @@ if (!char) {
     });
 }
 
-function renderCharDetail(char) {
+function renderCharDetail({ char, pinyins }) {
   const data = {
     ...char,
+    spells: char.spells.map((s) => ({
+      value: s,
+      audio: convertPinyinData(pinyins[s]).audio
+    })),
     glyph_svg: char.stroke_svg || char.glyph_svg,
     has_stroke: false,
     // Note: 仅用于支持模版嵌套注入数据
@@ -65,6 +79,7 @@ function renderCharDetail(char) {
             (_, index) => {
               let svg = data.stroke_svg;
 
+              // TODO 仅保留完整笔画的动画帧
               for (let f = 0; f <= index; f++) {
                 const id = `s-${f}`;
                 const cls = f < index ? 'actived' : 'active';
@@ -196,7 +211,6 @@ function initStrokeAnimDemo($target) {
   };
 
   const updateAnimSpeed = (ratio) => {
-    console.log(ratio.toFixed(1) + 'x');
     t1.speed = ratio;
 
     render(document.getElementById('template_strokeAnimSpeedLabel'), {

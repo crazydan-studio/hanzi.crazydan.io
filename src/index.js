@@ -1,5 +1,6 @@
 import { render } from '#utils/render.js';
 import { message } from '#utils/message/index.js';
+import { convertSimpleCharData } from '#data/schema.mjs';
 
 // ------------------------------
 // 汉字查询
@@ -31,7 +32,10 @@ function redirectToPlaceholder(type, value) {
 function performQuery() {
   let rawValue = queryInput.value.trim();
   if (rawValue === '') {
-    message.show({ type: 'warning', message: '请输入汉字或拼音 (例如 “爱” 或 “ai”)' });
+    message.show({
+      type: 'warning',
+      message: '请输入汉字或拼音 (例如 “爱” 或 “ai”)'
+    });
     return;
   }
 
@@ -55,7 +59,11 @@ function performQuery() {
     alert(`检测到汉字序列，将为您跳转至第一个汉字「${firstChar}」的详情页。`);
     redirectToPlaceholder('hanzi', firstChar);
   } else {
-    message.show({ type: 'error', message: '无法识别查询类型。请使用纯汉字（如 “爱”）或纯拼音小写（如 “ai”）' });
+    message.show({
+      type: 'error',
+      message:
+        '无法识别查询类型。请使用纯汉字（如 “爱”）或纯拼音小写（如 “ai”）'
+    });
   }
 }
 
@@ -79,7 +87,7 @@ fetch('/assets/zi/commons.json')
   })
   .then((chars) => {
     render(document.getElementById('template_commonsGridCard'), {
-      chars: chars.slice(0, 15)
+      chars: chars.slice(0, 15).map(convertSimpleCharData)
     });
   })
   .catch((e) => {

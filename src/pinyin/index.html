@@ -9,14 +9,6 @@
     <title>汉字 | 拼音字列表</title>
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="stylesheet" href="../index.css" />
-    <style>
-      .char-card {
-        transition: all 0.2s ease;
-      }
-      .char-card:active {
-        transform: scale(0.96);
-      }
-    </style>
     <script type="module" src="./index.js"></script>
   </head>
   <body
@@ -102,15 +94,7 @@
           </div>
         </r-template>
         <r-template id="template_charGridCard">
-          <a
-            for="char in chars"
-            class="char-card bg-white rounded-xl shadow-md hover:shadow-lg border border-amber-200 text-center py-4 transition-all cursor-pointer block"
-            href="/zi/?v={{char}}"
-          >
-            <div class="text-3xl md:text-4xl font-serif text-amber-800">
-              {{char}}
-            </div>
-          </a>
+          <!--% charsHtmlFragment %-->
         </r-template>
         <r-template id="template_charGridEmpty">
           <div class="col-span-full text-center py-10 text-gray-500">

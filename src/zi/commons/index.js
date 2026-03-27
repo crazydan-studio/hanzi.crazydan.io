@@ -1,4 +1,5 @@
 import { render } from '#utils/render.js';
+import { convertSimpleCharData } from '#data/schema.mjs';
 
 fetch('/assets/zi/commons.json')
   .then((resp) => {
@@ -12,7 +13,7 @@ fetch('/assets/zi/commons.json')
       render(document.getElementById('template_charGridEmpty'), {});
     } else {
       render(document.getElementById('template_charGridCard'), {
-        chars
+        chars: chars.map(convertSimpleCharData)
       });
     }
   })

@@ -6,7 +6,11 @@ import tailwindcss from '@tailwindcss/vite';
 import htmlMinifier from 'vite-plugin-html-minifier';
 
 const srcDir = resolve(__dirname, 'src');
-const thanksHtml = readFileSync(resolve(srcDir, 'thanks.html'), 'utf-8');
+const thanksHtml = readFileSync(
+  resolve(srcDir, 'fragment/thanks.html'),
+  'utf-8'
+);
+const charsHtml = readFileSync(resolve(srcDir, 'fragment/chars.html'), 'utf-8');
 
 export default defineConfig({
   root: srcDir,
@@ -31,7 +35,9 @@ export default defineConfig({
     {
       name: 'inject-html-fragment',
       transformIndexHtml(html) {
-        return html.replace('<!--% thanksHtmlFragment %-->', thanksHtml);
+        return html
+          .replace('<!--% thanksHtmlFragment %-->', thanksHtml)
+          .replace('<!--% charsHtmlFragment %-->', charsHtml);
       }
     }
   ]
