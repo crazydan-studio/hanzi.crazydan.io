@@ -6,6 +6,11 @@ import { getUnicode } from '#utils/char.js';
 import { message } from '#utils/message/index.js';
 import { convertCharMetaData, convertPinyinData } from '#data/schema.mjs';
 
+import { genStrokeSteps } from '#zi/stroke.js';
+
+import '#index.css';
+import './index.css';
+
 const char = getParamFromLocation('v');
 
 if (!char) {
@@ -75,24 +80,7 @@ function renderCharDetail({ char, pinyins }) {
         data.has_stroke = !!data.stroke_svg;
 
         if (data.has_stroke) {
-          data.stroke_steps = Array.from(
-            { length: data.stroke_count },
-            (_, index) => {
-              let svg = data.stroke_svg;
-
-              // TODO 仅保留完整笔画的动画帧
-              for (let f = 0; f <= index; f++) {
-                const id = `s-${f}`;
-                const cls = f < index ? 'actived' : 'active';
-
-                svg = svg.replace(
-                  new RegExp(`(id="${id}")`),
-                  `$1 class="${cls}"`
-                );
-              }
-              return { svg, index: index + 1 };
-            }
-          );
+          data.stroke_steps = genStrokeSteps(data.stroke_svg);
         }
 
         doRender(data.has_stroke);

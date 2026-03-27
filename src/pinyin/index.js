@@ -2,6 +2,8 @@ import { render } from '#utils/render.js';
 import { getParamFromLocation } from '#utils/url.js';
 import { convertSimpleCharData } from '#data/schema.mjs';
 
+import '#index.css';
+
 const pinyin = getParamFromLocation('v').toLowerCase();
 
 if (!pinyin) {

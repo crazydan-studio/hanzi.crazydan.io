@@ -1,0 +1,3 @@
+.char-spell:last-child>.separator {
+  display: none;
+}

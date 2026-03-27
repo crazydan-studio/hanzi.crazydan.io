@@ -1,6 +1,8 @@
 import { render } from '#utils/render.js';
 import { convertSimpleCharData } from '#data/schema.mjs';
 
+import '#index.css';
+
 fetch('/assets/zi/commons.json')
   .then((resp) => {
     if (!resp.ok) {
