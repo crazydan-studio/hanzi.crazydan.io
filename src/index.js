@@ -9,12 +9,8 @@ const searchBtn = document.getElementById('searchBtn');
 const queryInput = document.getElementById('queryInput');
 
 // 判断是否为纯拼音字母 (a-z，允许小写大写)
-function isPinyinString(str) {
+function isPinyinStr(str) {
   return /^[a-zA-Z]+$/.test(str.trim());
-}
-// 判断是否为单个汉字 (基本汉字范围)
-function isChineseChar(str) {
-  return /^[\u4e00-\u9fff]$/.test(str.trim());
 }
 
 function redirectToPlaceholder(type, value) {
@@ -40,30 +36,10 @@ function performQuery() {
   }
 
   // 拼音检测 (纯字母)
-  if (isPinyinString(rawValue)) {
+  if (isPinyinStr(rawValue)) {
     redirectToPlaceholder('pinyin', rawValue.toLowerCase());
-    return;
-  }
-  // 单个汉字检测
-  if (isChineseChar(rawValue)) {
-    const char = rawValue;
-    redirectToPlaceholder('hanzi', char);
-    return;
-  }
-
-  // 若输入多个汉字或混合情况：提示
-  if (/[\u4e00-\u9fff]/.test(rawValue)) {
-    // 包含汉字但不是单字 -> 提取第一个汉字
-    const firstChar = rawValue.match(/[\u4e00-\u9fff]/)[0];
-
-    alert(`检测到汉字序列，将为您跳转至第一个汉字「${firstChar}」的详情页。`);
-    redirectToPlaceholder('hanzi', firstChar);
   } else {
-    message.show({
-      type: 'error',
-      message:
-        '无法识别查询类型。请使用纯汉字（如 “爱”）或纯拼音小写（如 “ai”）'
-    });
+    redirectToPlaceholder('hanzi', rawValue);
   }
 }
 

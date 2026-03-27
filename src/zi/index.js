@@ -28,6 +28,7 @@ if (!char) {
     })
     .then((char) => {
       const data = { char: convertCharMetaData(char) };
+      data.char.unicode = unicode;
 
       fetch('/assets/pinyin/data.json')
         .then((resp) => resp.json())

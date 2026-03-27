@@ -38,6 +38,11 @@
 }
 
 /* ----------------------------------------------- */
+.char-spell:last-child>.separator {
+  display: none;
+}
+
+/* ----------------------------------------------- */
 /* 隐藏部分笔画的动画帧 */
 .stroke-step .tianzi-grid>.zi-glyph>svg g>path {
   display: none;
