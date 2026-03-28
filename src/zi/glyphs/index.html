@@ -13,8 +13,42 @@
   <body
     class="bg-gradient-to-br from-amber-50 to-orange-50 font-sans antialiased"
   >
-    <div class="max-w-6xl mx-auto px-4 py-6 md:py-10">
-      <div class="flex flex-col gap-4">
+    <div class="max-w-6xl mx-auto py-6 md:py-10">
+      <div
+        class="fixed top-2 right-0 left-0 z-1000 flex flex-row justify-center"
+      >
+        <div
+          class="flex flex-row justify-center items-center gap-4 rounded-full py-2 px-8 w-fit h-12 bg-gradient-to-r from-amber-100/70 to-orange-100/70 border border-amber-300 shadow-md"
+        >
+          <button
+            id="page_prevBtn"
+            class="text-amber-600 underline cursor-pointer"
+          >
+            上一页
+          </button>
+          <span class="text-gray-700">
+            <r-template id="template_charGridPager">
+              <div
+                id="page_gotoInput"
+                contenteditable="true"
+                class="inline-block pr-1 focus:ring-2 focus:ring-amber-200 outline-none text-center rounded-md cursor-pointer"
+              >
+                {{page.current}}
+              </div>
+              <span>/ 共 {{page.total}} 页</span>
+            </r-template>
+
+            <span>...</span>
+          </span>
+          <button
+            id="page_nextBtn"
+            class="text-amber-600 underline cursor-pointer"
+          >
+            下一页
+          </button>
+        </div>
+      </div>
+      <div class="flex flex-col gap-4 pt-10">
         <r-template id="template_charGridNetError">
           <div
             class="col-span-full text-center py-8 bg-red-50 rounded-xl border border-red-200"
