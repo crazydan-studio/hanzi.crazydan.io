@@ -50,12 +50,17 @@
                   class="lg:w-1/2 bg-amber-50 rounded-2xl p-4 border border-amber-200"
                 >
                   <div class="flex justify-center mb-4">
-                    <div class="tianzi-grid bg-white">
+                    <div class="tianzi-grid bg-white w-72 h-72 md:w-56 md:h-56">
                       <div
+                        if="glyph_svg"
                         role="glyph"
-                        class="char-glyph w-72 h-72 md:w-56 md:h-56"
-                        html="{{stroke_svg}}"
+                        class="char-glyph w-full h-full"
+                        html="{{glyph_svg}}"
                       ></div>
+
+                      <span if="!glyph_svg" class="text-2xl text-gray-500">
+                        无字形图
+                      </span>
                     </div>
                   </div>
                   <div if="has_stroke" class="mt-2 bg-white p-3 rounded-xl">
@@ -278,7 +283,10 @@
                 </div>
               </div>
 
-              <div if="has_stroke" class="text-xs text-gray-500 border-t-1 pt-2 border-gray-200">
+              <div
+                if="has_stroke"
+                class="text-xs text-gray-500 border-t-1 pt-2 border-gray-200"
+              >
                 <p>
                   * 以上汉字笔画动画和分解图（SVG 格式）由 Python 脚本
                   <a

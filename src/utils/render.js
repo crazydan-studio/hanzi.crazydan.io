@@ -139,6 +139,7 @@ function processNode(node, context) {
       // 创建新节点，保留当前节点的属性（除 html 已移除）
       const cloned = node.cloneNode(false);
       cloned.removeAttribute('html');
+      cloned.removeAttribute('if');
 
       cloned.appendChild(fragment);
 

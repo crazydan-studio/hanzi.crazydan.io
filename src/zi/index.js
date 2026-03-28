@@ -61,15 +61,15 @@ function renderCharDetail({ char }) {
     }
   };
 
-  if (char.stroke_svg) {
-    fetch(`/assets/zi/${char.unicode}/${char.stroke_svg}`)
+  if (data.glyph_svg) {
+    fetch(`/assets/zi/${char.unicode}/${data.glyph_svg}`)
       .then((resp) => (resp.ok ? resp.text() : ''))
       .then((svg) => {
-        data.stroke_svg = svg.replace(/<\?xml .+\?>/g, '');
-        data.has_stroke = !!data.stroke_svg;
+        data.glyph_svg = svg.replace(/<\?xml .+\?>/g, '');
+        data.has_stroke = !!data.glyph_svg && !!char.stroke_svg;
 
         if (data.has_stroke) {
-          data.stroke_steps = genStrokeSteps(data.stroke_svg);
+          data.stroke_steps = genStrokeSteps(data.glyph_svg);
         }
 
         doRender(data.has_stroke);
