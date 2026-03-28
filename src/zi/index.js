@@ -4,7 +4,7 @@ import { render } from '#utils/render.js';
 import { getParamFromLocation } from '#utils/url.js';
 import { getUnicode } from '#utils/char.js';
 import { message } from '#utils/message/index.js';
-import { convertCharMetaData, convertPinyinData } from '#data/schema.js';
+import { convertCharMetaData } from '#data/schema.js';
 
 import { genStrokeSteps } from '#zi/stroke.js';
 
@@ -35,14 +35,7 @@ if (!char) {
       const data = { char: convertCharMetaData(char) };
       data.char.unicode = unicode;
 
-      fetch('/assets/pinyin/data.json')
-        .then((resp) => resp.json())
-        .then((pinyins) => {
-          data.pinyins = pinyins;
-        })
-        .finally(() => {
-          renderCharDetail(data);
-        });
+      renderCharDetail(data);
     })
     .catch((e) => {
       render(document.getElementById('template_charDetailNetError'), {
@@ -51,13 +44,9 @@ if (!char) {
     });
 }
 
-function renderCharDetail({ char, pinyins }) {
+function renderCharDetail({ char }) {
   const data = {
     ...char,
-    spells: char.spells.map((s) => ({
-      value: s,
-      audio: convertPinyinData(pinyins[s]).audio
-    })),
     glyph_svg: char.stroke_svg || char.glyph_svg,
     has_stroke: false,
     // Note: 仅用于支持模版嵌套注入数据

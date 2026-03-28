@@ -1,5 +1,5 @@
 import { render } from '#utils/render.js';
-import { convertSimpleCharData } from '#data/schema.mjs';
+import { convertSimpleCharData } from '#data/schema.js';
 
 import '#index.css';
 

@@ -1,6 +1,6 @@
 import { render } from '#utils/render.js';
 import { getParamFromLocation } from '#utils/url.js';
-import { convertSimpleCharData } from '#data/schema.mjs';
+import { convertSimpleCharData } from '#data/schema.js';
 
 import '#index.css';
 
