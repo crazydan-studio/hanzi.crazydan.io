@@ -2,7 +2,7 @@ import { render } from '#utils/render.js';
 import { convertCharGlyphData } from '#data/schema.js';
 import { getUnicode } from '#utils/char.js';
 
-import { genStrokeSteps, fetchCharGlyph } from '#zi/stroke.js';
+import { fetchCharGlyphAndStrokes } from '#zi/stroke.js';
 
 import '#index.css';
 
@@ -43,11 +43,7 @@ function lazyLoadGlyphs(targets) {
       const glyph_type = target.dataset.glyphType;
       const unicode = getUnicode(char);
 
-      fetchCharGlyph(unicode, glyph_type).then((data) => {
-        if (data.has_stroke) {
-          data.stroke_steps = genStrokeSteps(data.glyph_svg);
-        }
-
+      fetchCharGlyphAndStrokes(unicode, glyph_type).then((data) => {
         render(target.querySelector('[name="template_charGlyph"]'), data);
       });
     });

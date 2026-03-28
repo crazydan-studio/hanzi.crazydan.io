@@ -6,7 +6,7 @@ import { getUnicode } from '#utils/char.js';
 import { message } from '#utils/message/index.js';
 import { convertCharMetaData } from '#data/schema.js';
 
-import { genStrokeSteps, fetchCharGlyph } from '#zi/stroke.js';
+import { fetchCharGlyphAndStrokes } from '#zi/stroke.js';
 
 import '#index.css';
 import './index.css';
@@ -54,12 +54,8 @@ function renderCharDetail({ char }) {
   };
 
   if (char.glyph_type) {
-    fetchCharGlyph(char.unicode, char.glyph_type).then((glyph) => {
-      Object.assign(char, glyph);
-
-      if (char.has_stroke) {
-        char.stroke_steps = genStrokeSteps(char.glyph_svg);
-      }
+    fetchCharGlyphAndStrokes(char.unicode, char.glyph_type).then((data) => {
+      Object.assign(char, data);
 
       doRender(char);
     });

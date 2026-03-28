@@ -30,12 +30,19 @@ ${s}`,
   });
 }
 
-export async function fetchCharGlyph(unicode, type) {
+/** @return `{has_stroke: true, glyph_svg: 'svg', stroke_steps: [{svg: 'svg', index: 1}, ...]}` */
+export async function fetchCharGlyphAndStrokes(unicode, type) {
   const has_stroke = type == 'stroke';
   const name = has_stroke ? 'stroke.svg' : 'glyph.svg';
 
   const resp = await fetch(`/assets/zi/${unicode}/${name}`);
   const svg = resp.ok ? await resp.text() : '';
 
-  return { has_stroke, glyph_svg: svg.replace(/<\?xml .+\?>/g, '') };
+  const data = { has_stroke, glyph_svg: svg.replace(/<\?xml .+\?>/g, '') };
+
+  if (data.has_stroke) {
+    data.stroke_steps = genStrokeSteps(data.glyph_svg);
+  }
+
+  return data;
 }
