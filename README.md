@@ -12,6 +12,11 @@
 - 运行开发服务：`pnpm run dev`
 - 本地构建：`pnpm run build`
 
+## 致谢
+
+- [汉典网](https://www.zdic.net/) 收集和提供的汉字详细信息
+- [StrokeOrder.com](https://www.strokeorder.com/) 整理和提供的汉字笔顺图
+
 ## 建议 & 意见
 
 若遇到任何问题，或有好的改进意见，可在
@@ -23,9 +28,11 @@
 本站点（[https://hanzi.crazydan.io](https://hanzi.crazydan.io)）
 所提供的资源和源代码，仅限于个人学习、教学等非商业用途。
 
-本站点所引用的汉字信息来自于汉典网（[https://www.zdic.net/](https://www.zdic.net/)），
+本站点所提供的汉字信息数据、拼音音频文件和字形文件（`glyph.svg`）来自于
+汉典网（[https://www.zdic.net/](https://www.zdic.net/)），
 直接使用需遵从其[免责说明](https://www.zdic.net/aboutus/disclaimer/)。
 
-本站点所提供的汉字笔画的 svg 资源的原始资料来自于
-StrokeOrder.com（[https://www.strokeorder.com/](https://www.strokeorder.com/)），
-直接使用其原始资料需遵守其[使用条款](https://www.strokeorder.com/terms.html)。
+本站点所提供的汉字笔画文件（`stroke.svg`）由 Python 脚本
+[gen-from-gif.py](https://github.com/crazydan-studio/kuaizi-ime/blob/master/tools/pinyin-dict/src/data/word/stroke/gen-from-gif.py)
+根据 StrokeOrder.com（[https://www.strokeorder.com/](https://www.strokeorder.com/)）
+所提供的笔画 GIF 动画生成，若需要直接使用其原始 GIF 动画文件，则需遵守其[使用条款](https://www.strokeorder.com/terms.html)。

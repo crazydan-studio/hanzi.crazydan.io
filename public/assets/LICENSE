@@ -1,0 +1,14 @@
+# 许可协议
+
+本资源包内所有资源由站点 [https://hanzi.crazydan.io](https://hanzi.crazydan.io)
+向公共领域无偿提供，且该包内的所有资源仅限于个人学习、教学等非商业用途，
+再传播或二次利用该资源包内部分或全部资源时必须保留本 LICENSE 文件。
+
+本资源包所提供的汉字信息数据、拼音音频文件和字形文件（`glyph.svg`）来自于
+汉典网（[https://www.zdic.net/](https://www.zdic.net/)），
+直接使用需遵从其[免责说明](https://www.zdic.net/aboutus/disclaimer/)。
+
+本资源包所提供的汉字笔画文件（`stroke.svg`）由 Python 脚本
+[gen-from-gif.py](https://github.com/crazydan-studio/kuaizi-ime/blob/master/tools/pinyin-dict/src/data/word/stroke/gen-from-gif.py)
+根据 StrokeOrder.com（[https://www.strokeorder.com/](https://www.strokeorder.com/)）
+所提供的笔画 GIF 动画生成，若需要直接使用其原始 GIF 动画文件，则需遵守其[使用条款](https://www.strokeorder.com/terms.html)。
