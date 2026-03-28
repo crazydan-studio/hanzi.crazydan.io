@@ -109,6 +109,10 @@ function processNode(node, context) {
 
   // 元素节点
   if (node.nodeType === Node.ELEMENT_NODE) {
+    if (node.tagName.toLowerCase() === TAG_NAME) {
+      return node.cloneNode(true);
+    }
+
     // 处理 if（优先级最高）
     if (node.hasAttribute('if')) {
       const condition = node.getAttribute('if');
@@ -136,12 +140,22 @@ function processNode(node, context) {
         fragment.appendChild(tempDiv.firstChild);
       }
 
+      // 检查是否带有 shadow 属性
+      const hasShadow = node.hasAttribute('shadow');
+
       // 创建新节点，保留当前节点的属性（除 html 已移除）
       const cloned = node.cloneNode(false);
       cloned.removeAttribute('html');
       cloned.removeAttribute('if');
+      cloned.removeAttribute('shadow');
 
-      cloned.appendChild(fragment);
+      if (hasShadow) {
+        // 创建 Shadow DOM 并将内容放入其中
+        const shadowRoot = cloned.attachShadow({ mode: 'open' });
+        shadowRoot.appendChild(fragment);
+      } else {
+        cloned.appendChild(fragment);
+      }
 
       return cloned;
     }

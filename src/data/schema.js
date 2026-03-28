@@ -3,7 +3,11 @@
 // 简略汉字信息的结构
 const simpleCharSchemaMapping = {"value":0,"spell":1};
 // 汉字信息的结构
-const charMetaSchemaMapping = {"value":0,"spells":1,"radical":2,"stroke_count":3,"struct":4,"stroke_svg":5,"glyph_svg":6};
+const charMetaSchemaMapping = {"value":0,"spells":1,"radical":2,"stroke_count":3,"struct":4,"glyph_type":5};
+// 汉字字形图像类型：笔画分解 or 纯字形
+const charGlyphTypes = ["stroke","glyph"];
+// 汉字字形信息结构
+const charGlyphSchemaMapping = {"value":0,"glyph_type":1};
 
 // 汉字结构名列表
 const charStructNames = ["上下","独体","上中下","左右","左下包围","左上包围","上包围","右上包围","左包围","全包围","左中右","半包围","品字","下包围","右包围"];
@@ -23,10 +27,19 @@ export function convertSimpleCharData(data) {
 export function convertCharMetaData(data) {
   const obj = convertDataByMapping(data, charMetaSchemaMapping);
 
+  obj.glyph_type = charGlyphTypes[obj.glyph_type];
   obj.struct = charStructNames[obj.struct] || '未知';
   obj.spells = obj.spells.map(s => ({
     value: pinyinValues[s], audio: audioPinyins.includes(s)
   }));
+
+  return obj;
+}
+
+export function convertCharGlyphData(data) {
+  const obj = convertDataByMapping(data, charGlyphSchemaMapping);
+
+  obj.glyph_type = charGlyphTypes[obj.glyph_type];
 
   return obj;
 }

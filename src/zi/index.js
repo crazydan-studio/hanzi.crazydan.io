@@ -6,7 +6,7 @@ import { getUnicode } from '#utils/char.js';
 import { message } from '#utils/message/index.js';
 import { convertCharMetaData } from '#data/schema.js';
 
-import { genStrokeSteps } from '#zi/stroke.js';
+import { genStrokeSteps, fetchCharGlyph } from '#zi/stroke.js';
 
 import '#index.css';
 import './index.css';
@@ -45,37 +45,26 @@ if (!char) {
 }
 
 function renderCharDetail({ char }) {
-  const data = {
-    ...char,
-    glyph_svg: char.stroke_svg || char.glyph_svg,
-    has_stroke: false,
-    // Note: 仅用于支持模版嵌套注入数据
-    stroke_anim_speed_label: '{{label}}'
-  };
-
-  const doRender = (anim) => {
+  const doRender = (data) => {
     render(document.getElementById('template_charDetailCard'), data);
 
-    if (anim) {
+    if (data.has_stroke) {
       initStrokeAnimDemo(document.getElementById('strokeAnim_Demo'));
     }
   };
 
-  if (data.glyph_svg) {
-    fetch(`/assets/zi/${char.unicode}/${data.glyph_svg}`)
-      .then((resp) => (resp.ok ? resp.text() : ''))
-      .then((svg) => {
-        data.glyph_svg = svg.replace(/<\?xml .+\?>/g, '');
-        data.has_stroke = !!data.glyph_svg && !!char.stroke_svg;
+  if (char.glyph_type) {
+    fetchCharGlyph(char.unicode, char.glyph_type).then((glyph) => {
+      Object.assign(char, glyph);
 
-        if (data.has_stroke) {
-          data.stroke_steps = genStrokeSteps(data.glyph_svg);
-        }
+      if (char.has_stroke) {
+        char.stroke_steps = genStrokeSteps(char.glyph_svg);
+      }
 
-        doRender(data.has_stroke);
-      });
+      doRender(char);
+    });
   } else {
-    doRender(false);
+    doRender(char);
   }
 }
 

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>汉字 | 字形列表</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <script type="module" src="./index.js"></script>
+  </head>
+  <body
+    class="bg-gradient-to-br from-amber-50 to-orange-50 font-sans antialiased"
+  >
+    <div class="max-w-6xl mx-auto px-4 py-6 md:py-10">
+      <div class="flex flex-col gap-4">
+        <r-template id="template_charGridNetError">
+          <div
+            class="col-span-full text-center py-8 bg-red-50 rounded-xl border border-red-200"
+          >
+            <div class="text-red-600 text-lg mb-1">⚠️ 加载失败</div>
+            <p class="text-sm text-red-500">{{msg}}</p>
+            <button
+              onclick="location.reload()"
+              class="mt-3 bg-amber-600 text-white px-4 py-1.5 rounded-full text-sm hover:bg-amber-700 transition"
+            >
+              重新加载
+            </button>
+          </div>
+        </r-template>
+        <r-template id="template_charGridCard">
+          <div
+            for="char in chars"
+            class="char-glyph-card flex flex-row gap-4 justify-start items-center border-t-1 pt-4 border-amber-600"
+            data-char="{{char.value}}"
+            data-glyph-type="{{char.glyph_type}}"
+          >
+            <div class="text-4xl text-amber-600">
+              <span>{{char.value}}</span>：
+            </div>
+            <div class="flex flex-row flex-wrap gap-2">
+              <r-template name="template_charGlyph">
+                <div if="!has_stroke" class="tianzi-grid bg-amber-50">
+                  <div class="char-glyph w-16 h-16" html="{{glyph_svg}}"></div>
+                </div>
+
+                <div
+                  if="has_stroke"
+                  for="step in stroke_steps"
+                  class="stroke-step flex flex-col items-center"
+                >
+                  <div class="tianzi-grid bg-amber-50">
+                    <div
+                      class="char-glyph w-16 h-16"
+                      shadow
+                      html="{{step.svg}}"
+                    ></div>
+                  </div>
+                  <div class="label">({{step.index}})</div>
+                </div>
+              </r-template>
+
+              <div
+                class="col-span-full text-center py-10 text-amber-600 loading-pulse"
+              >
+                <div class="inline-block">
+                  ⏳ 正在加载「{{char.value}}」的字形...
+                </div>
+              </div>
+            </div>
+          </div>
+        </r-template>
+
+        <div
+          class="col-span-full text-center py-10 text-amber-600 loading-pulse"
+        >
+          <div class="inline-block">⏳ 正在加载字形列表...</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

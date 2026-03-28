@@ -9,6 +9,7 @@
 /* 田字格字形 */
 .tianzi-grid>.char-glyph {
   z-index: 1;
+  overflow: hidden;
 }
 
 /* 田字格横中线 */
@@ -35,26 +36,4 @@
   z-index: 0;
 
   @apply absolute border-l-2 border-dashed opacity-30;
-}
-
-/* ----------------------------------------------- */
-/* 隐藏部分笔画的动画帧 */
-.stroke-step .tianzi-grid>.char-glyph>svg g>path {
-  display: none;
-}
-
-/* 显示完整笔画的动画帧（Note: 动画帧的 path id 是倒序设置的，序号 0 始终为完整笔画） */
-.stroke-step .tianzi-grid>.char-glyph>svg g>[href$="-f-0"] {
-  fill: #000;
-  opacity: 0.08;
-}
-
-/* 高亮完整笔画的动画帧 */
-.stroke-step .tianzi-grid>.char-glyph>svg g.active>[href$="-f-0"] {
-  fill: var(--color-red-600);
-  opacity: 1;
-}
-
-.stroke-step .tianzi-grid>.char-glyph>svg g.actived>[href$="-f-0"] {
-  opacity: 1;
 }
