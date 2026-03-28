@@ -10,7 +10,7 @@
   `glyph.svg` 则为该汉字的静态字形图，仅作字形展示用，无法用于笔顺和笔画处理
   - 当某汉字没有笔画信息时，则不提供 `stroke.svg`，仅包含汉典网所提供的 `glyph.svg`
 - `pinyin/{pinyin}/meta.json` 与 `zi/{unicode}/meta.json` 的结构转换参考
-  [schema.mjs](https://github.com/crazydan-studio/hanzi.crazydan.io/blob/master/src/data/schema.mjs)
+  [schema.js](https://github.com/crazydan-studio/hanzi.crazydan.io/blob/master/src/data/schema.js)
 
 `stroke.svg` 的结构如下：
 
@@ -47,6 +47,11 @@
   因此，`{笔画动画帧序号}` 为 `0` 时，表示该动画帧为其笔画的完整路径。
   注意，笔画的完整动画帧始终以 `<use href="#s-0-f-0"/>` 形式引用在 `<defs/>`
   中的 `<path/>` 图形，以支持与裁剪路径共享图形定义
+- 对 `stroke.svg` 的笔画分解展示的处理参考
+  [zi/stroke.js](https://github.com/crazydan-studio/hanzi.crazydan.io/blob/master/src/zi/stroke.js)
+- 对 `stroke.svg` 的笔画书写动画的处理参考
+  [zi/index.js](https://github.com/crazydan-studio/hanzi.crazydan.io/blob/master/src/zi/index.js)
+  中的函数 `initStrokeAnimDemo`
 
 ## 许可协议
 

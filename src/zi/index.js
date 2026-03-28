@@ -4,7 +4,7 @@ import { render } from '#utils/render.js';
 import { getParamFromLocation } from '#utils/url.js';
 import { getUnicode } from '#utils/char.js';
 import { message } from '#utils/message/index.js';
-import { convertCharMetaData, convertPinyinData } from '#data/schema.mjs';
+import { convertCharMetaData, convertPinyinData } from '#data/schema.js';
 
 import { genStrokeSteps } from '#zi/stroke.js';
 
