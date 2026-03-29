@@ -23,13 +23,25 @@
         <div class="w-20 h-0.5 bg-amber-400 mx-auto mt-3 rounded-full"></div>
       </div>
 
-      <div class="mb-5 text-sm">
+      <div class="mb-5 text-sm flex flex-row justify-between">
         <a
           href="/"
           class="inline-flex items-center gap-1 text-amber-700 hover:text-amber-900 transition"
         >
           ← 返回首页
         </a>
+
+        <span>
+          <r-template id="template_charIssueFeedback">
+            <a
+              href="https://github.com/crazydan-studio/hanzi.crazydan.io/issues/new?title={{title}}&body={{issue}}"
+              target="_blank"
+              class="text-amber-700 hover:text-amber-900 transition"
+            >
+              🐞 问题反馈
+            </a>
+          </r-template>
+        </span>
       </div>
 
       <div

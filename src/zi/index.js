@@ -35,6 +35,13 @@ if (!char) {
       const data = { char: convertCharMetaData(char) };
       data.char.unicode = unicode;
 
+      render(document.getElementById('template_charIssueFeedback'), {
+        title: encodeURIComponent(`【问题字】【${data.char.value}】`),
+        issue: encodeURIComponent(
+          `【${data.char.value}】字存在以下问题或需做以下改进：\n\n`
+        )
+      });
+
       renderCharDetail(data);
     })
     .catch((e) => {
