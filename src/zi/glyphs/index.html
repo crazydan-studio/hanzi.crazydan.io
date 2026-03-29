@@ -66,15 +66,29 @@
         <r-template id="template_charGridCard">
           <div
             for="char in chars"
-            class="char-glyph-card flex flex-row gap-4 justify-start items-center border-t-1 pt-4 border-amber-600"
+            class="char-glyph-card flex flex-row gap-4 justify-start items-start border-t-1 pt-4 border-amber-600"
             data-char="{{char.value}}"
             data-glyph-type="{{char.glyph_type}}"
           >
-            <div class="text-4xl text-amber-600">
-              <a class="underline" href="/zi/?v={{char.value}}" target="_blank">
-                {{char.value}}
-              </a>
-              ：
+            <div class="text-4xl text-amber-600 flex flex-row items-center">
+              <span class="flex flex-col items-center gap-2">
+                <span class="text-sm text-blue-800">{{char.spell}}</span>
+                <a
+                  class="underline"
+                  href="/zi/?v={{char.value}}"
+                  target="_blank"
+                >
+                  {{char.value}}
+                </a>
+
+                <button
+                  onclick="javascript:$copyText('{{char.value}}')"
+                  class="text-amber-500 text-sm underline cursor-pointer"
+                >
+                  复制
+                </button>
+              </span>
+              <span>：</span>
             </div>
             <div class="flex flex-row flex-wrap gap-2">
               <r-template name="template_charGlyph">

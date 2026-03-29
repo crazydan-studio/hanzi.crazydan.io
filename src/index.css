@@ -4,6 +4,11 @@ r-template {
   display: none;
 }
 
+/* 指定与汉典网相同的字体族，以便于识别相同 unicode 的异体字 */
+body {
+  font-family: 'Microsoft Yahei', sans-serif, Arial, Verdana;
+}
+
 @keyframes pulse-light {
 
   0%,

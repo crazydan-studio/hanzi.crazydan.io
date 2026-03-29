@@ -1,3 +1,4 @@
+import '#utils/native.js';
 import { render } from '#utils/render.js';
 import { convertCharGlyphData } from '#data/schema.js';
 import { getUnicode } from '#utils/char.js';

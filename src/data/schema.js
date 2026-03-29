@@ -7,7 +7,7 @@ const charMetaSchemaMapping = {"value":0,"spells":1,"radical":2,"stroke_count":3
 // 汉字字形图像类型：笔画分解 or 纯字形
 const charGlyphTypes = ["stroke","glyph"];
 // 汉字字形信息结构
-const charGlyphSchemaMapping = {"value":0,"glyph_type":1};
+const charGlyphSchemaMapping = {"value":0,"glyph_type":1,"spell":2};
 
 // 汉字结构名列表
 const charStructNames = ["上下","独体","上中下","左右","左下包围","左上包围","上包围","右上包围","左包围","全包围","左中右","半包围","品字","下包围","右包围"];
@@ -40,6 +40,7 @@ export function convertCharGlyphData(data) {
   const obj = convertDataByMapping(data, charGlyphSchemaMapping);
 
   obj.glyph_type = charGlyphTypes[obj.glyph_type];
+  obj.spell = pinyinValues[obj.spell];
 
   return obj;
 }
