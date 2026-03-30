@@ -8,7 +8,11 @@
 汉典网（[https://www.zdic.net/](https://www.zdic.net/)），
 直接使用需遵从其[免责说明](https://www.zdic.net/aboutus/disclaimer/)。
 
-本资源包所提供的汉字笔画文件（`stroke.svg`）由 Python 脚本
+本资源包所提供的汉字笔画文件（`stroke.svg`/`stroke-tc.svg`）由 Python 脚本
 [gen-from-gif.py](https://github.com/crazydan-studio/kuaizi-ime/blob/master/tools/pinyin-dict/src/data/word/stroke/gen-from-gif.py)
 根据 StrokeOrder.com（[https://www.strokeorder.com/](https://www.strokeorder.com/)）
 所提供的笔画 GIF 动画生成，若需要直接使用其原始 GIF 动画文件，则需遵守其[使用条款](https://www.strokeorder.com/terms.html)。
+
+基于 `stroke.svg`/`stroke-tc.svg` 所做的字形、笔顺等修改属于二次创作，
+其所有权属于创作者，其创作者可将该二次创作产物用于任何场景，不受本协议影响，
+但仍需要说明或备注其原始资料的来源（[https://hanzi.crazydan.io](https://hanzi.crazydan.io)）。
