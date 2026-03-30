@@ -93,7 +93,17 @@ function lazyLoadGlyphs(targets) {
       const unicode = getUnicode(char);
 
       fetchCharGlyphAndStrokes(unicode, glyph_type).then((data) => {
-        render(target.querySelector('[name="template_charGlyph"]'), data);
+        const doRender = ()=> render(target.querySelector('[name="template_charGlyph"]'), data);
+
+        if (data.has_stroke) {
+          fetch(`/assets/zi/${unicode}/glyph.svg`).then(resp=>resp.text()).then((svg)=>{
+            data.glyph_svg = svg;
+
+            doRender();
+          });
+        } else {
+          doRender();
+        }
       });
     });
   });
