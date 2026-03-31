@@ -1,6 +1,6 @@
 import { render } from '#utils/render.js';
 import { message } from '#utils/message/index.js';
-import { convertSimpleCharData } from '#data/schema.js';
+import { convertPinyinZiData } from '#data/schema.js';
 
 import '#index.css';
 
@@ -63,9 +63,9 @@ fetch('/assets/zi/commons.json')
     }
     return resp.json();
   })
-  .then((chars) => {
+  .then((zies) => {
     render(document.getElementById('template_commonsGridCard'), {
-      chars: chars.slice(0, 15).map(convertSimpleCharData)
+      zies: zies.slice(0, 15).map(convertPinyinZiData)
     });
   })
   .catch((e) => {

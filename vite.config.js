@@ -10,7 +10,7 @@ const thanksHtml = readFileSync(
   resolve(srcDir, 'fragment/thanks.html'),
   'utf-8'
 );
-const charsHtml = readFileSync(resolve(srcDir, 'fragment/chars.html'), 'utf-8');
+const ziesHtml = readFileSync(resolve(srcDir, 'fragment/zies.html'), 'utf-8');
 
 export default defineConfig({
   root: srcDir,
@@ -37,7 +37,7 @@ export default defineConfig({
       transformIndexHtml(html) {
         return html
           .replace('<!--% thanksHtmlFragment %-->', thanksHtml)
-          .replace('<!--% charsHtmlFragment %-->', charsHtml);
+          .replace('<!--% ziesHtmlFragment %-->', ziesHtml);
       }
     }
   ]

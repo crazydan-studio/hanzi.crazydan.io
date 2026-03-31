@@ -3,75 +3,75 @@ import { createTimeline } from 'animejs';
 import '#utils/native.js';
 import { render } from '#utils/render.js';
 import { getParamFromLocation } from '#utils/url.js';
-import { getUnicode } from '#utils/char.js';
-import { convertCharMetaData } from '#data/schema.js';
+import { getUnicode } from '#utils/zi.js';
+import { convertZiMetaData } from '#data/schema.js';
 
-import { fetchCharGlyphAndStrokes } from '#zi/stroke.js';
+import { fetchZiGlyphAndStrokes } from '#zi/stroke.js';
 
 import '#index.css';
 import './index.css';
 
-const char = getParamFromLocation('v');
+const zi = getParamFromLocation('v');
 
-if (!char) {
-  render(document.getElementById('template_charDetailInvalidURL'), {});
+if (!zi) {
+  render(document.getElementById('template_ziDetailInvalidURL'), {});
 } else {
   render(document.getElementById('template_pageTitle'), {
-    title: `【${char}】字详情`
+    title: `【${zi}】字详情`
   });
 
-  const unicode = getUnicode(char);
+  const unicode = getUnicode(zi);
 
   fetch(`/assets/zi/${unicode}/meta.json`)
     .then((resp) => {
       if (!resp.ok) {
         if (resp.status == 404) {
-          throw new Error(`汉字【${char}】不存在或未收录`);
+          throw new Error(`汉字【${zi}】不存在或未收录`);
         } else {
           throw new Error(
-            `HTTP ${resp.status} - 无法获取汉字【${char}】的数据`
+            `HTTP ${resp.status} - 无法获取汉字【${zi}】的数据`
           );
         }
       }
       return resp.json();
     })
-    .then((char) => {
-      const data = { char: convertCharMetaData(char) };
-      data.char.unicode = unicode;
+    .then((meta) => {
+      const data = { zi: convertZiMetaData(meta) };
+      data.zi.unicode = unicode;
 
-      render(document.getElementById('template_charIssueFeedback'), {
-        title: encodeURIComponent(`【问题字】【${data.char.value}】`),
+      render(document.getElementById('template_ziIssueFeedback'), {
+        title: encodeURIComponent(`【问题字】【${data.zi.value}】`),
         issue: encodeURIComponent(
-          `【${data.char.value}】字存在以下问题或需做以下改进：\n\n`
+          `【${data.zi.value}】字存在以下问题或需做以下改进：\n\n`
         )
       });
 
-      renderCharDetail(data);
+      renderZiDetail(data);
     })
     .catch((e) => {
-      render(document.getElementById('template_charDetailNetError'), {
+      render(document.getElementById('template_ziDetailNetError'), {
         msg: e.message || '无法获取汉字数据，请检查网络或稍后重试。'
       });
     });
 }
 
-function renderCharDetail({ char }) {
+function renderZiDetail({ zi }) {
   const doRender = (data) => {
-    render(document.getElementById('template_charDetailCard'), data);
+    render(document.getElementById('template_ziDetailCard'), data);
 
     if (data.has_stroke) {
       initStrokeAnimDemo(document.getElementById('strokeAnim_Demo'));
     }
   };
 
-  if (char.glyph_type) {
-    fetchCharGlyphAndStrokes(char.unicode, char.glyph_type).then((data) => {
-      Object.assign(char, data);
+  if (zi.glyph_type) {
+    fetchZiGlyphAndStrokes(zi.unicode, zi.glyph_type).then((data) => {
+      Object.assign(zi, data);
 
-      doRender(char);
+      doRender(zi);
     });
   } else {
-    doRender(char);
+    doRender(zi);
   }
 }
 

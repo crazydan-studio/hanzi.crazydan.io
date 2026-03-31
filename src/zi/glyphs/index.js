@@ -1,10 +1,10 @@
 import '#utils/native.js';
 import { render } from '#utils/render.js';
 import { getParamFromLocation, setParamInLocation } from '#utils/url.js';
-import { convertCharGlyphData } from '#data/schema.js';
-import { getUnicode } from '#utils/char.js';
+import { convertZiGlyphData } from '#data/schema.js';
+import { getUnicode } from '#utils/zi.js';
 
-import { fetchCharGlyphAndStrokes } from '#zi/stroke.js';
+import { fetchZiGlyphAndStrokes } from '#zi/stroke.js';
 
 import '#index.css';
 
@@ -20,12 +20,12 @@ fetch('/assets/zi/glyphs.json')
     }
     return resp.json();
   })
-  .then((chars) => {
-    const pager = initPager(pageData, chars);
+  .then((zies) => {
+    const pager = initPager(pageData, zies);
     pager(page);
   })
   .catch((e) => {
-    render(document.getElementById('template_charGridNetError'), {
+    render(document.getElementById('template_ziGridNetError'), {
       msg: e.message || '无法获取字形列表，请检查网络或稍后重试。'
     });
   });
@@ -36,7 +36,7 @@ function initPager(pageData, data) {
   pageData.total = Math.ceil(data.length / PAGE_SIZE);
 
   const doRender = (page) => {
-    render(document.getElementById('template_charGridPager'), { page });
+    render(document.getElementById('template_ziGridPager'), { page });
 
     document.getElementById('page_gotoInput').onblur = (event) => {
       try {
@@ -75,12 +75,12 @@ function initPager(pageData, data) {
 }
 
 function renderGrid(data) {
-  render(document.getElementById('template_charGridCard'), {
-    chars: data.map(convertCharGlyphData)
+  render(document.getElementById('template_ziGridCard'), {
+    zies: data.map(convertZiGlyphData)
   });
 
   const $nodes = document.querySelectorAll(
-    '.char-glyph-card:not(r-template .char-glyph-card)'
+    '.zi-glyph-card:not(r-template .zi-glyph-card)'
   );
   lazyLoadGlyphs($nodes);
 }
@@ -95,13 +95,13 @@ function lazyLoadGlyphs(targets) {
       const target = entry.target;
       loadingObserver.unobserve(target);
 
-      const char = target.dataset.char;
+      const zi = target.dataset.zi;
       const glyph_type = target.dataset.glyphType;
-      const unicode = getUnicode(char);
+      const unicode = getUnicode(zi);
 
-      fetchCharGlyphAndStrokes(unicode, glyph_type).then((data) => {
+      fetchZiGlyphAndStrokes(unicode, glyph_type).then((data) => {
         const doRender = () =>
-          render(target.querySelector('[name="template_charGlyph"]'), data);
+          render(target.querySelector('[name="template_ziGlyph"]'), data);
 
         if (data.has_stroke) {
           fetch(`/assets/zi/${unicode}/glyph.svg`)

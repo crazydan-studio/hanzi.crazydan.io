@@ -1,4 +1,4 @@
-import './char.css';
+import './zi.css';
 
 export function genStrokeSteps(svg) {
   const count = (svg.match(/<g\s+id="s-\d+"/g) || []).length;
@@ -31,7 +31,7 @@ ${s}`,
 }
 
 /** @return `{has_stroke: true, glyph_svg: 'svg', stroke_steps: [{svg: 'svg', index: 1}, ...]}` */
-export async function fetchCharGlyphAndStrokes(unicode, type) {
+export async function fetchZiGlyphAndStrokes(unicode, type) {
   const has_stroke = type == 'stroke';
   const name = has_stroke ? 'stroke.svg' : 'glyph.svg';
 

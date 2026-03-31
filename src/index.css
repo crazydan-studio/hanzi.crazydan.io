@@ -60,20 +60,20 @@ input[type=range]::-webkit-slider-thumb {
 }
 
 /* ------------------------------------------------- */
-.char-card {
+.zi-card {
   transition: all 0.2s ease;
 
   @apply shadow-md border border-amber-200 text-center py-2 rounded-xl cursor-pointer block;
 }
 
-.char-card:active {
+.zi-card:active {
   transform: scale(0.96);
 }
 
-.char-card .value {
+.zi-card .value {
   @apply text-3xl font-serif text-amber-800;
 }
 
-.char-card .spell {
+.zi-card .spell {
   @apply text-blue-800;
 }

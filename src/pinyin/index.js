@@ -1,13 +1,13 @@
 import { render } from '#utils/render.js';
 import { getParamFromLocation } from '#utils/url.js';
-import { convertSimpleCharData } from '#data/schema.js';
+import { convertPinyinZiData } from '#data/schema.js';
 
 import '#index.css';
 
 const pinyin = getParamFromLocation('v').toLowerCase();
 
 if (!pinyin) {
-  render(document.getElementById('template_charGridInvalidURL'), {});
+  render(document.getElementById('template_ziGridInvalidURL'), {});
 } else {
   render(document.getElementById('template_pageTitle'), {
     title: `拼音【${pinyin}】的汉字列表`
@@ -26,17 +26,17 @@ if (!pinyin) {
       }
       return resp.json();
     })
-    .then(({ chars }) => {
-      if (chars.length == 0) {
-        render(document.getElementById('template_charGridEmpty'), {});
+    .then(({ zies }) => {
+      if (zies.length == 0) {
+        render(document.getElementById('template_ziGridEmpty'), {});
       } else {
-        render(document.getElementById('template_charGridCard'), {
-          chars: chars.map(convertSimpleCharData)
+        render(document.getElementById('template_ziGridCard'), {
+          zies: zies.map(convertPinyinZiData)
         });
       }
     })
     .catch((e) => {
-      render(document.getElementById('template_charGridNetError'), {
+      render(document.getElementById('template_ziGridNetError'), {
         msg: e.message || '无法获取拼音字列表，请检查网络或稍后重试。'
       });
     });

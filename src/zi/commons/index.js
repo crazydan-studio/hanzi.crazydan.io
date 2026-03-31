@@ -1,5 +1,5 @@
 import { render } from '#utils/render.js';
-import { convertSimpleCharData } from '#data/schema.js';
+import { convertPinyinZiData } from '#data/schema.js';
 
 import '#index.css';
 
@@ -10,17 +10,17 @@ fetch('/assets/zi/commons.json')
     }
     return resp.json();
   })
-  .then((chars) => {
-    if (chars.length == 0) {
-      render(document.getElementById('template_charGridEmpty'), {});
+  .then((data) => {
+    if (data.length == 0) {
+      render(document.getElementById('template_ziGridEmpty'), {});
     } else {
-      render(document.getElementById('template_charGridCard'), {
-        chars: chars.map(convertSimpleCharData)
+      render(document.getElementById('template_ziGridCard'), {
+        zies: data.map(convertPinyinZiData)
       });
     }
   })
   .catch((e) => {
-    render(document.getElementById('template_charGridNetError'), {
+    render(document.getElementById('template_ziGridNetError'), {
       msg: e.message || '无法获取常用字列表，请检查网络或稍后重试。'
     });
   });

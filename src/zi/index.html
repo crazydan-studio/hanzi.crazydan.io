@@ -36,7 +36,7 @@
         </a>
 
         <span>
-          <r-template id="template_charIssueFeedback">
+          <r-template id="template_ziIssueFeedback">
             <a
               href="https://github.com/crazydan-studio/hanzi.crazydan.io/issues/new?title={{title}}&body={{issue}}"
               target="_blank"
@@ -57,7 +57,7 @@
           <div class="inline-block">⏳ 正在加载汉字信息...</div>
         </div>
 
-        <r-template id="template_charDetailCard">
+        <r-template id="template_ziDetailCard">
           <div class="p-5 md:p-8">
             <div class="flex flex-col gap-8">
               <div class="flex flex-col lg:flex-row gap-8">
@@ -72,7 +72,7 @@
                       <div
                         if="glyph_svg"
                         role="glyph"
-                        class="char-glyph w-full h-full"
+                        class="zi-glyph w-full h-full"
                         html="{{glyph_svg}}"
                       ></div>
 
@@ -208,7 +208,7 @@
                       <div class="col-span-2">
                         <span class="text-gray-500">拼音：</span>
                         <div class="inline-flex flex-wrap gap-2">
-                          <span for="s in spells" class="char-spell">
+                          <span for="s in spells" class="zi-spell">
                             <span>
                               <span>{{s.value}}</span>
                               <button
@@ -289,7 +289,7 @@
                   >
                     <div class="tianzi-grid bg-amber-50">
                       <div
-                        class="char-glyph w-32 h-32"
+                        class="zi-glyph w-32 h-32"
                         shadow
                         html="{{step.svg}}"
                       ></div>
@@ -313,7 +313,7 @@
                 <p>
                   * 以上汉字笔画动画和分解图（SVG 格式）由 Python 脚本
                   <a
-                    href="https://github.com/crazydan-studio/kuaizi-ime/blob/master/tools/pinyin-dict/src/data/word/stroke/gen-from-gif.py"
+                    href="https://github.com/crazydan-studio/kuaizi-ime/blob/master/tools/pinyin-dict/src/data/zi/stroke/gen-from-gif.py"
                     target="_blank"
                     class="text-amber-700 underline"
                   >
@@ -334,7 +334,7 @@
           </div>
         </r-template>
 
-        <r-template id="template_charDetailNetError">
+        <r-template id="template_ziDetailNetError">
           <div
             class="col-span-full text-center py-8 bg-red-50 rounded-xl border border-red-200"
           >
@@ -361,7 +361,7 @@
             </a>
           </div>
         </r-template>
-        <r-template id="template_charDetailInvalidURL">
+        <r-template id="template_ziDetailInvalidURL">
           <div
             class="col-span-full text-center py-8 bg-red-50 rounded-xl border border-red-200"
           >

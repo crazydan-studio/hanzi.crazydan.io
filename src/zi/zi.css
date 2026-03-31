@@ -7,7 +7,7 @@
 }
 
 /* 田字格字形 */
-.tianzi-grid>.char-glyph {
+.tianzi-grid>.zi-glyph {
   z-index: 1;
   overflow: hidden;
 }
