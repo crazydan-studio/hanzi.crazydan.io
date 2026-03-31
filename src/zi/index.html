@@ -18,7 +18,11 @@
         <h1
           class="text-3xl md:text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-amber-700 to-orange-700"
         >
-          汉字详情
+          <r-template id="template_pageTitle">
+            <span>{{title}}</span>
+          </r-template>
+
+          <span>汉字详情</span>
         </h1>
         <div class="w-20 h-0.5 bg-amber-400 mx-auto mt-3 rounded-full"></div>
       </div>

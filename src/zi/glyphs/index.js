@@ -1,5 +1,6 @@
 import '#utils/native.js';
 import { render } from '#utils/render.js';
+import { getParamFromLocation, setParamInLocation } from '#utils/url.js';
 import { convertCharGlyphData } from '#data/schema.js';
 import { getUnicode } from '#utils/char.js';
 
@@ -10,6 +11,8 @@ import '#index.css';
 const PAGE_SIZE = 100;
 let pageData = { current: 0, total: 0 };
 
+const page = getParamFromLocation('p') || 1;
+
 fetch('/assets/zi/glyphs.json')
   .then((resp) => {
     if (!resp.ok) {
@@ -18,7 +21,8 @@ fetch('/assets/zi/glyphs.json')
     return resp.json();
   })
   .then((chars) => {
-    initPager(pageData, chars);
+    const pager = initPager(pageData, chars);
+    pager(page);
   })
   .catch((e) => {
     render(document.getElementById('template_charGridNetError'), {
@@ -48,6 +52,8 @@ function initPager(pageData, data) {
       const index = (page.current - 1) * PAGE_SIZE;
 
       renderGrid(data.slice(index, index + PAGE_SIZE));
+
+      setParamInLocation('p', page.current);
     }
     oldCurrent = page.current;
   };
@@ -57,7 +63,6 @@ function initPager(pageData, data) {
 
     doRender(pageData);
   };
-  updatePageCurrent(1);
 
   document.getElementById('page_prevBtn').onclick = () => {
     updatePageCurrent(pageData.current - 1);
@@ -65,6 +70,8 @@ function initPager(pageData, data) {
   document.getElementById('page_nextBtn').onclick = () => {
     updatePageCurrent(pageData.current + 1);
   };
+
+  return updatePageCurrent;
 }
 
 function renderGrid(data) {
@@ -93,14 +100,17 @@ function lazyLoadGlyphs(targets) {
       const unicode = getUnicode(char);
 
       fetchCharGlyphAndStrokes(unicode, glyph_type).then((data) => {
-        const doRender = ()=> render(target.querySelector('[name="template_charGlyph"]'), data);
+        const doRender = () =>
+          render(target.querySelector('[name="template_charGlyph"]'), data);
 
         if (data.has_stroke) {
-          fetch(`/assets/zi/${unicode}/glyph.svg`).then(resp=>resp.text()).then((svg)=>{
-            data.glyph_svg = svg;
+          fetch(`/assets/zi/${unicode}/glyph.svg`)
+            .then((resp) => resp.text())
+            .then((svg) => {
+              data.glyph_svg = svg;
 
-            doRender();
-          });
+              doRender();
+            });
         } else {
           doRender();
         }

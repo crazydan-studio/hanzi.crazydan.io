@@ -16,16 +16,20 @@ const char = getParamFromLocation('v');
 if (!char) {
   render(document.getElementById('template_charDetailInvalidURL'), {});
 } else {
+  render(document.getElementById('template_pageTitle'), {
+    title: `【${char}】字详情`
+  });
+
   const unicode = getUnicode(char);
 
   fetch(`/assets/zi/${unicode}/meta.json`)
     .then((resp) => {
       if (!resp.ok) {
         if (resp.status == 404) {
-          throw new Error(`汉字「${char}」不存在或未收录`);
+          throw new Error(`汉字【${char}】不存在或未收录`);
         } else {
           throw new Error(
-            `HTTP ${resp.status} - 无法获取汉字「${char}」的数据`
+            `HTTP ${resp.status} - 无法获取汉字【${char}】的数据`
           );
         }
       }
