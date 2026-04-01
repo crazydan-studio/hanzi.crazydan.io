@@ -20,6 +20,10 @@
 - [汉典网](https://www.zdic.net/) 收集和提供的汉字详细信息
 - [StrokeOrder.com](https://www.strokeorder.com/) 整理和提供的汉字笔顺图
 
+## 待办
+
+详情见 [TODO.md](./TODO.md)。
+
 ## 建议 & 意见
 
 若遇到任何问题，或有好的改进意见，可在
