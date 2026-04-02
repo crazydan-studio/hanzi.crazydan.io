@@ -36,12 +36,15 @@ export async function fetchZiGlyphAndStrokes(unicode, type) {
   const name = has_stroke ? 'stroke.svg' : 'glyph.svg';
 
   const resp = await fetch(`/assets/zi/${unicode}/${name}`);
-  const svg = resp.ok ? await resp.text() : '';
+  const svg = resp.ok ? (await resp.text()).replace(/<\?xml .+\?>/g, '') : '';
 
-  const data = { has_stroke, glyph_svg: svg.replace(/<\?xml .+\?>/g, '') };
+  const data = { has_stroke };
 
   if (data.has_stroke) {
-    data.stroke_steps = genStrokeSteps(data.glyph_svg);
+    data.stroke_svg = svg;
+    data.stroke_steps = genStrokeSteps(svg);
+  } else {
+    data.glyph_svg = svg;
   }
 
   return data;

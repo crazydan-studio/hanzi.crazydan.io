@@ -106,28 +106,56 @@ function lazyLoadGlyphs(targets) {
       const unicode = getUnicode(zi);
 
       fetchZiGlyphAndStrokes(unicode, glyph_type).then((data) => {
-        const doRender = () => {
-          loadGlyphStatus(target, zi, data.has_stroke);
-
-          render(target.querySelector('[name="template_ziGlyph"]'), data);
-        };
-
-        if (data.has_stroke) {
-          fetch(`/assets/zi/${unicode}/glyph.svg`)
-            .then((resp) => resp.text())
-            .then((svg) => {
-              data.glyph_svg = svg;
-
-              doRender();
-            });
-        } else {
-          doRender();
-        }
+        renderGlyph(target, { ...data, value: zi, unicode });
       });
     });
   });
 
   targets.forEach((target) => loadingObserver.observe(target));
+}
+
+function renderGlyph(target, data) {
+  const doRender = () => {
+    loadGlyphStatus(target, data.value, data.has_stroke);
+
+    render(target.querySelector('[name="template_ziGlyph"]'), data);
+
+    // -----------------------------------------------------------------
+    const $steps = target.querySelectorAll(
+      '.stroke-step:not(r-template .stroke-step)'
+    );
+
+    let groupStartIndex;
+    let groupEndIndex;
+    $steps.forEach(($step) => {
+      const index = $step.dataset.stepIndex;
+
+      $step.onclick = () => {
+        if (groupStartIndex) {
+          groupEndIndex = index;
+          console.log(groupStartIndex, groupEndIndex);
+
+          groupStartIndex = undefined;
+        } else {
+          groupStartIndex = index;
+          groupEndIndex = undefined;
+        }
+      };
+    });
+  };
+
+  // -----------------------------------------------------------------
+  if (!data.glyph_svg) {
+    fetch(`/assets/zi/${data.unicode}/glyph.svg`)
+      .then((resp) => resp.text())
+      .then((svg) => {
+        data.glyph_svg = svg;
+
+        doRender();
+      });
+  } else {
+    doRender();
+  }
 }
 
 function loadGlyphStatus(target, zi, has_stroke_svg) {

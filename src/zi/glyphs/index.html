@@ -88,6 +88,7 @@
                     <input if="!glyph_not_matched" type="checkbox" />
                     <span>字形图与字不匹配</span>
                   </label>
+
                   <label
                     if="has_stroke_svg"
                     class="text-button"
@@ -109,11 +110,24 @@
                   <label
                     if="has_stroke_svg"
                     class="text-button"
+                    onchange="javascript:$updateGlyphStatus(event,'{{value}}','stroke-order-wrong')"
+                  >
+                    <input
+                      if="has_wrong_stroke_order"
+                      type="checkbox"
+                      checked
+                    />
+                    <input if="!has_wrong_stroke_order" type="checkbox" />
+                    <span>笔画图笔顺不正确</span>
+                  </label>
+                  <label
+                    if="has_stroke_svg"
+                    class="text-button"
                     onchange="javascript:$updateGlyphStatus(event,'{{value}}','stroke-wrong')"
                   >
                     <input if="has_wrong_stroke" type="checkbox" checked />
                     <input if="!has_wrong_stroke" type="checkbox" />
-                    <span>笔画图拆解不正确</span>
+                    <span>笔画图笔画拆解不正确</span>
                   </label>
                 </r-template>
               </div>
@@ -134,8 +148,8 @@
                     <div
                       if="has_stroke"
                       for="step in stroke_steps"
-                      class="stroke-step flex flex-col items-center"
-                      data-stroke-index="{{step.index}}"
+                      class="stroke-step flex flex-col items-center cursor-pointer"
+                      data-step-index="{{step.index}}"
                     >
                       <div class="tianzi-grid bg-amber-50">
                         <div

@@ -26,7 +26,8 @@ export default function (params, request, response) {
           glyph_not_matched: false,
           stroke_not_matched: false,
           has_tc_stroke: false,
-          has_wrong_stroke: false
+          has_wrong_stroke: false,
+          has_wrong_stroke_order: false
         }
       );
     //
@@ -41,6 +42,9 @@ export default function (params, request, response) {
       break;
     case 'stroke-wrong':
       status.has_wrong_stroke = value;
+      break;
+    case 'stroke-order-wrong':
+      status.has_wrong_stroke_order = value;
       break;
   }
 
