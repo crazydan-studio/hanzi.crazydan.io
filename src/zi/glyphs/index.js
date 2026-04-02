@@ -76,7 +76,13 @@ function initPager(pageData, data) {
 
 function renderGrid(data) {
   render(document.getElementById('template_ziGridCard'), {
-    zies: data.map(convertZiGlyphData)
+    zies: data.map((d) => {
+      const obj = convertZiGlyphData(d);
+
+      obj.has_stroke_svg = obj.glyph_type == 'stroke';
+
+      return obj;
+    })
   });
 
   const $nodes = document.querySelectorAll(
@@ -100,8 +106,11 @@ function lazyLoadGlyphs(targets) {
       const unicode = getUnicode(zi);
 
       fetchZiGlyphAndStrokes(unicode, glyph_type).then((data) => {
-        const doRender = () =>
+        const doRender = () => {
+          loadGlyphStatus(target, zi, data.has_stroke);
+
           render(target.querySelector('[name="template_ziGlyph"]'), data);
+        };
 
         if (data.has_stroke) {
           fetch(`/assets/zi/${unicode}/glyph.svg`)
@@ -120,3 +129,21 @@ function lazyLoadGlyphs(targets) {
 
   targets.forEach((target) => loadingObserver.observe(target));
 }
+
+function loadGlyphStatus(target, zi, has_stroke_svg) {
+  fetch(`/dev/api/glyph-check?z=${zi}&t=get-data`)
+    .then((resp) => resp.json())
+    .then((data) => {
+      data.value = zi;
+      data.has_stroke_svg = has_stroke_svg;
+
+      render(target.querySelector('[name="template_ziGlyphStatus"]'), data);
+    });
+}
+
+// ---------------------------------------------------------
+window.$updateGlyphStatus = function (event, zi, type) {
+  const value = !!event.target.checked;
+
+  $callApi(`/dev/api/glyph-check?z=${zi}&t=${type}&v=${value}`);
+};

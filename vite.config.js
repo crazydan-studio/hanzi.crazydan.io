@@ -5,6 +5,8 @@ import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import htmlMinifier from 'vite-plugin-html-minifier';
 
+import devApiRoute from './src/dev/index.js';
+
 const srcDir = resolve(__dirname, 'src');
 const thanksHtml = readFileSync(
   resolve(srcDir, 'fragment/thanks.html'),
@@ -38,6 +40,12 @@ export default defineConfig({
         return html
           .replace('<!--% thanksHtmlFragment %-->', thanksHtml)
           .replace('<!--% ziesHtmlFragment %-->', ziesHtml);
+      }
+    },
+    {
+      name: 'local-dev-api',
+      configureServer(server) {
+        server.middlewares.use(devApiRoute);
       }
     }
   ]

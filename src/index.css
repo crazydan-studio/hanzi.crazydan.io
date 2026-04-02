@@ -59,6 +59,10 @@ input[type=range]::-webkit-slider-thumb {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
+.text-button {
+  @apply text-amber-500 text-sm underline cursor-pointer;
+}
+
 /* ------------------------------------------------- */
 .zi-card {
   transition: all 0.2s ease;
