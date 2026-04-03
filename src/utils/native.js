@@ -24,35 +24,3 @@ window.$playAudio = function (url) {
   });
   currentAudio = audio;
 };
-
-window.$callApi = function (url, params) {
-  fetch(
-    url,
-    params
-      ? {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(params)
-        }
-      : { method: 'GET' }
-  )
-    .then((resp) => {
-      if (!resp.ok) {
-        throw new Error(`${url} - ${resp.status}`);
-      }
-      return resp.json();
-    })
-    .then((data) => {
-      if (!data.success) {
-        message.show({ type: 'error', message: data.msg });
-      }
-    })
-    .catch((e) => {
-      message.show({
-        type: 'error',
-        message: 'API 请求异常：' + e.message
-      });
-    });
-};

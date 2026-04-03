@@ -10,7 +10,7 @@ import { getUnicode } from '#utils/zi.js';
 
 const GLYPH_DIR = fromRootPath('public/assets/glyph');
 
-export default function (params, request, response) {
+export default function (method, params, request, response) {
   const zi = params.z;
   const type = params.t;
   const value = params.v == 'true';
@@ -19,23 +19,26 @@ export default function (params, request, response) {
   const statusFile = path.join(GLYPH_DIR, unicode, 'status.json');
   const status = readJSONFromFile(statusFile, {});
 
+  if (method != 'PUT') {
+    return {
+      glyph_not_matched: false,
+      stroke_not_matched: false,
+      has_tc_stroke: false,
+      has_wrong_stroke: false,
+      has_wrong_stroke_order: false,
+      ...status
+    };
+  }
+
   switch (type) {
-    case 'get-data':
-      return (
-        status || {
-          glyph_not_matched: false,
-          stroke_not_matched: false,
-          has_tc_stroke: false,
-          has_wrong_stroke: false,
-          has_wrong_stroke_order: false
-        }
-      );
-    //
     case 'glyph-not-match':
       status.glyph_not_matched = value;
       break;
     case 'stroke-not-match':
       status.stroke_not_matched = value;
+      break;
+    case 'stroke-need-correct':
+      status.stroke_need_tobe_correct = value;
       break;
     case 'stroke-for-tc':
       status.has_tc_stroke = value;

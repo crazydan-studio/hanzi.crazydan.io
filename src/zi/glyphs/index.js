@@ -1,10 +1,11 @@
 import '#utils/native.js';
 import { render } from '#utils/render.js';
 import { getParamFromLocation, setParamInLocation } from '#utils/url.js';
+import { callGetApi, callPutApi } from '#utils/api.js';
 import { convertZiGlyphData } from '#data/schema.js';
 import { getUnicode } from '#utils/zi.js';
 
-import { fetchZiGlyphAndStrokes } from '#zi/stroke.js';
+import { fetchZiGlyphAndStroke, genStrokeStepsByGroups } from '#zi/stroke.js';
 
 import '#index.css';
 
@@ -86,92 +87,183 @@ function renderGrid(data) {
   });
 
   const $nodes = document.querySelectorAll(
+    // Note: <r-template/> 中的节点必须被排除
     '.zi-glyph-card:not(r-template .zi-glyph-card)'
   );
   lazyLoadGlyphs($nodes);
 }
 
-function lazyLoadGlyphs(targets) {
+function lazyLoadGlyphs($targets) {
   const loadingObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       if (!entry.isIntersecting) {
         return;
       }
 
-      const target = entry.target;
-      loadingObserver.unobserve(target);
+      const $target = entry.target;
+      loadingObserver.unobserve($target);
 
-      const zi = target.dataset.zi;
-      const glyph_type = target.dataset.glyphType;
+      const zi = $target.dataset.zi;
+      const glyph_type = $target.dataset.glyphType;
+
       const unicode = getUnicode(zi);
 
-      fetchZiGlyphAndStrokes(unicode, glyph_type).then((data) => {
-        renderGlyph(target, { ...data, value: zi, unicode });
+      fetchZiGlyphAndStroke(unicode, glyph_type).then((data) => {
+        renderGlyphAndStroke($target, { ...data, value: zi, unicode });
       });
     });
   });
 
-  targets.forEach((target) => loadingObserver.observe(target));
+  $targets.forEach(($target) => loadingObserver.observe($target));
 }
 
-function renderGlyph(target, data) {
-  const doRender = () => {
-    loadGlyphStatus(target, data.value, data.has_stroke);
+function renderGlyphAndStroke($target, data) {
+  loadGlyphStatus($target, data.value, data.has_stroke);
 
-    render(target.querySelector('[name="template_ziGlyph"]'), data);
+  renderGlyph($target, data);
 
-    // -----------------------------------------------------------------
-    const $steps = target.querySelectorAll(
-      '.stroke-step:not(r-template .stroke-step)'
-    );
+  // --------------------------------------------
+  const strokeSvg = data.stroke_svg;
+  const levelGroups = [
+    {
+      level: 0,
+      indexes: [],
+      steps: (strokeSvg && genStrokeStepsByGroups(strokeSvg)) || []
+    }
+  ];
 
-    let groupStartIndex;
-    let groupEndIndex;
-    $steps.forEach(($step) => {
-      const index = $step.dataset.stepIndex;
+  callGetApi(`/dev/api/stroke-group?z=${data.value}`)
+    .then((data) => {
+      data.forEach((lg) => {
+        levelGroups.push({
+          ...lg,
+          steps: genStrokeStepsByGroups(strokeSvg, lg.indexes)
+        });
+      });
+    })
+    .finally(() => {
+      renderStroke($target, data.value, strokeSvg, levelGroups);
+    });
+}
 
-      $step.onclick = () => {
-        if (groupStartIndex) {
-          groupEndIndex = index;
-          console.log(groupStartIndex, groupEndIndex);
+function loadGlyphStatus($target, zi, hasStrokeSvg) {
+  callGetApi(`/dev/api/glyph-check?z=${zi}`).then((data) => {
+    data.value = zi;
+    data.has_stroke_svg = hasStrokeSvg;
 
-          groupStartIndex = undefined;
-        } else {
-          groupStartIndex = index;
-          groupEndIndex = undefined;
-        }
-      };
+    render($target.querySelector('[name="template_ziGlyphStatus"]'), data);
+  });
+}
+
+function renderGlyph($target, data) {
+  const $tpl = $target.querySelector('[name="template_ziGlyph"]');
+  render($tpl, data);
+}
+
+function renderStroke($target, zi, strokeSvg, levelGroups) {
+  const $tpl = $target.querySelector('[name="template_ziStroke"]');
+  render($tpl, { level_groups: levelGroups });
+
+  // -----------------------------------------------------------
+  const updateLevelGroup = (levelGroup, stepIndex, forAdd) => {
+    const i = levelGroup.indexes.indexOf(stepIndex);
+    if (i >= 0) {
+      levelGroup.indexes.splice(i, 1);
+    }
+
+    if (forAdd) {
+      levelGroup.indexes.push(stepIndex);
+    }
+
+    let uselessFrom = levelGroups.indexOf(levelGroup) + 1;
+    if (levelGroup.indexes.length == 0) {
+      uselessFrom -= 1;
+    } else {
+      levelGroup.steps = genStrokeStepsByGroups(strokeSvg, levelGroup.indexes);
+    }
+
+    // 前序分组已更新，则后续分组无效，需将其清空
+    levelGroups.splice(uselessFrom, levelGroups.length - uselessFrom);
+
+    callPutApi(
+      `/dev/api/stroke-group?z=${zi}`,
+      levelGroups.slice(1).map((lg, i) => ({
+        level: i + 1,
+        indexes: lg.indexes
+      }))
+    ).then(() => {
+      renderStroke($target, zi, strokeSvg, levelGroups);
     });
   };
 
-  // -----------------------------------------------------------------
-  if (!data.glyph_svg) {
-    fetch(`/assets/zi/${data.unicode}/glyph.svg`)
-      .then((resp) => resp.text())
-      .then((svg) => {
-        data.glyph_svg = svg;
+  // -----------------------------------------------------
+  const $steps = $tpl.parentNode.querySelectorAll(
+    // Note: <r-template/> 中的节点必须被排除
+    '.stroke-step:not(r-template .stroke-step)'
+  );
+  $steps.forEach(($step) => {
+    const currentGroupLevel = $step.dataset.groupLevel;
 
-        doRender();
-      });
-  } else {
-    doRender();
-  }
-}
-
-function loadGlyphStatus(target, zi, has_stroke_svg) {
-  fetch(`/dev/api/glyph-check?z=${zi}&t=get-data`)
-    .then((resp) => resp.json())
-    .then((data) => {
-      data.value = zi;
-      data.has_stroke_svg = has_stroke_svg;
-
-      render(target.querySelector('[name="template_ziGlyphStatus"]'), data);
+    const nextGroupLevel = parseInt(currentGroupLevel) + 1;
+    const nextLevelGroup = (levelGroups[nextGroupLevel] ||= {
+      startStep: undefined,
+      level: nextGroupLevel,
+      indexes: []
     });
+
+    $step.querySelector('.tianzi-grid').onclick = () => {
+      if (!nextLevelGroup.startStep) {
+        nextLevelGroup.startStep = $step;
+      } //
+      else {
+        // Note: 保持起止序号不变，以支持纠正笔顺
+        const val = getStepIndexBetween(nextLevelGroup.startStep, $step);
+        nextLevelGroup.startStep = undefined;
+
+        updateLevelGroup(nextLevelGroup, val, true);
+      }
+    };
+
+    if (nextGroupLevel > 1) {
+      $step.querySelector('[role="btn-remove"]').onclick = () => {
+        const index = $step.dataset.stepIndex;
+
+        updateLevelGroup(levelGroups[currentGroupLevel], index, false);
+      };
+    }
+  });
+
+  // --------------------------------------
+  const getStepIndexBetween = ($start, $end) => {
+    if (!$start.dataset.stepIndex.includes('-')) {
+      return `${$start.dataset.stepIndex}-${$end.dataset.stepIndex}`;
+    }
+
+    let $step = $start;
+    let indexes = [$step.dataset.stepIndex];
+    do {
+      $step = $step.nextElementSibling;
+
+      indexes.push($step.dataset.stepIndex);
+    } while ($step && $step != $end);
+
+    if (!$step) {
+      $step = $start;
+      indexes = [$step.dataset.stepIndex];
+      do {
+        $step = $step.previousElementSibling;
+
+        indexes.push($step.dataset.stepIndex);
+      } while ($step && $step != $end);
+    }
+
+    return indexes.join(',');
+  };
 }
 
 // ---------------------------------------------------------
 window.$updateGlyphStatus = function (event, zi, type) {
   const value = !!event.target.checked;
 
-  $callApi(`/dev/api/glyph-check?z=${zi}&t=${type}&v=${value}`);
+  callPutApi(`/dev/api/glyph-check?z=${zi}&t=${type}&v=${value}`);
 };

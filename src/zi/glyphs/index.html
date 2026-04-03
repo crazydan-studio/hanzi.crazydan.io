@@ -101,11 +101,15 @@
                   <label
                     if="has_stroke_svg"
                     class="text-button"
-                    onchange="javascript:$updateGlyphStatus(event,'{{value}}','stroke-for-tc')"
+                    onchange="javascript:$updateGlyphStatus(event,'{{value}}','stroke-need-correct')"
                   >
-                    <input if="has_tc_stroke" type="checkbox" checked />
-                    <input if="!has_tc_stroke" type="checkbox" />
-                    <span>笔画图对应繁体字形</span>
+                    <input
+                      if="stroke_need_tobe_correct"
+                      type="checkbox"
+                      checked
+                    />
+                    <input if="!stroke_need_tobe_correct" type="checkbox" />
+                    <span>笔画图笔画需修正</span>
                   </label>
                   <label
                     if="has_stroke_svg"
@@ -129,12 +133,21 @@
                     <input if="!has_wrong_stroke" type="checkbox" />
                     <span>笔画图笔画拆解不正确</span>
                   </label>
+                  <label
+                    if="has_stroke_svg"
+                    class="text-button"
+                    onchange="javascript:$updateGlyphStatus(event,'{{value}}','stroke-for-tc')"
+                  >
+                    <input if="has_tc_stroke" type="checkbox" checked />
+                    <input if="!has_tc_stroke" type="checkbox" />
+                    <span>笔画图对应繁体字形</span>
+                  </label>
                 </r-template>
               </div>
 
               <div class="flex flex-row gap-2">
-                <r-template name="template_ziGlyph">
-                  <div class="flex flex-col justify-start items-center">
+                <div class="flex flex-col justify-start items-center border-t-1 border-gray-300 pt-4">
+                  <r-template name="template_ziGlyph">
                     <div class="tianzi-grid bg-white">
                       <div
                         class="zi-glyph w-16 h-16"
@@ -142,32 +155,47 @@
                       ></div>
                     </div>
                     <div class="label">(字形图)</div>
-                  </div>
+                  </r-template>
+                </div>
 
-                  <div class="flex flex-row flex-wrap gap-2">
+                <div class="flex flex-col gap-2">
+                  <r-template name="template_ziStroke">
                     <div
-                      if="has_stroke"
-                      for="step in stroke_steps"
-                      class="stroke-step flex flex-col items-center cursor-pointer"
-                      data-step-index="{{step.index}}"
+                      for="lg in level_groups"
+                      class="stroke-group flex flex-row flex-wrap gap-2 border-t-1 border-gray-300 pt-4"
                     >
-                      <div class="tianzi-grid bg-amber-50">
-                        <div
-                          class="zi-glyph w-16 h-16"
-                          shadow
-                          html="{{step.svg}}"
-                        ></div>
-                      </div>
-                      <div class="label">({{step.index}})</div>
-                    </div>
-                  </div>
-                </r-template>
+                      <div
+                        for="step in lg.steps"
+                        class="stroke-step flex flex-col items-center"
+                        data-group-level="{{lg.level}}"
+                        data-step-index="{{step.index}}"
+                      >
+                        <div class="tianzi-grid bg-amber-50 cursor-pointer">
+                          <div
+                            class="zi-glyph w-16 h-16"
+                            shadow
+                            html="{{step.svg}}"
+                          ></div>
+                        </div>
+                        <div class="label">({{step.index}})</div>
 
-                <div
-                  class="col-span-full text-center py-10 text-amber-600 loading-pulse"
-                >
-                  <div class="inline-block">
-                    ⏳ 正在加载「{{zi.value}}」的字形...
+                        <button
+                          if="lg.level>0"
+                          role="btn-remove"
+                          class="text-red-500 text-sm underline cursor-pointer"
+                        >
+                          移除
+                        </button>
+                      </div>
+                    </div>
+                  </r-template>
+
+                  <div
+                    class="col-span-full text-center py-10 text-amber-600 loading-pulse"
+                  >
+                    <div class="inline-block">
+                      ⏳ 正在加载「{{zi.value}}」的字形...
+                    </div>
                   </div>
                 </div>
               </div>
