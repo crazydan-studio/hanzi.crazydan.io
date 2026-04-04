@@ -6,7 +6,7 @@ import { getParamFromLocation } from '#utils/url.js';
 import { getUnicode } from '#utils/zi.js';
 import { convertZiMetaData } from '#data/schema.js';
 
-import { fetchZiGlyphAndStrokes } from '#zi/stroke.js';
+import { fetchZiGlyphAndStroke, genStrokeSteps } from '#zi/stroke.js';
 
 import '#index.css';
 import './index.css';
@@ -28,9 +28,7 @@ if (!zi) {
         if (resp.status == 404) {
           throw new Error(`汉字【${zi}】不存在或未收录`);
         } else {
-          throw new Error(
-            `HTTP ${resp.status} - 无法获取汉字【${zi}】的数据`
-          );
+          throw new Error(`HTTP ${resp.status} - 无法获取汉字【${zi}】的数据`);
         }
       }
       return resp.json();
@@ -65,8 +63,11 @@ function renderZiDetail({ zi }) {
   };
 
   if (zi.glyph_type) {
-    fetchZiGlyphAndStrokes(zi.unicode, zi.glyph_type).then((data) => {
-      Object.assign(zi, data);
+    fetchZiGlyphAndStroke(zi.unicode, zi.glyph_type).then((data) => {
+      Object.assign(zi, data, {
+        glyph_svg: data.stroke_svg || data.glyph_svg,
+        stroke_steps: data.has_stroke ? genStrokeSteps(data.stroke_svg) : []
+      });
 
       doRender(zi);
     });
