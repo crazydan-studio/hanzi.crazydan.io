@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>HanziStroke 汉字笔画系统</title>
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-6xl mx-auto p-6" x-data>
+    <header class="flex flex-wrap items-center justify-between gap-2 mb-6">
+      <h1 class="text-2xl font-bold">HanziStroke 汉字列表</h1>
+    </header>
+
+    <!-- 汉字列表（独立页面；点击行进入书写页 write/?char=） -->
+    <section x-data="characterList()">
+      <div>
+        <!-- 过滤条: 搜索(字/拼音) + 完整笔画图过滤 -->
+        <div class="flex flex-wrap items-center gap-3 mb-4">
+          <input x-model="search" @input.debounce.300ms="onSearch()"
+                 placeholder="搜索汉字或拼音" class="input w-64">
+          <div class="flex items-center gap-1">
+            <button @click="setHasStrokes('')"
+              class="px-3 py-1 text-sm rounded border"
+              :class="hasStrokes === '' ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-100'">全部</button>
+            <button @click="setHasStrokes('1')"
+              class="px-3 py-1 text-sm rounded border"
+              :class="hasStrokes === '1' ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-100'">有完整笔画图</button>
+            <button @click="setHasStrokes('2')"
+              class="px-3 py-1 text-sm rounded border"
+              :class="hasStrokes === '2' ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-100'">仅含部分笔画图</button>
+            <button @click="setHasStrokes('0')"
+              class="px-3 py-1 text-sm rounded border"
+              :class="hasStrokes === '0' ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-100'">无笔画图</button>
+          </div>
+          <span class="text-sm text-gray-500" x-text="`按使用频率降序`"></span>
+        </div>
+
+        <table class="w-full text-sm bg-white rounded shadow-sm">
+          <thead>
+            <tr class="border-b bg-gray-100">
+              <th class="px-3 py-2 text-left">汉字</th>
+              <th class="px-3 py-2 text-left">读音</th>
+              <th class="px-3 py-2 text-left">结构</th>
+              <th class="px-3 py-2 text-left">笔画图</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="c in characters" :key="c.id">
+              <tr class="border-b cursor-pointer hover:bg-gray-50" @click="openWriter(c)">
+                <td class="px-3 py-2 text-2xl font-bold font-kaiti"
+                  :title="'笔画数: ' + c.total_stroke_count">
+                  <span x-text="c.character"></span>
+                  <span class="text-xs text-gray-400 font-normal ml-1"
+                    x-text="'(' + c.total_stroke_count + '笔)'"></span>
+                </td>
+                <td class="px-3 py-2" x-text="c.pinyin.join('、')"></td>
+                <td class="px-3 py-2">
+                  <span x-text="structureLabel(c.structure)"></span>
+                </td>
+                <td class="px-3 py-2" @click.stop>
+                  <!-- x-effect 响应式重绘: x-for 复用DOM时 x-init 不会重跑，
+                       改用 effect 依赖 c.strokes 变化自动刷新缩略图 -->
+                  <canvas class="border border-gray-200 rounded"
+                    x-effect="renderThumb($el, c.strokes)"></canvas>
+                </td>
+              </tr>
+            </template>
+            <tr x-show="!loading && characters.length === 0">
+              <td colspan="4" class="px-3 py-6 text-center text-gray-500">无匹配汉字</td>
+            </tr>
+            <tr x-show="loading">
+              <td colspan="4" class="px-3 py-6 text-center text-gray-500">加载中...</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- 常驻分页组件: 分页大小下拉 + 上一页/页码/下一页 -->
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-600">每页</label>
+            <select x-model.number="limit" @change="setLimit(limit)" class="input !w-auto !py-1">
+              <template x-for="l in LIMIT_OPTIONS" :key="l">
+                <option :value="l" x-text="l + ' 条'"></option>
+              </template>
+            </select>
+          </div>
+          <div class="flex items-center gap-1 ml-auto">
+            <button @click="setPage(1)" :disabled="page <= 1" class="btn-sm disabled:opacity-40">«</button>
+            <button @click="setPage(page - 1)" :disabled="page <= 1" class="btn-sm disabled:opacity-40">上一页</button>
+            <span class="text-sm px-2" x-text="`${page} / ${totalPages}`"></span>
+            <button @click="setPage(page + 1)" :disabled="page >= totalPages" class="btn-sm disabled:opacity-40">下一页</button>
+            <button @click="setPage(totalPages)" :disabled="page >= totalPages" class="btn-sm disabled:opacity-40">»</button>
+            <!-- 页码跳转 -->
+            <div class="flex items-center gap-1 ml-2">
+              <span class="text-sm text-gray-600">跳至</span>
+              <input x-model.number="jumpPage" type="number" min="1" :max="totalPages"
+                class="input !w-16 !py-1 text-center"
+                @keydown.enter="jumpTo()"
+                @blur="jumpTo()">
+              <span class="text-sm text-gray-600">页</span>
+            </div>
+          </div>
+        </div>
+        <p x-show="error" class="text-red-600 text-sm mt-2" x-text="error"></p>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 中易楷体（书法参考字体） */
+@font-face {
+  font-family: 'ZhongYiKaiTi';
+  src: url('@fonts/ZhongYiKaiTi_mini.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 移动端书写防误触:
+   - 禁全局文本选择/长按菜单（书写滑动手势不会被浏览器拦截选中文本）
+   - 禁滚动传播/橡皮筋效果（overscroll-behavior）
+   - 输入框/下拉保留可编辑性 */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+input, select, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.font-kaiti {
+  font-family: 'ZhongYiKaiTi', '楷体', 'KaiTi', serif;
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded font-medium transition-colors;
+  }
+  .btn-primary {
+    @apply bg-blue-500 text-white hover:bg-blue-600;
+  }
+  .btn-sm {
+    @apply px-2 py-1 text-xs rounded border border-gray-300 hover:bg-gray-100 transition-colors;
+  }
+  .input {
+    @apply px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-300;
+  }
+}
