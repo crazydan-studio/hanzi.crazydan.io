@@ -1,0 +1,233 @@
+{
+  "characters": [
+    {
+      "character": "永",
+      "pinyin": [
+        "yǒng"
+      ],
+      "pinyin_plain": [
+        "yong"
+      ],
+      "used_weight": 155,
+      "structure": 1,
+      "total_stroke_count": 5,
+      "strokes": [
+        {
+          "stroke_order": 1,
+          "stroke_type": 1,
+          "trajectory_data": {
+            "version": "4.0",
+            "points": [
+              [
+                5000,
+                1200,
+                0.5,
+                0
+              ],
+              [
+                5040,
+                1260,
+                0.5,
+                60
+              ]
+            ]
+          }
+        },
+        {
+          "stroke_order": 2,
+          "stroke_type": 10,
+          "trajectory_data": {
+            "version": "4.0",
+            "points": [
+              [
+                2000,
+                2400,
+                0.5,
+                0
+              ],
+              [
+                8000,
+                2400,
+                0.5,
+                200
+              ],
+              [
+                8000,
+                3400,
+                0.5,
+                380
+              ]
+            ]
+          }
+        },
+        {
+          "stroke_order": 3,
+          "stroke_type": 8,
+          "trajectory_data": {
+            "version": "4.0",
+            "points": [
+              [
+                2000,
+                4000,
+                0.5,
+                0
+              ],
+              [
+                6000,
+                4000,
+                0.5,
+                180
+              ],
+              [
+                3200,
+                7600,
+                0.5,
+                420
+              ]
+            ]
+          }
+        },
+        {
+          "stroke_order": 4,
+          "stroke_type": 22,
+          "trajectory_data": {
+            "version": "4.0",
+            "points": [
+              [
+                4000,
+                4000,
+                0.5,
+                0
+              ],
+              [
+                4000,
+                8000,
+                0.5,
+                300
+              ]
+            ]
+          }
+        },
+        {
+          "stroke_order": 5,
+          "stroke_type": 4,
+          "trajectory_data": {
+            "version": "4.0",
+            "points": [
+              [
+                6600,
+                4000,
+                0.5,
+                0
+              ],
+              [
+                5200,
+                7600,
+                0.5,
+                300
+              ]
+            ]
+          }
+        },
+        {
+          "stroke_order": 6,
+          "stroke_type": 5,
+          "trajectory_data": {
+            "version": "4.0",
+            "points": [
+              [
+                2000,
+                5200,
+                0.5,
+                0
+              ],
+              [
+                8000,
+                6000,
+                0.5,
+                350
+              ]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "character": "大",
+      "pinyin": [
+        "dà"
+      ],
+      "pinyin_plain": [
+        "da"
+      ],
+      "used_weight": 100,
+      "structure": 1,
+      "total_stroke_count": 3,
+      "strokes": [
+        {
+          "stroke_order": 1,
+          "stroke_type": 2,
+          "trajectory_data": {
+            "version": "4.0",
+            "points": [
+              [
+                2000,
+                2600,
+                0.5,
+                0
+              ],
+              [
+                8000,
+                2600,
+                0.5,
+                250
+              ]
+            ]
+          }
+        },
+        {
+          "stroke_order": 2,
+          "stroke_type": 4,
+          "trajectory_data": {
+            "version": "4.0",
+            "points": [
+              [
+                5000,
+                2600,
+                0.5,
+                0
+              ],
+              [
+                2400,
+                7600,
+                0.5,
+                300
+              ]
+            ]
+          }
+        },
+        {
+          "stroke_order": 3,
+          "stroke_type": 5,
+          "trajectory_data": {
+            "version": "4.0",
+            "points": [
+              [
+                5000,
+                2600,
+                0.5,
+                0
+              ],
+              [
+                7600,
+                7600,
+                0.5,
+                300
+              ]
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

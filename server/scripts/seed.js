@@ -1,0 +1,29 @@
+// server/scripts/seed.js — 从JSON导入示例汉字（可扩展为通用导入器）
+// 用法: node server/scripts/seed.js
+// 注意: 使用 fs.readFileSync 读取JSON（Node 18不支持 import ... with { type: 'json' }）
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { initDatabase, closeDatabase } from '../services/database.js'
+import { strokeService } from '../services/strokeService.js'
+import { characterService } from '../services/characterService.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+initDatabase()
+
+const seedData = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed-data.json'), 'utf8'))
+
+for (const item of seedData.characters) {
+  const { strokes, ...charData } = item
+  try {
+    const character = characterService.create(charData)
+    if (strokes?.length) {
+      strokeService.createBatch(character.id, strokes)   // 事务批量插入
+    }
+    console.log(`Seeded: ${charData.character}`)
+  } catch (e) {
+    console.error(`Skipped ${charData.character}: ${e.message}`)
+  }
+}
+console.log('Seed complete')
+closeDatabase()
