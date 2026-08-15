@@ -46,10 +46,14 @@ function parseArgs() {
   }
 }
 
-// 字型结构名: 去掉「结构」二字（不含示例）
-function structureName(glyphStruct) {
-  if (!glyphStruct) return '未指定'
-  return glyphStruct.replace(/结构$/, '')
+// 字典结构名 → 数字编码（与前端 CHARACTER_STRUCTURES / 后端导入脚本一致）
+// 0未指定 1独体 2左右 3左中右 4上下 5上中下 6全包围 7半包围 8品字 9镶嵌
+const STRUCTURE_MAP = {
+  '独体结构': 1, '左右结构': 2, '左中右结构': 3, '上下结构': 4,
+  '上中下结构': 5, '全包围结构': 6, '半包围结构': 7, '品字结构': 8,
+  // 半包围细分均归为半包围(7)
+  '左下包围结构': 7, '左上包围结构': 7, '上包围结构': 7,
+  '右上包围结构': 7, '左包围结构': 7, '下包围结构': 7, '右包围结构': 7
 }
 
 // 带声调拼音 → 无声调拼音
@@ -89,13 +93,13 @@ function main() {
   // ---- 1. 读取词典（pinyin_zi: 读音按 used_weight_ 降序，权重为 (zi_, spell_raw_) 组合去重后的和） ----
   const rows = src.prepare(`
     SELECT zi_, spell_raw_, spell_value_, used_weight_,
-           total_stroke_count_, glyph_struct_, radical_, unicode_
+           total_stroke_count_, glyph_struct_, radical_
     FROM pinyin_zi
     ORDER BY id_
   `).all()
   src.close()
 
-  const words = new Map()   // zi_ → { char, weight, readings[], plainSet, strokes, radical, struct, unicode }
+  const words = new Map()   // zi_ → { char, weight, readings[], plainSet, strokes, radical, structure }
   for (const r of rows) {
     if (!r.zi_ || r.zi_.length !== 1) continue
     let e = words.get(r.zi_)
@@ -107,8 +111,7 @@ function main() {
         plainSet: new Set(),
         totalStrokes: 0,
         radical: '',
-        structure: '未指定',
-        unicode: ''
+        structure: 0           // 结构编码（前端映射展示名）
       }
       words.set(r.zi_, e)
     }
@@ -120,8 +123,9 @@ function main() {
     if (r.spell_value_) e.plainSet.add(r.spell_value_)
     e.totalStrokes = Math.max(e.totalStrokes, r.total_stroke_count_ ?? 0)
     if (r.radical_ && !e.radical) e.radical = r.radical_
-    if (r.glyph_struct_) e.structure = structureName(r.glyph_struct_)
-    if (r.unicode_ && !e.unicode) e.unicode = r.unicode_
+    if (r.glyph_struct_ && STRUCTURE_MAP[r.glyph_struct_] !== undefined) {
+      e.structure = STRUCTURE_MAP[r.glyph_struct_]
+    }
   }
   // 读音按 used_weight_ 降序（该汉字读音的排序结果）
   for (const e of words.values()) {
@@ -180,7 +184,7 @@ function main() {
   fs.rmSync(pinyinDir, { recursive: true, force: true })
 
   // ---- 4. 常用字列表 ----
-  writeJson(path.join(ziDir, 'commons.json'), commons, true)
+  writeJson(path.join(ziDir, 'commons.json'), commons)
   console.log(`已导出常用字列表: ${count} 个 → ${path.join(ziDir, 'commons.json')}`)
 
   // ---- 5. 拼音字列表（全量拼音） ----
@@ -210,18 +214,25 @@ function main() {
     for (const w of batch) {
       const cp = w.char.codePointAt(0)
       const dir = path.join(ziDir, String(cp))
+      // 单字母紧凑结构（c 汉字/p 读音/n 笔画数/r 部首/s 结构编码），降低存储开销
+      // unicode 不存储，由前端按汉字直接计算
       writeJson(path.join(dir, 'meta.json'), {
-        character: w.char,
-        unicode: w.unicode || `U+${cp.toString(16).toUpperCase().padStart(4, '0')}`,
-        pinyin: w.readings,
-        total_stroke_count: w.totalStrokes,
-        radical: w.radical,
-        structure: w.structure
+        c: w.char,
+        p: w.readings,
+        n: w.totalStrokes,
+        r: w.radical,
+        s: w.structure
       })
       metaCount++
       // 仅常用字生成笔画数据文件（无笔画时为空数组，供书写页直接更新）
+      // 单字母紧凑结构: o 笔顺/t 类型/d 轨迹（v 版本/p 点）
       if (commonSet.has(w.char)) {
-        writeJson(path.join(dir, 'strokes.json'), strokeMap.get(cp) || [])
+        writeJson(path.join(dir, 'strokes.json'),
+          (strokeMap.get(cp) || []).map(st => ({
+            o: st.stroke_order,
+            t: st.stroke_type,
+            d: { v: st.trajectory_data.version, p: st.trajectory_data.points }
+          })))
         strokeCount++
       }
     }

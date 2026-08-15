@@ -8,12 +8,6 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ZI_DIR = path.join(__dirname, '..', '..', 'public', 'assets', 'zi')
 
-// 结构数字编码 → 展示名（与导出脚本一致: 不含「结构」二字，无示例）
-const STRUCTURE_NAMES = {
-  0: '未指定', 1: '独体', 2: '左右', 3: '左中右', 4: '上下',
-  5: '上中下', 6: '全包围', 7: '半包围', 8: '品字', 9: '镶嵌'
-}
-
 function metaPath(characterId) {
   return path.join(ZI_DIR, String(characterId), 'meta.json')
 }
@@ -29,10 +23,9 @@ export function syncCharacterMeta(character) {
   if (!fs.existsSync(file)) return false
   try {
     const meta = JSON.parse(fs.readFileSync(file, 'utf8'))
-    if (character.radical !== undefined) meta.radical = character.radical
-    if (character.structure !== undefined) {
-      meta.structure = STRUCTURE_NAMES[character.structure] ?? meta.structure
-    }
+    // 单字母紧凑字段（与导出脚本一致）: r 部首 / s 结构编码（展示名由前端映射）
+    if (character.radical !== undefined) meta.r = character.radical
+    if (character.structure !== undefined) meta.s = character.structure
     fs.writeFileSync(file, JSON.stringify(meta))
     return true
   } catch {
@@ -45,10 +38,11 @@ export function syncCharacterStrokes(characterId, strokes) {
   const file = strokesPath(characterId)
   if (!fs.existsSync(file)) return false
   try {
+    // 单字母紧凑结构（与导出脚本一致）: o 笔顺 / t 类型 / d 轨迹（v 版本 / p 点）
     fs.writeFileSync(file, JSON.stringify((strokes || []).map(s => ({
-      stroke_order: s.stroke_order,
-      stroke_type: s.stroke_type,
-      trajectory_data: s.trajectory_data
+      o: s.stroke_order,
+      t: s.stroke_type,
+      d: { v: s.trajectory_data.version, p: s.trajectory_data.points }
     }))))
     return true
   } catch {
