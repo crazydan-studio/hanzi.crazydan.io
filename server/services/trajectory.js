@@ -6,6 +6,12 @@
 //   v6.0: 增量编码点（首点绝对，后续为与上一点的差值），压缩率更高
 import zlib from 'node:zlib'
 
+// 轨迹存储格式（v7）: x/y 归一化 ×1000（0.5px 分辨率）、压力 ×100、时间戳 ×10
+export const TRAJECTORY_VERSION = '7.0'
+export const COORD_SCALE = 1000
+export const PRESSURE_SCALE = 100
+export const TIMESTAMP_SCALE = 10
+
 // 增量编码: 首点绝对，后续点存储与上一点的差值（时间戳单调、坐标差值小，利于压缩）
 export function deltaEncode(points) {
   const out = []
@@ -37,7 +43,7 @@ export function deltaDecode(points) {
 
 export function compressTrajectory(trajectory) {
   const encoded = {
-    version: trajectory.version ?? '7.0',   // 保留原版本号（迁移据此判断是否已处理）
+    version: trajectory.version ?? TRAJECTORY_VERSION,   // 保留原版本号（迁移据此判断是否已处理）
     points: deltaEncode(trajectory.points)
   }
   return zlib.deflateSync(JSON.stringify(encoded))

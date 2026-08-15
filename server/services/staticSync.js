@@ -3,7 +3,7 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { deltaEncode } from './trajectory.js'
+import { deltaEncode, TRAJECTORY_VERSION } from './trajectory.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ZI_DIR = path.join(__dirname, '..', '..', 'public', 'assets', 'zi')
@@ -45,7 +45,7 @@ export function syncCharacterStrokes(characterId, strokes) {
       fs.writeFileSync(file, JSON.stringify(list.map(s => ({
         o: s.stroke_order,
         t: s.stroke_type,
-        d: { v: '7.0', p: deltaEncode(s.trajectory_data.points) }
+        d: { v: TRAJECTORY_VERSION, p: deltaEncode(s.trajectory_data.points) }
       }))))
     } else if (fs.existsSync(file)) {
       fs.rmSync(file)

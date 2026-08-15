@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { COORD_SCALE, PRESSURE_SCALE } from '../services/trajectory.js'
 
 // 笔画类型数字编码 0-35（与前端 strokeTypes.js 一致）
 // 0=未指定, 1=点, 2=横, 3=竖, 4=撇, 5=捺, 6=提, 7=横折, 8=横撇, 9=横钩,
@@ -10,14 +11,12 @@ export const STROKE_TYPE_MIN = 0
 export const STROKE_TYPE_MAX = 35
 export const strokeTypeSchema = z.number().int().min(STROKE_TYPE_MIN).max(STROKE_TYPE_MAX)
 
-// 轨迹点: 元组数组 [x, y, pressure, timestamp]
-// x/y: 归一化×10000 整数(0-10000)；pressure: 0-1 ×100 整数(0-100，2位小数)；
-// timestamp: 毫秒 ×10 整数（1位小数，0.1ms 精度足够渲染）
+// 轨迹点: 元组数组 [x, y, pressure, timestamp]（均按存储比例取整数，见 trajectory.js）
 const pointTuple = z.tuple([
-  z.number().int().min(0).max(1000),    // x 归一化×1000（0.5px 分辨率）
-  z.number().int().min(0).max(1000),    // y
-  z.number().int().min(0).max(100),     // pressure ×100
-  z.number().int().min(0).finite()      // timestamp ×10
+  z.number().int().min(0).max(COORD_SCALE),      // x 归一化 ×1000（0.5px 分辨率）
+  z.number().int().min(0).max(COORD_SCALE),      // y
+  z.number().int().min(0).max(PRESSURE_SCALE),   // pressure ×100
+  z.number().int().min(0).finite()               // timestamp ×10
 ])
 
 export const trajectorySchema = z.object({

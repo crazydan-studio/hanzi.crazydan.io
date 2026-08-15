@@ -14,7 +14,8 @@
 //   pnpm export:data -- --count 200                        # 指定常用字数量
 //   pnpm export:data -- --source a.sqlite --db b.db --out public
 import { DatabaseSync } from 'node:sqlite'
-import { decompressTrajectory, deltaEncode } from '../server/services/trajectory.js'
+import { decompressTrajectory, deltaEncode, TRAJECTORY_VERSION } from '../server/services/trajectory.js'
+import { STRUCTURE_MAP, numberTonePinyin, stripTone } from '../server/services/pinyinDict.js'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
@@ -48,21 +49,6 @@ function parseArgs() {
   }
 }
 
-// 字典结构名 → 数字编码（与前端 CHARACTER_STRUCTURES / 后端导入脚本一致）
-// 0未指定 1独体 2左右 3左中右 4上下 5上中下 6全包围 7半包围 8品字 9镶嵌
-const STRUCTURE_MAP = {
-  '独体结构': 1, '左右结构': 2, '左中右结构': 3, '上下结构': 4,
-  '上中下结构': 5, '全包围结构': 6, '半包围结构': 7, '品字结构': 8,
-  // 半包围细分均归为半包围(7)
-  '左下包围结构': 7, '左上包围结构': 7, '上包围结构': 7,
-  '右上包围结构': 7, '左包围结构': 7, '下包围结构': 7, '右包围结构': 7
-}
-
-// 数字声调拼音: spell_value_ + spell_tone_（轻声不带数字），如 di+2 → di2
-const numberTonePinyin = (value, tone) => value + (tone ? String(tone) : '')
-
-// 数字声调拼音 → 无声调拼音（去掉尾部声调数字）
-const stripTone = (py) => String(py || '').replace(/\d+$/, '')
 
 function writeJson(file, data, pretty = false) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
@@ -231,7 +217,7 @@ function main() {
           strokes.map(st => ({
             o: st.stroke_order,
             t: st.stroke_type,
-            d: { v: '7.0', p: deltaEncode(st.trajectory_data.points) }
+            d: { v: TRAJECTORY_VERSION, p: deltaEncode(st.trajectory_data.points) }
           })))
         strokeCount++
       }
