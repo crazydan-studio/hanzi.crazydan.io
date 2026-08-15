@@ -1,4 +1,4 @@
-import { BASE_WIDTH } from './Constants.js'
+import { BASE_WIDTH, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 import { computeBrushWidths, drawBrushStroke } from './Brush.js'
 
 // 单一RAF状态机。不使用 async/await + Promise 链，全部状态显式管理，
@@ -63,10 +63,10 @@ export class AnimationEngine {
     // → ÷还原为内部像素坐标与浮点值
     for (const s of this.strokes) {
       s.pxPoints = s.trajectory_data.points.map(p => ({
-        x: (p[0] / 1000) * this.cssW,
-        y: (p[1] / 1000) * this.cssH,
-        pressure: (p[2] ?? 50) / 100,
-        timestamp: (p[3] ?? 0) / 10
+        x: (p[0] / COORD_SCALE) * this.cssW,
+        y: (p[1] / COORD_SCALE) * this.cssH,
+        pressure: (p[2] ?? PRESSURE_SCALE / 2) / PRESSURE_SCALE,
+        timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
       }))
     }
     this.reset()

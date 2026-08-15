@@ -8,7 +8,7 @@ import Alpine from 'alpinejs'
 import { AnimationEngine } from './AnimationEngine.js'
 import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor, displayUnit } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
-import { DISPLAY_PEN_WIDTH_COEF } from './Constants.js'
+import { DISPLAY_PEN_WIDTH_COEF, STROKE_HIGHLIGHT_COLOR } from './Constants.js'
 import { strokeTypesMap } from './StrokeTypes.js'
 
 Alpine.data('strokeCell', (char, index, strokes) => ({
@@ -20,7 +20,7 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
   init() {
     this.canvas = this.$refs.canvas
     this.engine = new AnimationEngine(this.canvas, {
-      highlightColor: '#dc2626',   // 正在绘制的笔画: 红色笔触
+      highlightColor: STROKE_HIGHLIGHT_COLOR,
       strokeGap: 0,
       penWidthCoef: DISPLAY_PEN_WIDTH_COEF,
       completedColor: () => strokeInkColor()   // 已绘笔画墨色（适配主题）

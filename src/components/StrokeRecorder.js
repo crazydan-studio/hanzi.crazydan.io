@@ -1,4 +1,4 @@
-import { CANVAS_SIZE } from './Constants.js'
+import { CANVAS_SIZE, TRAJECTORY_VERSION, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 
 // 抽稀降采样阈值: 与上一保留点距离小于 0.5px（内部 500 坐标系）的点丢弃，
 // 0.5px 粒度对笔触渲染不可感知，可显著降低轨迹点数与存储占用
@@ -55,12 +55,12 @@ export class StrokeRecorder {
   // 整数存储可消除浮点噪声（如 1.4000000059604645）并减小体积
   generateTrajectoryData() {
     return {
-      version: '7.0',   // v7: x/y ×1000（0.5px 分辨率）；存储时统一增量编码
+      version: TRAJECTORY_VERSION,
       points: this.points.map(p => [
-        Math.round(p.x / CANVAS_SIZE.width * 1000),    // x ×1000（0.5px 分辨率）
-        Math.round(p.y / CANVAS_SIZE.height * 1000),   // y
-        Math.round(p.pressure * 100),                   // pressure ×100
-        Math.round(p.timestamp * 10)                    // timestamp ×10
+        Math.round(p.x / CANVAS_SIZE.width * COORD_SCALE),
+        Math.round(p.y / CANVAS_SIZE.height * COORD_SCALE),
+        Math.round(p.pressure * PRESSURE_SCALE),
+        Math.round(p.timestamp * TIMESTAMP_SCALE)
       ])
     }
   }

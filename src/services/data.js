@@ -1,6 +1,7 @@
 // ============ 静态数据加载（public/assets，由 build/export-data.js 导出生成） ============
 // 静态文件采用单字母紧凑结构（降低存储开销），在此归一化为完整字段供页面使用
 import { structureDisplayName } from '@components/CharacterStructures.js'
+import { TRAJECTORY_VERSION } from '@components/Constants.js'
 
 async function loadJson(url) {
   const res = await fetch(url)
@@ -45,7 +46,7 @@ export function normalizeStrokes(list) {
     stroke_type: s.t,
     trajectory_data: {
       version: s.d?.v,
-      points: (s.d?.v === '6.0' || s.d?.v === '7.0') ? deltaDecode(s.d.p || []) : (s.d?.p || [])
+      points: s.d?.v === TRAJECTORY_VERSION ? deltaDecode(s.d.p || []) : (s.d?.p || [])
     }
   }))
 }

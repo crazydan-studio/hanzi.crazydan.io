@@ -54,7 +54,3 @@ export function numberToSymbolTonePinyin(pinyin) {
   return base.slice(0, vowelIndex) + mark + base.slice(vowelIndex + 1)
 }
 
-// 数字声调拼音 → 无声调拼音（去掉尾部声调数字），如 "di2" → "di"
-export function zeroPinyinTone(pinyin) {
-  return String(pinyin || '').replace(/\d+$/, '')
-}

@@ -23,7 +23,7 @@ import { AnimationEngine } from './AnimationEngine.js'
 import { computeBrushWidths, drawBrushStroke } from './Brush.js'
 import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
-import { BASE_WIDTH, CANVAS_SIZE } from './Constants.js'
+import { BASE_WIDTH, CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 
 Alpine.data('strokePad', (opts = {}) => ({
   width: opts.width || CANVAS_SIZE.width,
@@ -568,10 +568,10 @@ Alpine.data('strokePad', (opts = {}) => ({
     const pts = trajectory.points
     if (!pts || pts.length === 0) return
     const px = pts.map(p => ({
-      x: (p[0] / 1000) * this.width,
-      y: (p[1] / 1000) * this.height,
-      pressure: (p[2] ?? 50) / 100,
-      timestamp: (p[3] ?? 0) / 10
+      x: (p[0] / COORD_SCALE) * this.width,
+      y: (p[1] / COORD_SCALE) * this.height,
+      pressure: (p[2] ?? PRESSURE_SCALE / 2) / PRESSURE_SCALE,
+      timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
     }))
     const strokeColor = highlight ? this.HIGHLIGHT_COLOR : color
     const widthCoef = this.penWidth / BASE_WIDTH

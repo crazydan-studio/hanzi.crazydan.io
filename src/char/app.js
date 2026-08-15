@@ -4,7 +4,7 @@ import Alpine from 'alpinejs'
 import { AnimationEngine } from '@components/AnimationEngine.js'
 import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from '@components/StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
-import { DISPLAY_PEN_WIDTH_COEF } from '@components/Constants.js'
+import { DISPLAY_PEN_WIDTH_COEF, STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
 import { loadCharMeta, loadCharStrokes } from '@services/data.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { copyText } from '@services/clipboard.js'
@@ -70,7 +70,7 @@ Alpine.data('charApp', () => ({
   initEngine() {
     if (!this.$refs.mainCanvas) return
     this.engine = new AnimationEngine(this.$refs.mainCanvas, {
-      highlightColor: '#dc2626',
+      highlightColor: STROKE_HIGHLIGHT_COLOR,
       strokeGap: 300,
       penWidthCoef: DISPLAY_PEN_WIDTH_COEF,
       completedColor: () => strokeInkColor()   // 已绘笔画墨色（适配主题）
