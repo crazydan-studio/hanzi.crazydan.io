@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>汉字 | 汉字笔画管理</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="stylesheet" href="/src/styles/main.css">
+  <script>
+    // 初始主题: 存储值优先，否则跟随系统（防止暗黑主题闪烁）
+    (function () {
+      try {
+        var t = localStorage.getItem('hanzi:theme')
+        if (t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark')
+        }
+      } catch (e) {}
+    })()
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen dark:bg-gray-900">
+  <!-- 字体加载遮罩: 系统无 SimKai 时加载静态楷体资源，加载期间遮住页面 -->
+  <div id="font-loading-overlay" class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-white dark:bg-gray-900">
+    <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
+    <span class="text-sm text-gray-600 dark:text-gray-300">正在加载中易楷体…</span>
+  </div>
+  <script>
+    (function () {
+      function hide() { var el = document.getElementById('font-loading-overlay'); if (el) el.remove() }
+      function hasSimKai() {
+        try { return !!document.fonts && document.fonts.check('100px "SimKai"') } catch (e) { return false }
+      }
+      if (!document.fonts || !document.fonts.load || hasSimKai()) { hide(); return }
+      var t = setTimeout(hide, 6000)
+      document.fonts.load('300px "ZhongYiKaiTi"')
+        .then(function () { clearTimeout(t); hide() })
+        .catch(function () { clearTimeout(t); hide() })
+    })()
+  </script>
+
+  <div class="max-w-6xl mx-auto p-4 md:p-6" x-data>
+    <header class="flex flex-wrap items-center justify-between gap-2 mb-6">
+      <div class="flex items-center gap-3">
+        <a href="/" class="btn-sm">← 返回首页</a>
+        <div>
+          <h1 class="text-xl md:text-2xl font-bold">汉字笔画管理</h1>
+          <p class="text-xs text-gray-500 dark:text-gray-400">本地管理与维护汉字结构、笔画数据</p>
+        </div>
+      </div>
+      <button x-data="themeToggle()" @click="toggle()" class="btn-sm inline-flex items-center justify-center !px-2"
+        :title="dark ? '切换到明亮' : '切换到暗黑'">
+        <template x-if="!dark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </template>
+        <template x-if="dark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </template>
+      </button>
+    </header>
+
+    <!-- 汉字列表（独立页面；点击行进入书写页 write/?char=） -->
+    <section x-data="characterList()">
+      <div>
+        <!-- 过滤条: 搜索(字/拼音) + 完整笔画图过滤 -->
+        <div class="flex flex-wrap items-center gap-3 mb-4">
+          <input x-model="search" @input.debounce.300ms="onSearch()"
+                 placeholder="搜索汉字或拼音" class="input w-full sm:w-64">
+          <div class="flex items-center gap-1 flex-wrap">
+            <button @click="setHasStrokes('')" class="btn-sm"
+              :class="hasStrokes === '' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">全部</button>
+            <button @click="setHasStrokes('1')" class="btn-sm"
+              :class="hasStrokes === '1' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">有完整笔画图</button>
+            <button @click="setHasStrokes('2')" class="btn-sm"
+              :class="hasStrokes === '2' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">仅含部分笔画图</button>
+            <button @click="setHasStrokes('0')" class="btn-sm"
+              :class="hasStrokes === '0' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">无笔画图</button>
+          </div>
+          <span class="text-sm text-gray-500 dark:text-gray-400" x-text="`按使用频率降序`"></span>
+        </div>
+
+        <table class="w-full text-sm bg-white rounded shadow-sm dark:bg-gray-800">
+          <thead>
+            <tr class="border-b bg-gray-100 dark:bg-gray-700 dark:border-gray-600">
+              <th class="px-3 py-2 text-left">汉字</th>
+              <th class="px-3 py-2 text-left">读音</th>
+              <th class="px-3 py-2 text-left">结构</th>
+              <th class="px-3 py-2 text-left">笔画图</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="c in characters" :key="c.id">
+              <tr class="border-b border-gray-200 cursor-pointer hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700" @click="openWriter(c)">
+                <td class="px-3 py-2 text-2xl font-bold font-kaiti"
+                  :title="'笔画数: ' + c.total_stroke_count">
+                  <span x-text="c.character"></span>
+                  <span class="text-xs text-gray-400 font-normal ml-1 dark:text-gray-500"
+                    x-text="'(' + c.total_stroke_count + '笔)'"></span>
+                </td>
+                <td class="px-3 py-2" x-text="c.pinyin.join('、')"></td>
+                <td class="px-3 py-2">
+                  <span x-text="structureLabel(c.structure)"></span>
+                </td>
+                <td class="px-3 py-2" @click.stop>
+                  <!-- x-effect 响应式重绘: x-for 复用DOM时 x-init 不会重跑，
+                       改用 effect 依赖 c.strokes 变化自动刷新缩略图 -->
+                  <canvas class="border border-gray-200 rounded dark:border-gray-600"
+                    x-effect="renderThumb($el, c.strokes, themeVersion)"></canvas>
+                </td>
+              </tr>
+            </template>
+            <tr x-show="!loading && characters.length === 0">
+              <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">无匹配汉字</td>
+            </tr>
+            <tr x-show="loading">
+              <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">加载中...</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- 常驻分页组件: 分页大小下拉 + 上一页/页码/下一页 -->
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-600 dark:text-gray-300">每页</label>
+            <select x-model.number="limit" @change="setLimit(limit)" class="input !w-auto !py-1">
+              <template x-for="l in LIMIT_OPTIONS" :key="l">
+                <option :value="l" x-text="l + ' 条'"></option>
+              </template>
+            </select>
+          </div>
+          <div class="flex items-center gap-1 ml-auto flex-wrap">
+            <button @click="setPage(1)" :disabled="page <= 1" class="btn-sm disabled:opacity-40">«</button>
+            <button @click="setPage(page - 1)" :disabled="page <= 1" class="btn-sm disabled:opacity-40">上一页</button>
+            <span class="text-sm px-2" x-text="`${page} / ${totalPages}`"></span>
+            <button @click="setPage(page + 1)" :disabled="page >= totalPages" class="btn-sm disabled:opacity-40">下一页</button>
+            <button @click="setPage(totalPages)" :disabled="page >= totalPages" class="btn-sm disabled:opacity-40">»</button>
+            <!-- 页码跳转 -->
+            <div class="flex items-center gap-1 ml-2">
+              <span class="text-sm text-gray-600 dark:text-gray-300">跳至</span>
+              <input x-model.number="jumpPage" type="number" min="1" :max="totalPages"
+                class="input !w-16 !py-1 text-center"
+                @keydown.enter="jumpTo()"
+                @blur="jumpTo()">
+              <span class="text-sm text-gray-600 dark:text-gray-300">页</span>
+            </div>
+          </div>
+        </div>
+        <p x-show="error" class="text-red-600 text-sm mt-2" x-text="error"></p>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="/src/strokes/main.js"></script>
+</body>
+</html>

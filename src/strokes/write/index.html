@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>汉字 | 汉字书写</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="stylesheet" href="/src/styles/main.css">
+  <script>
+    // 初始主题: 存储值优先，否则跟随系统（防止暗黑主题闪烁）
+    (function () {
+      try {
+        var t = localStorage.getItem('hanzi:theme')
+        if (t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark')
+        }
+      } catch (e) {}
+    })()
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen dark:bg-gray-900">
+  <!-- 字体加载遮罩: 系统无 SimKai 时加载静态楷体资源，加载期间遮住页面 -->
+  <div id="font-loading-overlay" class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-white dark:bg-gray-900">
+    <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
+    <span class="text-sm text-gray-600 dark:text-gray-300">正在加载中易楷体…</span>
+  </div>
+  <script>
+    (function () {
+      function hide() { var el = document.getElementById('font-loading-overlay'); if (el) el.remove() }
+      function hasSimKai() {
+        try { return !!document.fonts && document.fonts.check('100px "SimKai"') } catch (e) { return false }
+      }
+      if (!document.fonts || !document.fonts.load || hasSimKai()) { hide(); return }
+      var t = setTimeout(hide, 6000)
+      document.fonts.load('300px "ZhongYiKaiTi"')
+        .then(function () { clearTimeout(t); hide() })
+        .catch(function () { clearTimeout(t); hide() })
+    })()
+  </script>
+
+  <div class="max-w-6xl mx-auto p-4 md:p-6" x-data="strokeEditor()">
+    <header class="flex flex-wrap items-center justify-between gap-2 mb-6">
+      <div class="flex items-center gap-3">
+        <!-- 返回: 回到进入前的页面（与各页面返回按钮样式一致） -->
+        <button @click="goBack()" class="btn-sm">← 返回</button>
+        <h1 class="text-xl md:text-2xl font-bold">汉字书写</h1>
+      </div>
+      <button x-data="themeToggle()" @click="toggle()" class="btn-sm inline-flex items-center justify-center !px-2"
+        :title="dark ? '切换到明亮' : '切换到暗黑'">
+        <template x-if="!dark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </template>
+        <template x-if="dark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </template>
+      </button>
+    </header>
+
+    <!-- 笔画编辑器（独立页面）: 公共书写板 strokePad 经 padOpts 回调输出数据，
+         编辑器组合书写板并持有服务端状态（API 耦合仅在此层） -->
+    <section>
+      <p x-show="error" class="text-red-600 text-sm mb-2" x-text="error"></p>
+
+      <!-- character-info（内联于编辑器作用域）: 只读信息 + 结构可编辑 + 笔顺参考 -->
+      <div class="border rounded-lg p-4 md:p-5 mb-4 bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700">
+        <template x-if="character">
+          <div>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span class="text-4xl font-bold font-kaiti" x-text="character.character"></span>
+              <span class="text-gray-700 dark:text-gray-200" x-text="`读音: ${character.pinyin.join('、')}`"></span>
+              <span class="text-gray-500 text-sm dark:text-gray-400" x-text="`笔画数: ${character.total_stroke_count}`"></span>
+              <!-- 部首/结构/笔顺参考: 靠右侧布局 -->
+              <div class="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
+                <!-- 部首: 可编辑（同步后端） -->
+                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  部首
+                  <input type="text" maxlength="10" class="input !w-16 !py-1"
+                    :value="character.radical || ''"
+                    @change="updateRadical(character, $event.target.value)">
+                </label>
+                <!-- 结构: 唯一可编辑字段 -->
+                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  结构
+                  <select class="input !w-auto !py-1"
+                    @change="updateCharacterStructure(character, $event.target.value)">
+                    <template x-for="st in CHARACTER_STRUCTURES" :key="st.code">
+                      <option :value="st.code" :selected="character.structure === st.code"
+                        x-text="st.examples.length ? st.name + '（' + st.examples.join('·') + '）' : st.name"></option>
+                    </template>
+                  </select>
+                </label>
+                <!-- 笔顺参考图开关 -->
+                <button @click="toggleStrokeRef()" class="btn-sm"
+                  :class="showStrokeRef ? 'bg-blue-500 text-white border-blue-500' : ''">
+                  笔顺参考
+                </button>
+              </div>
+            </div>
+            <!-- 笔顺参考图（strokeorder.com 外部图） -->
+            <div x-show="showStrokeRef" class="mt-3">
+              <div class="flex flex-wrap items-end gap-4">
+                <img :src="strokeRefUrl" alt="笔顺参考"
+                  class="border border-gray-200 rounded bg-white max-w-full dark:border-gray-600 dark:bg-gray-900"
+                  @load="strokeRefError = false"
+                  @error="strokeRefError = true">
+                <p x-show="strokeRefError" class="text-xs text-gray-500 dark:text-gray-400">
+                  笔顺图加载失败（需联网访问 strokeorder.com）
+                </p>
+              </div>
+            </div>
+          </div>
+        </template>
+        <p x-show="!character" class="text-gray-500 dark:text-gray-400">加载中...</p>
+      </div>
+
+      <!-- 响应式: 移动端竖屏上下堆叠，桌面左右分栏 -->
+      <div class="flex flex-col lg:flex-row gap-4">
+        <!-- 左侧: 书写板（书写/回放双模式 + 田字格背景） -->
+        <div class="w-full lg:w-1/2">
+          <div x-data="strokePad(padOpts)" x-ref="pad">
+            <!-- 模式切换（与列表页过滤按钮/其他页面 btn-sm 样式一致） -->
+            <div class="mb-2 flex gap-1">
+              <button @click="switchMode('write')" class="btn-sm"
+                :class="mode === 'write' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">书写</button>
+              <button @click="switchMode('playback')" class="btn-sm"
+                :class="mode === 'playback' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">回放</button>
+            </div>
+
+            <!-- 画布容器: 宽度自适应（移动端竖屏缩放显示，内部坐标恒为500×500） -->
+            <div class="relative border rounded bg-white p-2 shadow-sm w-full mx-auto dark:bg-gray-800 dark:border-gray-700">
+              <canvas
+                x-ref="canvas"
+                @pointerdown.prevent="onPointerDown($event)"
+                @pointermove.prevent="onPointerMove($event)"
+                @pointerup.prevent="onPointerUp($event)"
+                @pointercancel.prevent="onPointerCancel($event)"
+                @touchstart.prevent
+                @touchmove.prevent
+                class="touch-none select-none block mx-auto"
+                :class="mode === 'write' ? 'cursor-crosshair' : 'cursor-default'"
+              ></canvas>
+              <!-- 字体加载等待遮罩（加载完成后自动消失） -->
+              <div x-show="mode === 'write' && !fontReady"
+                class="absolute inset-0 z-10 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 rounded dark:bg-gray-900/80">
+                <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></span>
+                <span class="text-sm text-gray-600 dark:text-gray-300">楷体字体加载中...</span>
+              </div>
+            </div>
+
+            <!-- 书写模式工具条: 撤销/重做/清空(恢复) 状态一致且互斥 -->
+            <div class="mt-2 flex flex-wrap items-center gap-2" x-show="mode === 'write'">
+              <button @click="undoStroke()" :disabled="!canUndo()"
+                class="btn bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50">撤销</button>
+              <button @click="redo()" :disabled="!canRedo()"
+                class="btn bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50">重做</button>
+              <button @click="canRestore() ? restoreCleared() : clearPad()"
+                :disabled="!canClear() && !canRestore()"
+                class="btn bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50"
+                x-text="canRestore() ? '恢复' : '清空'"></button>
+              <!-- 笔触宽度选择（移动端画布缩小，默认特粗） -->
+              <div class="flex items-center gap-1 ml-2">
+                <template x-for="w in PEN_WIDTHS" :key="w">
+                  <button @click="setPenWidth(w)"
+                    class="px-2.5 py-2 rounded border flex items-center justify-center"
+                    :class="penWidth === w ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700'"
+                    :title="(w === 6 ? '细' : w === 12 ? '标准' : w === 18 ? '粗' : '特粗') + '笔触'">
+                    <span class="rounded-full"
+                      :style="'width:' + (w / 2) + 'px;height:' + (w / 2) + 'px'"
+                      :class="penWidth === w ? 'bg-white' : 'bg-gray-700'"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
+
+            <!-- 回放模式控制条（移动端自动换行） -->
+            <div class="mt-2" x-show="mode === 'playback'">
+              <div class="flex flex-wrap items-center gap-2">
+                <button @click="togglePlayback()" :disabled="!hasPlaybackData"
+                  class="btn btn-primary disabled:opacity-50">
+                  <span x-text="playbackState === 'PLAYING' ? '暂停' : '播放'"></span>
+                </button>
+                <button @click="resetPlayback()" :disabled="!hasPlaybackData"
+                  class="btn bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50">重置</button>
+
+                <div class="flex items-center gap-2">
+                  <label class="text-sm text-gray-600 dark:text-gray-300">速度:</label>
+                  <input type="range" min="0.25" max="4" step="0.25"
+                    x-model.number="playbackSpeed" @input="onPlaybackSpeedChange()" class="w-24">
+                  <span class="text-sm text-gray-600 dark:text-gray-300" x-text="playbackSpeed + 'x'"></span>
+                </div>
+
+                <div class="flex items-center gap-2 ml-2">
+                  <label class="text-sm text-gray-600 dark:text-gray-300">笔画:</label>
+                  <span class="text-sm font-medium" x-text="playbackLabel"></span>
+                </div>
+              </div>
+
+              <!-- 笔画进度指示器（点击单独播放对应笔画动画；单笔播完后续保持未播放态） -->
+              <div class="mt-2 flex gap-1" x-show="hasPlaybackData">
+                <template x-for="(stroke, index) in playbackStrokes" :key="stroke.id">
+                  <div class="h-1.5 flex-1 rounded cursor-pointer"
+                    @click="selectAndPlay(playbackStrokes[index].id)"
+                    :class="{
+                      'bg-green-500': indicatorState(index) === 'done',
+                      'bg-blue-500': indicatorState(index) === 'active',
+                      'bg-gray-300 dark:bg-gray-600': indicatorState(index) === 'pending'
+                    }"></div>
+                </template>
+              </div>
+              <p x-show="!hasPlaybackData" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                暂无笔画轨迹数据，请切换到"书写"模式录入并保存笔画
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧: 笔画列表（先书写，再在行内定类型；回放模式只读并联动高亮） -->
+        <div class="w-full lg:w-1/2">
+          <!-- stroke-list（内联于编辑器作用域） -->
+          <div class="border rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700">
+            <div class="p-2 font-medium text-sm border-b flex items-center justify-between dark:border-gray-700">
+              <span>
+                笔画列表 (共 <span x-text="strokes.length"></span> 笔)
+              </span>
+              <span class="text-xs font-normal"
+                :class="padMode === 'playback' ? 'text-blue-600' : 'text-gray-400'"
+                x-text="padMode === 'playback' ? '回放模式 · 点击笔画行即可播放' : '书写模式'"></span>
+            </div>
+            <div x-show="strokes.length === 0" class="p-3 text-sm text-gray-500 dark:text-gray-400">尚无笔画，请在左侧画布书写</div>
+            <template x-for="s in strokes" :key="s.id">
+              <div class="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 text-sm select-none dark:border-gray-700"
+                :draggable="padMode === 'write' && !isTouch"
+                @dragstart="onStrokeDragStart($event, s)"
+                @dragover.prevent="onStrokeDragOver($event, s)"
+                @drop.prevent="onStrokeDrop($event, s)"
+                @dragend="onStrokeDragEnd()"
+                @click="padMode === 'playback' && selectAndPlay(s.id)"
+                @mouseenter="hoverStroke(s.id)"
+                @mouseleave="hoverStroke(null)"
+                :class="{
+                  'opacity-60': s.isPending,
+                  // 重绘目标: 醒目高亮
+                  'bg-amber-50 border-l-4 border-amber-400 dark:bg-amber-900/30 dark:border-amber-500': redrawStroke?.id === s.id,
+                  // 书写模式悬停: 高亮并提示可拖拽（暗黑主题适配）
+                  'hover:bg-blue-50 dark:hover:bg-gray-700 cursor-grab active:cursor-grabbing': padMode === 'write' && !s.isPending && !isTouch,
+                  // 回放联动高亮: 播放中显示正在绘制的笔画；非播放时保持选中笔画
+                  'bg-blue-100 border-l-4 border-blue-500 dark:bg-blue-900/40 dark:border-blue-500': padMode === 'playback' && rowHighlightId === s.id,
+                  // 回放中已完成笔画淡化
+                  'opacity-50': isPlaybackCompleted(s.id),
+                  // 回放模式: 点击行选中该笔画并单笔播放
+                  'cursor-pointer hover:bg-blue-50 dark:hover:bg-gray-700': padMode === 'playback'
+                }">
+                <!-- 拖拽把手（回放模式隐藏；触摸设备改为上下按钮排序） -->
+                <span class="text-gray-400 mr-1" aria-hidden="true" x-show="padMode === 'write' && !isTouch">⠿</span>
+                <!-- 触摸设备: 上移/下移按钮 -->
+                <span class="flex flex-col mr-1" x-show="padMode === 'write' && isTouch">
+                  <button @click.stop="moveStroke(s, -1)"
+                    :disabled="strokes.indexOf(s) === 0"
+                    class="text-gray-500 leading-none disabled:opacity-30 px-0.5">▲</button>
+                  <button @click.stop="moveStroke(s, 1)"
+                    :disabled="strokes.indexOf(s) === strokes.length - 1"
+                    class="text-gray-500 leading-none disabled:opacity-30 px-0.5">▼</button>
+                </span>
+                <span class="font-bold w-8" x-text="s.stroke_order"></span>
+                <span class="flex-1 truncate"
+                  :class="s.stroke_type === 0 ? 'text-gray-400 italic' : ''"
+                  x-text="strokeTypesMap[s.stroke_type]?.name || '未指定'"></span>
+                <!-- 行内笔画类型选择（仅书写模式显示；重绘目标行隐藏） -->
+                <select
+                  x-show="padMode === 'write' && redrawStroke?.id !== s.id"
+                  class="text-xs border border-gray-300 rounded px-1 py-0.5 mr-2 bg-white max-w-[5.5rem] dark:border-gray-600 dark:bg-gray-800"
+                  :class="s.stroke_type === 0 ? 'border-amber-400 text-amber-600' : ''"
+                  @click.stop
+                  @change="updateStrokeType(s, $event.target.value)">
+                  <template x-for="t in STROKE_TYPES" :key="t.code">
+                    <option :value="t.code" :selected="s.stroke_type === t.code">
+                      <span x-text="t.shape"></span> <span x-text="t.name"></span>
+                    </option>
+                  </template>
+                </select>
+                <!-- 重绘目标行: 取消按钮（重绘/删除按钮与类型下拉框已隐藏） -->
+                <span x-show="padMode === 'write' && redrawStroke?.id === s.id" class="flex items-center gap-2">
+                  <button @click="cancelRedraw()"
+                    class="text-amber-600 text-xs hover:text-amber-700">取消</button>
+                </span>
+                <!-- 重绘/删除按钮（仅书写模式显示，重绘目标行隐藏），间隔加大 -->
+                <span x-show="padMode === 'write' && redrawStroke?.id !== s.id" class="flex items-center gap-2">
+                  <button @click="startRedraw(s)"
+                    class="text-amber-600 text-xs hover:text-amber-700">重绘</button>
+                  <button @click="onStrokeRemoveRequest({ strokeId: s.id, reason: 'delete' })"
+                    class="text-red-500 text-xs hover:text-red-700">删除</button>
+                </span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="/src/strokes/write/main.js"></script>
+</body>
+</html>

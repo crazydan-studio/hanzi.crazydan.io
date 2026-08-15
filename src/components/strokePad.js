@@ -21,6 +21,7 @@ import Alpine from 'alpinejs'
 import { StrokeRecorder } from './strokeRecorder.js'
 import { AnimationEngine } from './animationEngine.js'
 import { computeBrushWidths, drawBrushStroke } from './brush.js'
+import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor } from './strokeBackground.js'
 import { BASE_WIDTH, CANVAS_SIZE } from './constants.js'
 
 Alpine.data('strokePad', (opts = {}) => ({
@@ -31,7 +32,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   // 6/12/18/24 对应 细/标准/粗/特粗，默认最粗(24) 保证笔触醒目
   PEN_WIDTHS: opts.penWidths || [6, 12, 18, 24],   // 细/标准/粗/特粗
   penWidth: opts.defaultPenWidth ?? 24,
-  strokeColor: opts.strokeColor || '#000000',
+  strokeColor: opts.strokeColor || null,   // 书写笔触颜色（null → 适配主题的墨色）
   mode: 'write',                 // 'write' 书写 | 'playback' 回放
   _opts: opts,                   // 宿主回调与配置
 
@@ -79,7 +80,8 @@ Alpine.data('strokePad', (opts = {}) => ({
     // - 背景: 每帧清屏后重绘田字格 + 浅色完整字型（未完成笔画浅灰，作为参照）
     this.engine = new AnimationEngine(this.canvas, {
       highlightColor: this.HIGHLIGHT_COLOR,
-      penWidthCoef: this.penWidth / BASE_WIDTH   // 前端笔触宽度（展示配置）
+      penWidthCoef: this.penWidth / BASE_WIDTH,   // 前端笔触宽度（展示配置）
+      completedColor: () => strokeInkColor()      // 已绘笔画墨色（适配主题）
     })
     this.engine.onBeforeRender = () => {
       this.drawTianZiGe()
@@ -122,6 +124,12 @@ Alpine.data('strokePad', (opts = {}) => ({
 
     // 实例回传给宿主（宿主经此持有组件实例，替代 $refs 时序依赖）
     this._opts.onReady?.(this)
+
+    // 主题切换时重绘背景（田字格与背景汉字颜色适配主题色）
+    window.addEventListener('hanzi:theme-change', () => {
+      if (this.mode === 'write') this.redrawCanvas()
+      else if (this.mode === 'playback') this.syncPlaybackData()
+    })
   },
 
   // ---- 宿主数据注入接口 ----
@@ -186,8 +194,8 @@ Alpine.data('strokePad', (opts = {}) => ({
     }
   },
 
-  // 等待中易楷体加载完成后启用书写
-  //  - 已就绪（缓存）→ 立即启用
+  // 等待楷体可用后启用书写（优先系统 SimKai，缺失时加载静态字体资源）
+  //  - 已就绪（SimKai 或静态字体已缓存）→ 立即启用
   //  - 加载中 → fontReady=false，书写禁用 + 显示等待遮罩
   //  - 失败/超时(6s) → 仍启用（回退字体也可书写，只是参考字非楷体）
   loadFontForWriting() {
@@ -197,8 +205,14 @@ Alpine.data('strokePad', (opts = {}) => ({
       else if (this.mode === 'playback') this.syncPlaybackData()
     }
 
-    // 已就绪（缓存）
-    if (document.fonts?.check && document.fonts.check('100px "ZhongYiKaiTi"')) {
+    const hasFont = (family) => {
+      try {
+        return document.fonts?.check ? document.fonts.check(`100px "${family}"`) : false
+      } catch { return false }
+    }
+
+    // 已就绪（系统 SimKai / 静态中易楷体）
+    if (hasFont('SimKai') || hasFont('ZhongYiKaiTi')) {
       enable()
       return
     }
@@ -260,27 +274,11 @@ Alpine.data('strokePad', (opts = {}) => ({
   },
 
   // ============ 田字格背景 ============
+  // 换算系数由画布设备像素与实测显示宽度得出，任意显示尺寸/DPR 下线宽与虚线模式一致
   drawTianZiGe() {
-    const { ctx, width, height } = this
-    ctx.save()
-    // 外框（红色）
-    ctx.strokeStyle = '#dc2626'   // red-600
-    ctx.lineWidth = 1.5
-    ctx.strokeRect(0.5, 0.5, width - 1, height - 1)
-    // 横竖中线（红色虚线，米字格中央十字）
-    ctx.setLineDash([6, 4])
-    ctx.strokeStyle = '#f87171'   // red-400
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.moveTo(0, height / 2)
-    ctx.lineTo(width, height / 2)
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.moveTo(width / 2, 0)
-    ctx.lineTo(width / 2, height)
-    ctx.stroke()
-    ctx.setLineDash([])
-    ctx.restore()
+    const rect = this.canvas.getBoundingClientRect()
+    const unit = rect.width > 0 ? Math.max(0.5, Math.min(8, this.canvas.width / rect.width)) : 1
+    drawTianZiGe(this.ctx, this.width, this.height, unit, rect.width)
   },
 
   // 书写模式参考字: 以楷体半透明显示当前汉字（供描红参考）
@@ -289,68 +287,29 @@ Alpine.data('strokePad', (opts = {}) => ({
   // - 缩放: 依据墨迹边界使字形填满田字格内部，四周留均匀空隙
   drawReferenceChar() {
     if (this.mode !== 'write' || !this.currentChar) return
-    this.drawCharRef('rgba(0, 0, 0, 0.10)')
+    this.drawCharRef(charRefColor())
   },
 
-  // 楷体半透明参考字核心绘制（书写模式与回放背景共用）
-  // 设计原则: 所有汉字使用【统一字号】+【固定基线】，大小与位置一致。
-  //   - 不再按每个字的墨迹(ink metrics)动态缩放（否则「不/了」偏小、「人」偏大）
-  //   - 字号: 画布尺寸的固定比例（同一字体 em 框一致 → 所有字一样大）
-  //   - 基线: 用基准字符(永)测量字体级 ascent/descent，对所有字用同一条基线
-  //   - 垂直: 字形中心对齐画布中心（基于字体级度量，与具体字无关）
+  // 楷体半透明参考字核心绘制（书写模式与回放背景共用）— 逻辑在共享模块 strokeBackground.js
   drawCharRef(color) {
-    const { ctx, width, height } = this
-    const FONT_FAMILY = this.pickCharFont(this.currentChar)
-
-    // 统一字号: 画布短边的 92%（留边距防溢出），所有字相同
-    const fontSize = Math.round(Math.min(width, height) * 0.92)
-
-    ctx.save()
-    ctx.font = `${fontSize}px ${FONT_FAMILY}`
-    ctx.fillStyle = color
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'alphabetic'
-
-    // 固定基线: 基准字符(永)的字体级度量（所有字共用），字体缺字时用近似值
-    let ascent = 0, descent = 0
-    try {
-      const ref = ctx.measureText('永')
-      ascent = ref.actualBoundingBoxAscent
-      descent = ref.actualBoundingBoxDescent
-    } catch { /* 忽略 */ }
-    if (!ascent && !descent) {
-      ascent = fontSize * 0.85   // CJK 近似: 上 85% / 下 15%
-      descent = fontSize * 0.12
-    }
-
-    // 字形中心 = baseline - ascent + (ascent+descent)/2 = baseline + (descent-ascent)/2
-    // 让字形中心对齐画布中心 → baseline y = 画布中心 - (descent-ascent)/2
-    const drawY = height / 2 - (descent - ascent) / 2
-    ctx.fillText(this.currentChar, width / 2, drawY)
-    ctx.restore()
+    drawCharRef(this.ctx, this.width, this.height, this.currentChar, color)
   },
 
-  // 选择能渲染该字的字体族（中易楷体 mini 可能缺字 → 回退）
-  pickCharFont(char) {
-    if (document.fonts?.check) {
-      // 中易楷体加载完成且覆盖该字 → 用之
-      if (document.fonts.check('100px "ZhongYiKaiTi"', char)) {
-        return '"ZhongYiKaiTi", "楷体", "KaiTi", serif'
-      }
-    }
-    // 回退: 楷体/系统
-    return '"楷体", "KaiTi", serif'
-  },
-
-  // 书写模式重绘: 田字格 → 参考字 → 笔画（展示颜色/宽度均前端配置）
+  // 书写模式重绘: 田字格 → 参考字 → 笔画（展示颜色/宽度均前端配置，墨色适配主题）
+  // 悬停笔画提升至最上层绘制（避免被其他笔画遮挡），恢复后按原始顺序重绘
   redrawCanvas() {
     this.ctx.clearRect(0, 0, this.width, this.height)
     this.drawTianZiGe()
     this.drawReferenceChar()
+    const hovered = this.hoveredStrokeId
     for (const stroke of this.strokes) {
+      if (stroke.id === hovered) continue
       // 用轨迹数据重绘（与回放引擎同一渲染路径）
-      const isHover = stroke.id === this.hoveredStrokeId
-      this.drawTrajectory(stroke.trajectory_data, '#000000', isHover)
+      this.drawTrajectory(stroke.trajectory_data, strokeInkColor(), false)
+    }
+    if (hovered) {
+      const s = this.strokes.find(x => x.id === hovered)
+      if (s) this.drawTrajectory(s.trajectory_data, this.HIGHLIGHT_COLOR, true)
     }
   },
 
@@ -576,13 +535,14 @@ Alpine.data('strokePad', (opts = {}) => ({
 
   // ---- 渲染 ----
   // 实时书写渲染: 在离屏层上用笔触模拟（轮廓法）绘制当前笔画，再叠到主画布
+  // 笔触颜色适配主题（明亮黑色，暗黑近白色）
   renderCurrentSegment() {
     const pts = this.currentStroke.points
     if (pts.length === 0) return
     const widthCoef = this.penWidth / BASE_WIDTH   // 当前笔触宽度→相对系数
     const widths = computeBrushWidths(pts, widthCoef)
     this.inkCtx.clearRect(0, 0, this.width, this.height)
-    drawBrushStroke(this.inkCtx, pts, widths, this.strokeColor)
+    drawBrushStroke(this.inkCtx, pts, widths, this.strokeColor || strokeInkColor())
     // 离屏层按内部坐标系绘制，叠加到主画布
     this.ctx.drawImage(this.inkLayer, 0, 0, this.width, this.height)
   },
@@ -634,45 +594,55 @@ Alpine.data('strokePad', (opts = {}) => ({
     drawBrushStroke(this.ctx, px, widths, strokeColor)
   },
 
-  // 回放背景: 当前汉字（楷体半透明）作为书写参照，而非书写笔画
+  // 回放背景: 当前汉字（楷体半透明，颜色适配主题色）作为书写参照，而非书写笔画
   drawPlaybackBackground() {
     if (!this.currentChar) return
-    this.drawCharRef('rgba(0, 0, 0, 0.10)')
+    this.drawCharRef(charRefColor())
   },
 
   // ---- 撤销/清空 ----
   // 撤销最近一笔: 回调请求宿主处理（宿主区分 local-/服务端id）
+  // reason: 'undo'（撤销触发）| 'delete'（行内删除触发）
   undo() {
     if (this.mode !== 'write' || this.strokes.length === 0) return
     const last = this.strokes[this.strokes.length - 1]
     this.strokes = this.strokes.slice(0, -1)
     this.redrawCanvas()
-    this._opts.onStrokeRemoveRequest?.({ strokeId: last.id })
+    this._opts.onStrokeRemoveRequest?.({ strokeId: last.id, reason: 'undo' })
   },
 
-  // 清空画布（当前会话的全部笔画）
+  // 清空画布（当前会话的全部笔画）:
+  // 有 onStrokeClearAll 回调（宿主可备份全部笔画以支持恢复）时走之，否则逐个请求删除
   clearPad() {
     if (this.mode !== 'write') return
     const all = this.strokes
     this.strokes = []
     this.redrawCanvas()
-    for (const s of all) {
-      this._opts.onStrokeRemoveRequest?.({ strokeId: s.id })
+    if (this._opts.onStrokeClearAll) {
+      this._opts.onStrokeClearAll(all)
+    } else {
+      for (const s of all) {
+        this._opts.onStrokeRemoveRequest?.({ strokeId: s.id })
+      }
     }
   },
 
   // ---- 回放模式静态显示（非播放时: 只显示已播放笔画，后续笔画始终不显示） ----
-  // 已播放 = playbackIndex 之前的笔画；hover 仅对已显示笔画做颜色高亮（不加粗）
+  // 已播放 = playbackIndex 之前的笔画；悬停笔画提升至最上层高亮（恢复后按原始顺序）
   renderPlaybackStatic() {
     if (this.mode !== 'playback') return
     this.ctx.clearRect(0, 0, this.width, this.height)
     this.drawTianZiGe()
     this.drawPlaybackBackground()
     const highlightId = this.hoveredStrokeId ?? null
-    for (let i = 0; i < this.playbackIndex && i < this.playbackStrokes.length; i++) {
-      const s = this.playbackStrokes[i]
-      const hl = highlightId != null && s.id === highlightId
-      this.drawTrajectory(s.trajectory_data, hl ? this.HIGHLIGHT_COLOR : '#000000', hl)
+    const list = this.playbackStrokes.slice(0, this.playbackIndex)
+    for (const s of list) {
+      if (highlightId != null && s.id === highlightId) continue
+      this.drawTrajectory(s.trajectory_data, strokeInkColor(), false)
+    }
+    if (highlightId != null) {
+      const s = list.find(x => x.id === highlightId)
+      if (s) this.drawTrajectory(s.trajectory_data, this.HIGHLIGHT_COLOR, true)
     }
   },
 }))

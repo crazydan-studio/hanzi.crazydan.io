@@ -4,10 +4,10 @@
 //   - 通过 padOpts 回调接收书写板输出（录入笔画/悬停/模式/回放进度）
 //   - 通过 $refs.pad 调用书写板实例方法注入数据（loadStrokes/setCharacter/setMode...）
 import Alpine from 'alpinejs'
-import { api } from '../src/services/api.js'
-import { createSyncClient } from '../src/services/syncClient.js'
-import { STROKE_TYPES, strokeTypesMap } from '../src/components/strokeTypes.js'
-import { CHARACTER_STRUCTURES, characterStructuresMap, structureLabel } from '../src/components/characterStructures.js'
+import { api } from '@services/api.js'
+import { createSyncClient } from '@services/syncClient.js'
+import { STROKE_TYPES, strokeTypesMap } from '@components/strokeTypes.js'
+import { CHARACTER_STRUCTURES, characterStructuresMap, structureLabel } from '@components/characterStructures.js'
 
 export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
@@ -22,6 +22,11 @@ export function registerStrokeEditor() {
     saveQueue: Promise.resolve(),
     cancelledLocalIds: new Set(),
     error: null,
+    redrawStroke: null,                   // 重绘目标笔画（列表保留并高亮，画布移除）
+    redoStack: [],                        // 撤销/删除的笔画备份（重做恢复）
+    clearedStrokes: [],                   // 清空时备份的全部笔画（支持恢复）
+    isDeleting: 0,                        // 进行中的笔画删除数（重做需等删除完成，避免竞争）
+    _lastOp: null,                        // 最近一次操作: draw | remove | delete | clear | redo | restore
     sync: null,                          // 多端同步客户端
     _remoteConfig: false,                // 远端配置回显标志（防广播回环）
     _pendingWidth: null,                 // pad 未就绪时暂存的远端笔宽
@@ -51,6 +56,7 @@ export function registerStrokeEditor() {
         },
         onStrokeRecorded: (stroke) => this.onStrokeRecorded(stroke),
         onStrokeRemoveRequest: ({ strokeId }) => this.onStrokeRemoveRequest({ strokeId }),
+        onStrokeClearAll: (strokes) => this.onStrokeClearAll(strokes),
         onStrokeHover: (strokeId) => this.hoverStroke(strokeId),
         onModeChanged: (mode) => this.onPadModeChanged(mode),
         onPlaybackProgress: (p) => this.onPlaybackProgress(p),
@@ -105,9 +111,21 @@ export function registerStrokeEditor() {
       })
     },
 
-    // 返回列表: 恢复进入前的列表 URL（过滤/分页状态）；同步跳转到其他端
+    // 返回进入前的页面（入口页面写入 hanzi:backUrl: 笔画管理列表 / 汉字信息页等）；
+    // 无记录时回退浏览器历史，再回退首页
     goBack() {
-      const url = sessionStorage.getItem('hanzi:listBack') || '../'
+      const stored = sessionStorage.getItem('hanzi:backUrl')
+      if (stored) {
+        sessionStorage.removeItem('hanzi:backUrl')
+        this.sync?.emit('navigate', { url: stored })
+        location.href = stored
+        return
+      }
+      if (window.history.length > 1) {
+        history.back()
+        return
+      }
+      const url = '/'
       this.sync?.emit('navigate', { url })
       location.href = url
     },
@@ -206,6 +224,18 @@ export function registerStrokeEditor() {
       }
     },
 
+    // 部首编辑（同步后端）
+    async updateRadical(character, radical) {
+      const value = String(radical || '').trim()
+      if (character.radical === value) return
+      try {
+        const res = await api.patch(`/api/characters/${character.id}`, { radical: value })
+        this.character = res.data || this.character
+      } catch (e) {
+        this.error = e.message
+      }
+    },
+
     // ---- 笔顺参考图（strokeorder.com 外部图） ----
     showStrokeRef: false,        // 是否展开笔顺参考图
     strokeRefError: false,       // 图加载失败（离线/外链被拦）
@@ -239,6 +269,11 @@ export function registerStrokeEditor() {
       }
         this.character = res.data || null
         this.strokes = res.data?.strokes || []
+        // 数据重载后清空重绘状态（目标笔画可能已变化）
+        // 注意: 不清空重做栈与清空备份 —— 本端写操作（撤销/删除/清空）会触发服务端
+        // 广播回环重载，若清空则重做/恢复永远不可用；恢复与重做对笔顺冲突有兜底处理
+        this.redrawStroke = null
+        this._lastOp = null
         // 数据注入公共书写板（参考字 + 笔画）
         this.pad.setCharacter(this.character?.character || '')
         this.pad.loadStrokes(this.strokes)
@@ -256,9 +291,160 @@ export function registerStrokeEditor() {
     },
 
     // 本地新笔画保存到服务端（串行化，防止并发取到相同max+1）
+    // 重绘模式: 直接覆盖目标笔画的轨迹（不删除笔画重来）
     onStrokeRecorded(localStroke) {
-      this.saveQueue = this.saveQueue.then(() => this.saveStroke(localStroke))
+      if (this.redrawStroke) {
+        this.saveQueue = this.saveQueue.then(() => this.saveRedraw(localStroke))
+      } else {
+        this.saveQueue = this.saveQueue.then(() => this.saveStroke(localStroke))
+      }
       return this.saveQueue
+    },
+
+    // ---- 重绘单笔: 列表保留该笔画并高亮（隐藏其重绘/删除按钮与类型下拉框），
+    //      同时从画布中移除，重绘后替换其轨迹，取消则恢复画布显示 ----
+    startRedraw(stroke) {
+      if (this.padMode !== 'write') return
+      this.redrawStroke = stroke
+      // 仅从画布移除（列表保留），供直接在画布上重写
+      this.pad.removeStroke(stroke.id)
+    },
+
+    // 取消重绘: 清除重绘期间可能已绘制的临时笔画，并恢复画布中原笔画
+    cancelRedraw() {
+      const s = this.redrawStroke
+      if (!s) return
+      this.redrawStroke = null
+      // 清除重绘期间已绘制但未保存的临时笔画（local- 前缀）
+      for (const p of this.pad.strokes) {
+        if (typeof p.id === 'string' && p.id.startsWith('local-')) {
+          this.pad.removeStroke(p.id)
+        }
+      }
+      // 恢复画布显示（列表中的原笔画仍在）
+      this.pad.loadStrokes(this.strokes)
+    },
+
+    async saveRedraw(localStroke) {
+      const target = this.redrawStroke
+      if (!target) return false
+      this.isSaving = true
+      try {
+        // 用户在保存完成前撤销了重绘笔画 → 仅清理画布，不做覆盖
+        if (this.cancelledLocalIds.has(localStroke.id)) {
+          this.cancelledLocalIds.delete(localStroke.id)
+          this.pad.removeStroke(localStroke.id)
+          return true
+        }
+        const res = await api.patch(
+          `/api/characters/${this.character.id}/strokes/${target.id}`,
+          { trajectory_data: localStroke.trajectory_data })
+        // 用新轨迹替换本地旧笔画（保持原位与笔顺）
+        const idx = this.strokes.findIndex(s => s.id === target.id)
+        if (idx !== -1) this.strokes[idx] = res.data
+        // 移除画布上的临时笔画并刷新显示
+        this.pad.removeStroke(localStroke.id)
+        this.pad.loadStrokes(this.strokes)
+        this.redrawStroke = null
+        this._lastOp = 'draw'
+        return true
+      } catch (e) {
+        this.error = e.message
+        return false
+      } finally {
+        this.isSaving = false
+      }
+    },
+
+    // ---- 撤销/重做/清空/恢复 状态（启用、禁用一致且互斥） ----
+    // 撤销: 移除画布最后一笔（进重做栈）。上一次为「删除」时禁用（用重做恢复）。
+    canUndo() {
+      if (this.padMode !== 'write') return false
+      if (this.clearedStrokes.length > 0 && this.strokes.length === 0) return false   // 清空待恢复态
+      if (this._lastOp === 'delete') return false                                     // 删除由重做恢复
+      return this.pad.strokes.length > 0
+    },
+
+    // 重做: 恢复最近一次被移除的笔画（撤销或删除均可恢复）
+    canRedo() {
+      if (this.padMode !== 'write') return false
+      if (this.redrawStroke) return false                        // 重绘期间互斥
+      if (this.clearedStrokes.length > 0 && this.strokes.length === 0) return false   // 清空待恢复态
+      return this.redoStack.length > 0 && this.isDeleting === 0
+    },
+
+    // 清空: 画布有笔画且不在清空待恢复态/重绘态
+    canClear() {
+      if (this.padMode !== 'write') return false
+      if (this.redrawStroke) return false
+      if (this.clearedStrokes.length > 0 && this.strokes.length === 0) return false
+      return this.pad.strokes.length > 0
+    },
+
+    // 恢复: 仅清空待恢复态可用（清空后列表为空且删除已完成）
+    canRestore() {
+      return this.padMode === 'write' && this.clearedStrokes.length > 0
+        && this.strokes.length === 0 && this.isDeleting === 0
+    },
+
+    // 撤销入口: 经编辑器判断状态后调用书写板撤销（移除画布最后一笔）
+    undoStroke() {
+      if (!this.canUndo()) return
+      this.pad.undo()
+    },
+
+    // ---- 重做: 反向处理撤销（恢复最近一次撤销/删除的笔画） ----
+    async redo() {
+      if (!this.canRedo()) return
+      const s = this.redoStack[this.redoStack.length - 1]
+      // 原笔顺可能已被占用 → 顺延新笔顺
+      const order = this.strokes.some(x => x.stroke_order === s.stroke_order)
+        ? this.nextStrokeOrder() : s.stroke_order
+      try {
+        const res = await api.post(`/api/characters/${this.character.id}/strokes`, {
+          stroke_order: order,
+          stroke_type: s.stroke_type,
+          trajectory_data: s.trajectory_data
+        })
+        this.redoStack.pop()
+        this.strokes.push(res.data)
+        // 按笔顺排序显示，保持列表与后端顺序一致
+        this.strokes.sort((a, b) => a.stroke_order - b.stroke_order)
+        this.pad.loadStrokes(this.strokes)
+        this._lastOp = 'redo'
+      } catch (e) {
+        this.error = e.message
+      }
+    },
+
+    // ---- 清空全部: 备份全部笔画（支持恢复），再逐笔删除 ----
+    onStrokeClearAll(strokes) {
+      this.clearedStrokes = [...(strokes || [])]
+      this.redoStack = []
+      this.redrawStroke = null
+      this._lastOp = 'clear'
+      for (const s of this.clearedStrokes) {
+        this.deleteStroke(s.id)
+      }
+    },
+
+    // 恢复清空的笔画（批量重建，保持原笔顺）
+    async restoreCleared() {
+      if (!this.canRestore()) return
+      const strokes = this.clearedStrokes.map(s => ({
+        stroke_order: s.stroke_order,
+        stroke_type: s.stroke_type,
+        trajectory_data: s.trajectory_data
+      }))
+      try {
+        const res = await api.post(`/api/characters/${this.character.id}/strokes/batch`, { strokes })
+        this.strokes = (res.data || []).slice().sort((a, b) => a.stroke_order - b.stroke_order)
+        this.pad.loadStrokes(this.strokes)
+        this.clearedStrokes = []
+        this._lastOp = 'restore'
+      } catch (e) {
+        this.error = e.message
+      }
     },
 
     async saveStroke(localStroke) {
@@ -279,6 +465,10 @@ export function registerStrokeEditor() {
         this.strokes.push(res.data)
         // 回发书写板: 用服务端数据替换本地pending项
         this.pad.confirmStrokeSaved(localStroke.id, res.data)
+        // 新笔画保存后清空重做栈与清空备份（重做/恢复仅针对紧随其后的操作）
+        this.redoStack = []
+        this.clearedStrokes = []
+        this._lastOp = 'draw'
         return true
       } catch (e) {
         this.error = e.message
@@ -289,22 +479,30 @@ export function registerStrokeEditor() {
       }
     },
 
-    // 画布撤销/清空时回调的删除请求
-    onStrokeRemoveRequest({ strokeId }) {
+    // 画布撤销/行内删除时回调的删除请求
+    // reason: 'undo'（撤销触发，恢复由重做处理）| 'delete'（行内删除，同样可由重做恢复）
+    onStrokeRemoveRequest({ strokeId, reason }) {
       if (typeof strokeId === 'string' && strokeId.startsWith('local-')) {
         this.cancelledLocalIds.add(strokeId)   // 本地pending：标记，保存完成时补删
         return
       }
+      this._lastOp = reason === 'delete' ? 'delete' : 'remove'
+      // 备份已保存笔画（供重做恢复: 撤销与行内删除均可恢复）
+      const s = this.strokes.find(x => x.id === strokeId)
+      if (s) this.redoStack.push(s)
       this.deleteStroke(strokeId)
     },
 
     async deleteStroke(strokeId) {
+      this.isDeleting++
       try {
         await api.delete(`/api/characters/${this.character.id}/strokes/${strokeId}`)
         this.strokes = this.strokes.filter(s => s.id !== strokeId)
         this.pad.removeStroke(strokeId)   // 书写板同步移除
       } catch (e) {
         this.error = e.message
+      } finally {
+        this.isDeleting--
       }
     },
 
@@ -367,6 +565,9 @@ export function registerStrokeEditor() {
         const res = await api.post(
           `/api/characters/${this.character.id}/strokes/reorder`, { strokeIds })
         this.strokes = res.data || this.strokes
+        // 重排后重做栈失效
+        this.redoStack = []
+        this._lastOp = 'reorder'
         // 书写板与回放数据同步刷新
         this.pad.loadStrokes(this.strokes)
       } catch (e) {

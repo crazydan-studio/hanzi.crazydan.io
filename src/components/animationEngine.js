@@ -12,6 +12,8 @@ export class AnimationEngine {
     this.highlightColor = options.highlightColor ?? null   // 正在绘制笔画的动画高亮色
     this.backgroundRenderer = options.backgroundRenderer ?? null  // (engine) 每帧清屏后绘制背景
     this.penWidthCoef = options.penWidthCoef ?? 1   // 前端笔触宽度系数（展示配置）
+    // 已完成笔画的颜色: 可为函数（每帧求值，适配主题切换）
+    this.completedColor = options.completedColor ?? '#000000'
 
     this.state = 'IDLE'          // IDLE | PLAYING | PAUSED | COMPLETED
     this.speed = 1.0             // 播放速度倍率 0.25-4
@@ -30,8 +32,14 @@ export class AnimationEngine {
     this.onComplete = null       // () 全部完成
     this.onProgress = null       // (index, progress) 笔画内进度 0-1
     this.onBeforeRender = null   // () 清屏后回调（宿主绘制田字格等背景）
+    this.onAfterRender = null    // () 笔画绘制完成后回调（宿主绘制覆盖层，如田字格置于笔画上层）
 
     this.setupCanvas()
+  }
+
+  // 已完成笔画颜色（支持函数形式，随主题动态求值）
+  resolveCompletedColor() {
+    return typeof this.completedColor === 'function' ? this.completedColor() : this.completedColor
   }
 
   setupCanvas() {
@@ -187,17 +195,20 @@ export class AnimationEngine {
   // 展示颜色为前端配置（数据中不存颜色字段）
   renderFrame(stroke, progress) {
     this.clearCanvas()
+    const ink = this.resolveCompletedColor()
     for (let i = 0; i < this.currentIndex && i < this.strokes.length; i++) {
-      // 已完成笔画: 永久黑色显示
-      this.renderFullStroke(this.strokes[i], '#000000')
+      // 已完成笔画: 永久墨色显示（主题适配）
+      this.renderFullStroke(this.strokes[i], ink)
     }
     if (progress === null) {
-      // 当前笔画刚完成: 黑色
-      this.renderFullStroke(stroke, '#000000')
+      // 当前笔画刚完成: 墨色
+      this.renderFullStroke(stroke, ink)
     } else {
       // 当前笔画动画中: 高亮色
-      this.renderPartial(stroke, progress, this.highlightColor || '#000000')
+      this.renderPartial(stroke, progress, this.highlightColor || ink)
     }
+    // 覆盖层（田字格等置于笔画上层）
+    this.onAfterRender?.()
   }
 
   getStrokeDuration(pts) {
@@ -242,7 +253,7 @@ export class AnimationEngine {
   renderPartial(stroke, progress, colorOverride) {
     const pts = stroke.pxPoints
     if (!pts || pts.length === 0) return
-    const color = colorOverride || '#000000'
+    const color = colorOverride || this.resolveCompletedColor()
 
     // 单点笔画: 圆点半径随进度增长
     if (pts.length === 1) {
@@ -292,7 +303,7 @@ export class AnimationEngine {
   renderFullStroke(stroke, colorOverride) {
     const pts = stroke.pxPoints
     if (!pts || pts.length === 0) return
-    const color = colorOverride || '#000'
+    const color = colorOverride || this.resolveCompletedColor()
 
     if (pts.length === 1) {
       // 单点: 画个小圆点
@@ -308,9 +319,11 @@ export class AnimationEngine {
 
   redrawCompleted() {
     this.clearCanvas()
+    const ink = this.resolveCompletedColor()
     for (let i = 0; i < this.currentIndex && i < this.strokes.length; i++) {
-      this.renderFullStroke(this.strokes[i], '#000000')
+      this.renderFullStroke(this.strokes[i], ink)
     }
+    this.onAfterRender?.()
   }
 
   clearCanvas() {
