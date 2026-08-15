@@ -1,9 +1,9 @@
 // ============ 汉字静态数据同步（public/assets/zi） ============
 // 书写页对 部首/结构/笔画 的修改与调整，同步落盘到该汉字对应的静态数据文件
-// （仅当文件已存在时更新: meta.json / strokes.json）
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { deltaEncode } from './trajectory.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ZI_DIR = path.join(__dirname, '..', '..', 'public', 'assets', 'zi')
@@ -33,17 +33,23 @@ export function syncCharacterMeta(character) {
   }
 }
 
-// 同步笔画数据到 strokes.json（仅文件存在时）
+// 同步笔画数据到 strokes.json（该汉字须已导出 meta.json）:
+// 有笔画时创建/更新（轨迹为增量编码 v7）；无笔画时删除文件
 export function syncCharacterStrokes(characterId, strokes) {
   const file = strokesPath(characterId)
-  if (!fs.existsSync(file)) return false
+  if (!fs.existsSync(metaPath(characterId))) return false
+  const list = (strokes || []).filter(s => s.trajectory_data?.points?.length > 0)
   try {
-    // 单字母紧凑结构（与导出脚本一致）: o 笔顺 / t 类型 / d 轨迹（v 版本 / p 点）
-    fs.writeFileSync(file, JSON.stringify((strokes || []).map(s => ({
-      o: s.stroke_order,
-      t: s.stroke_type,
-      d: { v: s.trajectory_data.version, p: s.trajectory_data.points }
-    }))))
+    if (list.length > 0) {
+      // 单字母紧凑结构（与导出脚本一致）: o 笔顺 / t 类型 / d 轨迹（v 版本 / p 增量编码点）
+      fs.writeFileSync(file, JSON.stringify(list.map(s => ({
+        o: s.stroke_order,
+        t: s.stroke_type,
+        d: { v: '7.0', p: deltaEncode(s.trajectory_data.points) }
+      }))))
+    } else if (fs.existsSync(file)) {
+      fs.rmSync(file)
+    }
     return true
   } catch {
     return false

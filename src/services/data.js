@@ -23,15 +23,29 @@ export function normalizeMeta(raw) {
   }
 }
 
+// 轨迹增量编码点 → 绝对坐标点（strokes.json 存储 v6 增量格式以降低体积）
+function deltaDecode(points) {
+  const out = []
+  let prev = null
+  for (const p of points) {
+    const point = prev
+      ? [p[0] + prev[0], p[1] + prev[1], p[2] + prev[2], p[3] + prev[3]]
+      : [p[0], p[1], p[2], p[3]]
+    out.push(point)
+    prev = point
+  }
+  return out
+}
+
 // strokes.json 紧凑结构 → 完整字段
-// [{ o: 笔顺, t: 类型, d: { v: 轨迹版本, p: 点[[x,y,pressure,timestamp]] } }]
+// [{ o: 笔顺, t: 类型, d: { v: 轨迹版本, p: 点（v6 增量编码，解码为绝对坐标） } }]
 export function normalizeStrokes(list) {
   return (list || []).map(s => ({
     stroke_order: s.o,
     stroke_type: s.t,
     trajectory_data: {
       version: s.d?.v,
-      points: s.d?.p || []
+      points: (s.d?.v === '6.0' || s.d?.v === '7.0') ? deltaDecode(s.d.p || []) : (s.d?.p || [])
     }
   }))
 }

@@ -14,8 +14,8 @@ export const strokeTypeSchema = z.number().int().min(STROKE_TYPE_MIN).max(STROKE
 // x/y: 归一化×10000 整数(0-10000)；pressure: 0-1 ×100 整数(0-100，2位小数)；
 // timestamp: 毫秒 ×10 整数（1位小数，0.1ms 精度足够渲染）
 const pointTuple = z.tuple([
-  z.number().int().min(0).max(10000),   // x 归一化×10000
-  z.number().int().min(0).max(10000),   // y
+  z.number().int().min(0).max(1000),    // x 归一化×1000（0.5px 分辨率）
+  z.number().int().min(0).max(1000),    // y
   z.number().int().min(0).max(100),     // pressure ×100
   z.number().int().min(0).finite()      // timestamp ×10
 ])

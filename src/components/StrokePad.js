@@ -568,8 +568,8 @@ Alpine.data('strokePad', (opts = {}) => ({
     const pts = trajectory.points
     if (!pts || pts.length === 0) return
     const px = pts.map(p => ({
-      x: (p[0] / 10000) * this.width,
-      y: (p[1] / 10000) * this.height,
+      x: (p[0] / 1000) * this.width,
+      y: (p[1] / 1000) * this.height,
       pressure: (p[2] ?? 50) / 100,
       timestamp: (p[3] ?? 0) / 10
     }))

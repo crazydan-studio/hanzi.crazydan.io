@@ -7,12 +7,14 @@
 //   - public/assets/pinyin/{拼音}/meta.json  拼音字列表（[字, 读音][]，按权重排序；
 //                                            读音为该无声调拼音对应的第一个带声调拼音）
 //   - public/assets/zi/{Unicode}/meta.json   单个汉字信息（读音/笔画数/部首/结构/Unicode）
-//   - public/assets/zi/{Unicode}/strokes.json 笔画数据（仅常用字生成，无笔画时为空数组）
+//   - public/assets/zi/{Unicode}/strokes.json 笔画数据（与 meta.json 同时导出；
+//     仅该汉字存在笔画数据时创建；轨迹点为增量编码 v6）
 // 用法:
 //   pnpm export:data                                       # 默认导出 100 个常用字 + 全量拼音
 //   pnpm export:data -- --count 200                        # 指定常用字数量
 //   pnpm export:data -- --source a.sqlite --db b.db --out public
 import { DatabaseSync } from 'node:sqlite'
+import { decompressTrajectory, deltaEncode } from '../server/services/trajectory.js'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
@@ -56,18 +58,11 @@ const STRUCTURE_MAP = {
   '右上包围结构': 7, '左包围结构': 7, '下包围结构': 7, '右包围结构': 7
 }
 
-// 带声调拼音 → 无声调拼音
-const TONE_MAP = {
-  ā: 'a', á: 'a', ǎ: 'a', à: 'a',
-  ē: 'e', é: 'e', ě: 'e', è: 'e',
-  ī: 'i', í: 'i', ǐ: 'i', ì: 'i',
-  ō: 'o', ó: 'o', ǒ: 'o', ò: 'o',
-  ū: 'u', ú: 'u', ǔ: 'u', ù: 'u',
-  ǖ: 'ü', ǘ: 'ü', ǚ: 'ü', ǜ: 'ü'
-}
-function stripTone(py) {
-  return String(py || '').split('').map(ch => TONE_MAP[ch] || ch).join('')
-}
+// 数字声调拼音: spell_value_ + spell_tone_（轻声不带数字），如 di+2 → di2
+const numberTonePinyin = (value, tone) => value + (tone ? String(tone) : '')
+
+// 数字声调拼音 → 无声调拼音（去掉尾部声调数字）
+const stripTone = (py) => String(py || '').replace(/\d+$/, '')
 
 function writeJson(file, data, pretty = false) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
@@ -92,7 +87,7 @@ function main() {
 
   // ---- 1. 读取词典（pinyin_zi: 读音按 used_weight_ 降序，权重为 (zi_, spell_raw_) 组合去重后的和） ----
   const rows = src.prepare(`
-    SELECT zi_, spell_raw_, spell_value_, used_weight_,
+    SELECT zi_, spell_value_, spell_tone_, used_weight_,
            total_stroke_count_, glyph_struct_, radical_
     FROM pinyin_zi
     ORDER BY id_
@@ -107,7 +102,7 @@ function main() {
       e = {
         char: r.zi_,
         weight: 0,
-        readings: new Map(),   // spell_raw_ → 权重和
+        readings: new Map(),   // 数字声调拼音 → 权重
         plainSet: new Set(),
         totalStrokes: 0,
         radical: '',
@@ -116,11 +111,14 @@ function main() {
       words.set(r.zi_, e)
     }
     // 权重: 该汉字各带声调拼音组合 used_weight_ 的最大值
-    if (r.spell_raw_ && !e.readings.has(r.spell_raw_)) {
-      e.readings.set(r.spell_raw_, r.used_weight_ ?? 0)
-      e.weight = Math.max(e.weight, r.used_weight_ ?? 0)
+    if (r.spell_value_) {
+      const pinyin = numberTonePinyin(r.spell_value_, r.spell_tone_)
+      if (!e.readings.has(pinyin)) {
+        e.readings.set(pinyin, r.used_weight_ ?? 0)
+        e.weight = Math.max(e.weight, r.used_weight_ ?? 0)
+      }
+      e.plainSet.add(r.spell_value_)
     }
-    if (r.spell_value_) e.plainSet.add(r.spell_value_)
     e.totalStrokes = Math.max(e.totalStrokes, r.total_stroke_count_ ?? 0)
     if (r.radical_ && !e.radical) e.radical = r.radical_
     if (r.glyph_struct_ && STRUCTURE_MAP[r.glyph_struct_] !== undefined) {
@@ -141,7 +139,7 @@ function main() {
     try {
       strokeRows = strokeDb.prepare(`
         SELECT character_id, stroke_order, stroke_type, trajectory_data
-        FROM strokes WHERE deleted_at IS NULL ORDER BY character_id, stroke_order
+        FROM strokes ORDER BY character_id, stroke_order
       `).all()
     } finally {
       strokeDb.close()
@@ -154,7 +152,7 @@ function main() {
   const strokeMap = new Map()
   for (const s of strokeRows) {
     let traj = null
-    try { traj = JSON.parse(s.trajectory_data) } catch { continue }
+    try { traj = decompressTrajectory(s.trajectory_data) } catch { continue }
     if (!traj || !Array.isArray(traj.points) || traj.points.length === 0) continue
     if (!strokeMap.has(s.character_id)) strokeMap.set(s.character_id, [])
     strokeMap.get(s.character_id).push({
@@ -204,7 +202,9 @@ function main() {
   }
   console.log(`已导出拼音字列表: ${pinyinGroups.size} 个拼音 → ${pinyinDir}`)
 
-  // ---- 6. 单个汉字信息（全部汉字） + 常用字笔画数据 ----
+  // ---- 6. 单个汉字信息（全部汉字）: 与 meta.json 同时导出该汉字笔画数据 ----
+  // 笔画数据不限于常用字——凡笔画库中存在笔画的汉字均导出 strokes.json，
+  // 无笔画数据的汉字不创建该文件；轨迹点为增量编码（v6），降低存储占用
   let metaCount = 0
   let strokeCount = 0
   const BATCH = 2000
@@ -224,14 +224,14 @@ function main() {
         s: w.structure
       })
       metaCount++
-      // 仅常用字生成笔画数据文件（无笔画时为空数组，供书写页直接更新）
-      // 单字母紧凑结构: o 笔顺/t 类型/d 轨迹（v 版本/p 点）
-      if (commonSet.has(w.char)) {
+      // 单字母紧凑结构: o 笔顺/t 类型/d 轨迹（v 版本/p 增量编码点）
+      const strokes = strokeMap.get(cp)
+      if (strokes && strokes.length > 0) {
         writeJson(path.join(dir, 'strokes.json'),
-          (strokeMap.get(cp) || []).map(st => ({
+          strokes.map(st => ({
             o: st.stroke_order,
             t: st.stroke_type,
-            d: { v: st.trajectory_data.version, p: st.trajectory_data.points }
+            d: { v: '7.0', p: deltaEncode(st.trajectory_data.points) }
           })))
         strokeCount++
       }

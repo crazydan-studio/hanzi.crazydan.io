@@ -1,5 +1,10 @@
 import { CANVAS_SIZE } from './Constants.js'
 
+// 抽稀降采样阈值: 与上一保留点距离小于 0.5px（内部 500 坐标系）的点丢弃，
+// 0.5px 粒度对笔触渲染不可感知，可显著降低轨迹点数与存储占用
+const MIN_POINT_DIST = 0.5
+const MIN_POINT_DIST_SQ = MIN_POINT_DIST * MIN_POINT_DIST
+
 // 录制核心（与画布解耦，可复用）
 export class StrokeRecorder {
   constructor() {
@@ -18,8 +23,15 @@ export class StrokeRecorder {
 
   // pressure: 0-1；设备无压力时调用方传 0.5
   // x/y: 内部像素坐标，保存时归一化(4位小数)后 ×10000 存整数
+  // 抽稀: 与上一保留点距离小于阈值时丢弃该点（首点始终保留）
   addPoint(x, y, pressure) {
     if (!this.isRecording) return
+    const last = this.points[this.points.length - 1]
+    if (last) {
+      const dx = x - last.x
+      const dy = y - last.y
+      if (dx * dx + dy * dy < MIN_POINT_DIST_SQ) return
+    }
     const ts = performance.now() - this.startTime   // 相对偏移（单调）
     // 防倒退保护: 即使时钟异常也保证单调不减
     const prev = this.points[this.points.length - 1]
@@ -43,10 +55,10 @@ export class StrokeRecorder {
   // 整数存储可消除浮点噪声（如 1.4000000059604645）并减小体积
   generateTrajectoryData() {
     return {
-      version: '5.0',
+      version: '7.0',   // v7: x/y ×1000（0.5px 分辨率）；存储时统一增量编码
       points: this.points.map(p => [
-        Math.round(p.x / CANVAS_SIZE.width * 10000),   // x
-        Math.round(p.y / CANVAS_SIZE.height * 10000),  // y
+        Math.round(p.x / CANVAS_SIZE.width * 1000),    // x ×1000（0.5px 分辨率）
+        Math.round(p.y / CANVAS_SIZE.height * 1000),   // y
         Math.round(p.pressure * 100),                   // pressure ×100
         Math.round(p.timestamp * 10)                    // timestamp ×10
       ])
