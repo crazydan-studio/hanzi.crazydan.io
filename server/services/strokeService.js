@@ -1,12 +1,13 @@
 import { getDb, serializeStroke, withTransaction } from './database.js'
 import { AppError } from '../middleware/errorHandler.js'
 import { syncCharacterStrokes } from './staticSync.js'
+import { compressTrajectory } from './trajectory.js'
 
 export const strokeService = {
   findByCharacter(characterId) {
     const db = getDb()
     const rows = db.prepare(
-      'SELECT * FROM strokes WHERE character_id = ? AND deleted_at IS NULL ORDER BY stroke_order'
+      'SELECT * FROM strokes WHERE character_id = ? ORDER BY stroke_order'
     ).all(characterId)
     return rows.map(serializeStroke)
   },
@@ -14,9 +15,7 @@ export const strokeService = {
   // 校验字符存在性
   assertCharacterExists(characterId) {
     const db = getDb()
-    const exists = db.prepare(
-      'SELECT id FROM characters WHERE id = ? AND deleted_at IS NULL'
-    ).get(characterId)
+    const exists = db.prepare('SELECT id FROM characters WHERE id = ?').get(characterId)
     if (!exists) throw new AppError(404, 'NOT_FOUND', 'Character not found')
   },
 
@@ -24,7 +23,7 @@ export const strokeService = {
   findByIdAndCharacter(id, characterId) {
     const db = getDb()
     const row = db.prepare(
-      'SELECT * FROM strokes WHERE id = ? AND character_id = ? AND deleted_at IS NULL'
+      'SELECT * FROM strokes WHERE id = ? AND character_id = ?'
     ).get(id, characterId)
     return row ? serializeStroke(row) : null
   },
@@ -36,7 +35,7 @@ export const strokeService = {
       INSERT INTO strokes (character_id, stroke_order, stroke_type, trajectory_data)
       VALUES (?, ?, ?, ?)
     `).run(characterId, data.stroke_order, data.stroke_type,
-      JSON.stringify(data.trajectory_data))
+      compressTrajectory(data.trajectory_data))
     const stroke = serializeStroke(db.prepare('SELECT * FROM strokes WHERE id = ?').get(result.lastInsertRowid))
     // 同步到静态数据 strokes.json（仅文件已存在时更新）
     syncCharacterStrokes(characterId, this.findByCharacter(characterId))
@@ -68,7 +67,7 @@ export const strokeService = {
       const result = []
       for (const s of strokes) {
         const r = insert.run(characterId, s.stroke_order, s.stroke_type,
-          JSON.stringify(s.trajectory_data))
+          compressTrajectory(s.trajectory_data))
         result.push(r.lastInsertRowid)
       }
       return result
@@ -83,7 +82,7 @@ export const strokeService = {
 
   update(id, data) {
     const db = getDb()
-    const current = db.prepare('SELECT * FROM strokes WHERE id = ? AND deleted_at IS NULL').get(id)
+    const current = db.prepare('SELECT * FROM strokes WHERE id = ?').get(id)
     if (!current) return null
 
     const updates = []
@@ -91,7 +90,7 @@ export const strokeService = {
     // trajectory_data 单独处理（需JSON序列化），其余字段直接透传
     if (data.trajectory_data !== undefined) {
       updates.push('trajectory_data = ?')
-      params.push(JSON.stringify(data.trajectory_data))
+      params.push(compressTrajectory(data.trajectory_data))
     }
     for (const field of ['stroke_order', 'stroke_type']) {
       if (data[field] !== undefined) {
@@ -101,9 +100,8 @@ export const strokeService = {
     }
     if (updates.length === 0) return serializeStroke(current)
 
-    updates.push("updated_at = datetime('now')")
     params.push(id)
-    db.prepare(`UPDATE strokes SET ${updates.join(', ')} WHERE id = ? AND deleted_at IS NULL`).run(...params)
+    db.prepare(`UPDATE strokes SET ${updates.join(', ')} WHERE id = ?`).run(...params)
     const stroke = serializeStroke(db.prepare('SELECT * FROM strokes WHERE id = ?').get(id))
     // 同步到静态数据 strokes.json（仅文件已存在时更新）
     syncCharacterStrokes(stroke.character_id, this.findByCharacter(stroke.character_id))
@@ -112,8 +110,8 @@ export const strokeService = {
 
   delete(id) {
     const db = getDb()
-    const current = db.prepare('SELECT * FROM strokes WHERE id = ? AND deleted_at IS NULL').get(id)
-    db.prepare("UPDATE strokes SET deleted_at = datetime('now') WHERE id = ? AND deleted_at IS NULL").run(id)
+    const current = db.prepare('SELECT * FROM strokes WHERE id = ?').get(id)
+    db.prepare('DELETE FROM strokes WHERE id = ?').run(id)
     // 同步到静态数据 strokes.json（仅文件已存在时更新）
     if (current) syncCharacterStrokes(current.character_id, this.findByCharacter(current.character_id))
     return { success: true }
@@ -136,7 +134,7 @@ export const strokeService = {
 
     const db = getDb()
     const update = db.prepare(
-      "UPDATE strokes SET stroke_order = ?, updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL"
+      'UPDATE strokes SET stroke_order = ? WHERE id = ?'
     )
     withTransaction(() => {
       // 先整体偏移到安全区间，再赋最终值 1..N。
@@ -144,11 +142,11 @@ export const strokeService = {
       // 若顺序存在缺口（如 1,3,4,5），第一行 1→5 会与尚未更新的原 order=5 冲突。
       // 偏移量取「当前最大 order + N」，保证偏移后所有值都大于原最大值，逐行无碰撞。
       const { maxOrder } = db.prepare(
-        'SELECT COALESCE(MAX(stroke_order), 0) AS maxOrder FROM strokes WHERE character_id = ? AND deleted_at IS NULL'
+        'SELECT COALESCE(MAX(stroke_order), 0) AS maxOrder FROM strokes WHERE character_id = ?'
       ).get(characterId)
       const offset = maxOrder + strokeIds.length
       db.prepare(
-        "UPDATE strokes SET stroke_order = stroke_order + ?, updated_at = datetime('now') WHERE character_id = ? AND deleted_at IS NULL"
+        'UPDATE strokes SET stroke_order = stroke_order + ? WHERE character_id = ?'
       ).run(offset, characterId)
       // 再按新顺序逐个赋最终值 1..N
       strokeIds.forEach((id, index) => update.run(index + 1, id))

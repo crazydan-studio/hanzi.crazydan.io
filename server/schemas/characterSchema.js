@@ -17,8 +17,7 @@ export const createCharacterSchema = z.object({
   character: z.string()
     .length(1, 'Must be a single character')
     .regex(/^[\u4e00-\u9fff]$/, 'Must be a valid Chinese character'),
-  pinyin: z.array(z.string()).default([]),            // 读音（含声调，可多音）
-  pinyin_plain: z.array(z.string()).default([]),      // 拼音（无声调）
+  pinyin: z.array(z.string()).default([]),            // 读音（数字声调，可多音）
   used_weight: z.number().int().min(0).default(0),
   structure: z.number().int().min(0).max(9).default(0),
   total_stroke_count: z.number().int().min(0).default(0)

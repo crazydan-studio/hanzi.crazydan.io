@@ -6,14 +6,14 @@ export const characterService = {
   // has_strokes: '1'/'true' 完整(cnt==total) | '2'/'partial' 仅含部分笔画图(cnt>0且不等) | '0'/'false' 无笔画图(cnt=0)
   findAll({ page = 1, limit = 20, search, has_strokes }) {
     const db = getDb()
-    const conditions = ['c.deleted_at IS NULL']
+    const conditions = ['1=1']
     const params = []
 
     if (search) {
       // 匹配字 或 拼音（无声调 JSON 数组）或 读音
-      conditions.push(`(c.character LIKE ? OR c.pinyin_plain LIKE ? OR c.pinyin LIKE ?)`)
+      conditions.push(`(c.character LIKE ? OR c.pinyin LIKE ?)`)
       const term = `%${search}%`
-      params.push(term, term, term)
+      params.push(term, term)
     }
 
     let strokeJoin = ''
@@ -26,7 +26,7 @@ export const characterService = {
       strokeJoin = `
         LEFT JOIN (
           SELECT character_id, COUNT(*) AS cnt FROM strokes
-          WHERE deleted_at IS NULL GROUP BY character_id
+          GROUP BY character_id
         ) sc ON sc.character_id = c.id
       `
       if (wantComplete) {
@@ -55,7 +55,7 @@ export const characterService = {
     const data = rows.map(row => {
       const char = serializeCharacter(row)
       const strokes = db.prepare(
-        'SELECT * FROM strokes WHERE character_id = ? AND deleted_at IS NULL ORDER BY stroke_order'
+        'SELECT * FROM strokes WHERE character_id = ? ORDER BY stroke_order'
       ).all(char.id).map(serializeStroke)
       return { ...char, strokes }
     })
@@ -68,13 +68,11 @@ export const characterService = {
 
   findById(id) {
     const db = getDb()
-    const row = db.prepare(
-      'SELECT * FROM characters WHERE id = ? AND deleted_at IS NULL'
-    ).get(id)
+    const row = db.prepare('SELECT * FROM characters WHERE id = ?').get(id)
     if (!row) return null
 
     const strokes = db.prepare(
-      'SELECT * FROM strokes WHERE character_id = ? AND deleted_at IS NULL ORDER BY stroke_order'
+      'SELECT * FROM strokes WHERE character_id = ? ORDER BY stroke_order'
     ).all(id).map(serializeStroke)
 
     return { ...serializeCharacter(row), strokes }
@@ -82,9 +80,7 @@ export const characterService = {
 
   findByCharacter(char) {
     const db = getDb()
-    const row = db.prepare(
-      'SELECT * FROM characters WHERE character = ? AND deleted_at IS NULL'
-    ).get(char)
+    const row = db.prepare('SELECT * FROM characters WHERE character = ?').get(char)
     if (!row) return null
     return this.findById(row.id)
   },
@@ -93,11 +89,10 @@ export const characterService = {
     const db = getDb()
     const id = data.character.codePointAt(0)
     db.prepare(`
-      INSERT INTO characters (id, character, pinyin, pinyin_plain, used_weight, structure, total_stroke_count)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO characters (id, character, pinyin, used_weight, structure, total_stroke_count)
+      VALUES (?, ?, ?, ?, ?, ?)
     `).run(id, data.character,
       JSON.stringify(data.pinyin || []),
-      JSON.stringify(data.pinyin_plain || []),
       data.used_weight ?? 0, data.structure ?? 0, data.total_stroke_count ?? 0)
     return this.findById(id)
   },
@@ -118,8 +113,8 @@ export const characterService = {
     if (updates.length === 0) return this.findById(id)
     params.push(id)
     db.prepare(`
-      UPDATE characters SET ${updates.join(', ')}, updated_at = datetime('now')
-      WHERE id = ? AND deleted_at IS NULL
+      UPDATE characters SET ${updates.join(', ')}
+      WHERE id = ?
     `).run(...params)
     const updated = this.findById(id)
     // 同步到静态数据 meta.json（仅文件已存在时更新）
@@ -128,10 +123,7 @@ export const characterService = {
   },
 
   delete(id) {
-    const db = getDb()
-    db.prepare(
-      "UPDATE characters SET deleted_at = datetime('now') WHERE id = ? AND deleted_at IS NULL"
-    ).run(id)
+    getDb().prepare('DELETE FROM characters WHERE id = ?').run(id)
     return { success: true }
   }
 }

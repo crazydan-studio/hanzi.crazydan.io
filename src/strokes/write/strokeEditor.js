@@ -9,6 +9,7 @@ import { createSyncClient } from '@services/syncClient.js'
 import { STROKE_TYPES, strokeTypesMap } from '@components/StrokeTypes.js'
 import { CHARACTER_STRUCTURES, characterStructuresMap, structureLabel } from '@components/CharacterStructures.js'
 import { takeBackUrl } from '@services/session.js'
+import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 
 export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
@@ -19,6 +20,7 @@ export function registerStrokeEditor() {
     CHARACTER_STRUCTURES: CHARACTER_STRUCTURES,
     characterStructuresMap: characterStructuresMap,
     structureLabel: structureLabel,      // 结构显示文本（含示例）
+    symbolPinyin: numberToSymbolTonePinyin,   // 数字声调拼音 → 符号声调
     isSaving: false,
     saveQueue: Promise.resolve(),
     cancelledLocalIds: new Set(),

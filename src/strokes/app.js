@@ -8,6 +8,7 @@ import { CHARACTER_STRUCTURES, structureLabel } from '@components/CharacterStruc
 import { strokeInkColor } from '@components/StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { setBackUrl } from '@services/session.js'
+import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 
 Alpine.data('characterList', () => ({
   characters: [],
@@ -22,6 +23,7 @@ Alpine.data('characterList', () => ({
   loadError: '',           // 列表加载失败提示（与加载中/无结果互斥）
   CHARACTER_STRUCTURES: CHARACTER_STRUCTURES,   // 结构内联编辑下拉
   structureLabel: structureLabel,               // 结构名显示
+  symbolPinyin: numberToSymbolTonePinyin,       // 数字声调拼音 → 符号声调
   loading: false,
   error: null,
 

@@ -4,10 +4,11 @@
 //   pnpm import:pinyin -- --source /path/to/dict.sqlite   # 指定数据源路径
 //   pnpm import:pinyin -- /path/to/dict.sqlite            # 位置参数指定
 //   pnpm import:pinyin -- --source a.sqlite --db out.db   # 同时指定目标库
-// 数据源表 pinyin_zi 列: zi_(字) spell_raw_(读音含声调) spell_value_(拼音无声调)
+// 数据源表 pinyin_zi 列: zi_(字) spell_value_(拼音无声调) spell_tone_(声调 0-4)
 //       used_weight_(该读音使用频率) total_stroke_count_(笔画数) glyph_struct_(结构) radical_(部首)
 // 聚合规则:
-//   - 读音: 按 used_weight_ 降序排序（该汉字读音的排序结果）
+//   - 读音: spell_value_ + spell_tone_ 构成数字声调拼音（如 di+2 → di2，轻声不带数字），
+//           按 used_weight_ 降序排序（该汉字读音的排序结果）
 //   - 权重: 该汉字带声调拼音组合 used_weight_ 的最大值
 //   - 结构: glyph_struct_ 按数字编码存储（前端映射展示名与示例）
 // 存储: characters 表（id = 汉字 unicode 数值）；已存在记录更新（保留已有笔画）
@@ -71,26 +72,31 @@ async function main() {
 
   // 读取全部 pinyin_zi（按字聚合）
   const rows = src.prepare(`
-    SELECT zi_, spell_raw_, spell_value_, used_weight_, total_stroke_count_, glyph_struct_, radical_
+    SELECT zi_, spell_value_, spell_tone_, used_weight_, total_stroke_count_, glyph_struct_, radical_
     FROM pinyin_zi
     ORDER BY id_
   `).all()
 
-  // 聚合: zi_ → { readings:Map(spell_raw_ → 权重和), plain:Set, weight, strokes, struct, radical }
+  // 数字声调拼音: spell_value_ + spell_tone_（轻声不带数字），如 di+2 → di2
+  const numberTonePinyin = (value, tone) => value + (tone ? String(tone) : '')
+
+  // 聚合: zi_ → { readings:Map(数字声调拼音 → 权重), weight, strokes, struct, radical }
   const agg = new Map()
   for (const r of rows) {
     if (!r.zi_ || r.zi_.length !== 1) continue
     let e = agg.get(r.zi_)
     if (!e) {
-      e = { readings: new Map(), plain: new Set(), weight: 0, strokes: 0, struct: 0, radical: '' }
+      e = { readings: new Map(), weight: 0, strokes: 0, struct: 0, radical: '' }
       agg.set(r.zi_, e)
     }
     // 权重: 该汉字各带声调拼音组合 used_weight_ 的最大值
-    if (r.spell_raw_ && !e.readings.has(r.spell_raw_)) {
-      e.readings.set(r.spell_raw_, r.used_weight_ ?? 0)
-      e.weight = Math.max(e.weight, r.used_weight_ ?? 0)
+    if (r.spell_value_) {
+      const pinyin = numberTonePinyin(r.spell_value_, r.spell_tone_)
+      if (!e.readings.has(pinyin)) {
+        e.readings.set(pinyin, r.used_weight_ ?? 0)
+        e.weight = Math.max(e.weight, r.used_weight_ ?? 0)
+      }
     }
-    if (r.spell_value_) e.plain.add(r.spell_value_)
     e.strokes = Math.max(e.strokes, r.total_stroke_count_ ?? 0)
     if (r.radical_ && !e.radical) e.radical = r.radical_
     if (r.glyph_struct_ && STRUCTURE_MAP[r.glyph_struct_] !== undefined) {
@@ -102,21 +108,19 @@ async function main() {
   for (const e of agg.values()) {
     e.readings = [...e.readings.entries()]
       .sort((a, b) => b[1] - a[1])
-      .map(([raw]) => raw)
+      .map(([pinyin]) => pinyin)
   }
 
   // 写入 hanzi_stroke.db（upsert，保留已有笔画）
   const upsert = dst.prepare(`
-    INSERT INTO characters (id, character, pinyin, pinyin_plain, used_weight, structure, radical, total_stroke_count)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO characters (id, character, pinyin, used_weight, structure, radical, total_stroke_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       pinyin = excluded.pinyin,
-      pinyin_plain = excluded.pinyin_plain,
       used_weight = excluded.used_weight,
       structure = CASE WHEN excluded.structure != 0 THEN excluded.structure ELSE characters.structure END,
       radical = CASE WHEN excluded.radical != '' THEN excluded.radical ELSE characters.radical END,
-      total_stroke_count = excluded.total_stroke_count,
-      updated_at = datetime('now')
+      total_stroke_count = excluded.total_stroke_count
   `)
 
   const BATCH = 500
@@ -130,7 +134,6 @@ async function main() {
         const unicode = word.codePointAt(0)
         upsert.run(unicode, word,
           JSON.stringify(e.readings),
-          JSON.stringify([...e.plain]),
           e.weight, e.struct, e.radical, e.strokes)
         count++
       }
@@ -146,10 +149,9 @@ async function main() {
   dst.exec('CREATE TEMP TABLE _keep(id INTEGER PRIMARY KEY)')
   const keep = dst.prepare('INSERT OR IGNORE INTO _keep(id) VALUES (?)')
   for (const w of agg.keys()) keep.run(w.codePointAt(0))
-  const { changes } = dst.prepare(`
-    UPDATE characters SET deleted_at = datetime('now')
-    WHERE deleted_at IS NULL AND id NOT IN (SELECT id FROM _keep)
-  `).run()
+  const { changes } = dst.prepare(
+    'DELETE FROM characters WHERE id NOT IN (SELECT id FROM _keep)'
+  ).run()
   dst.exec('DROP TABLE _keep')
   if (changes > 0) console.log(`已清理词典外汉字: ${changes} 个`)
 

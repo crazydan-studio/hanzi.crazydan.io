@@ -6,12 +6,9 @@ import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor, displayUnit, e
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { DISPLAY_PEN_WIDTH_COEF } from '@components/Constants.js'
 import { loadCharMeta, loadCharStrokes } from '@services/data.js'
-import { pinyinAudioName } from '@services/pinyin.js'
+import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { copyText } from '@services/clipboard.js'
 import { setBackUrl } from '@services/session.js'
-
-// Android 系统图标（App 下载选择窗口按钮）
-const ANDROID_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-7 w-7 text-green-500"><path d="M17.5 8.5c-.9 0-1.7.4-2.3 1H8.8c-.6-.6-1.4-1-2.3-1C4.6 8.5 3 10.1 3 12v3.5h18V12c0-1.9-1.6-3.5-3.5-3.5zM6.5 11.5c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zm11 0c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zM8.8 9.5 7 6.3c-.3-.5 0-1.1.5-1.3.5-.3 1.1 0 1.3.5l1.8 3.1c.5-.1 1-.2 1.4-.2s.9.1 1.4.2l1.8-3.1c.3-.5.8-.8 1.3-.5.5.3.8.8.5 1.3l-1.8 3.2h-6.4zm-3.3 7.5H4V19.5c0 .6.4 1 1 1s1-.4 1-1V17zm13 0h-1.5v2.5c0 .6.4 1 1 1s1-.4 1-1V17z"/></svg>'
 
 Alpine.data('charApp', () => ({
   char: '',
@@ -33,11 +30,6 @@ Alpine.data('charApp', () => ({
   // 本地开发模式下显示跳转笔画书写页的浮动按钮
   writeButton: import.meta.env.DEV,
   writeUrl: '',
-  // App 下载平台（系统图标按钮）: 目前仅支持 android
-  APP_PLATFORMS: [
-    { id: 'android', name: 'Android', ext: 'apk', icon: ANDROID_ICON }
-  ],
-  showAppDialog: false,
 
   async init() {
     // 路由参数: /char/?v=<汉字>
@@ -155,19 +147,17 @@ Alpine.data('charApp', () => ({
     this.engine?.setSpeed(s)
   },
 
-  // 读音试听: 音频 url 为 /assets/audio/pinyin/{无声调拼音+声调数字}.mp3
-  // 声调一到四声用 1-4 表示，轻声拼音无声调不加数字
+  // 读音试听: 音频 url 为 /assets/audio/pinyin/{数字声调拼音}.mp3（如 di4.mp3）
   playPinyin(p) {
     this.stopAudio()
-    const name = pinyinAudioName(p)
-    const url = `/assets/audio/pinyin/${encodeURIComponent(name)}.mp3`
+    const url = `/assets/audio/pinyin/${encodeURIComponent(p)}.mp3`
     const audio = new Audio(url)
     this.audio = audio
     audio.onerror = () => {
-      this.audioHint = `音频 ${name}.mp3 不存在`
+      this.audioHint = `音频 ${p}.mp3 不存在`
     }
     audio.play().catch(() => {
-      this.audioHint = `音频 ${name}.mp3 播放失败`
+      this.audioHint = `音频 ${p}.mp3 播放失败`
     })
   },
 
@@ -181,6 +171,11 @@ Alpine.data('charApp', () => ({
   // 记录返回地址（书写页"返回"按钮据此回到汉字信息页）
   rememberBack() {
     setBackUrl()
+  },
+
+  // 数字声调拼音 → 符号声调拼音（展示用）
+  symbolPinyin(p) {
+    return numberToSymbolTonePinyin(p)
   },
 
   // 复制到剪贴板（含非安全上下文回退），成功后提示「已复制」
