@@ -18,6 +18,16 @@ export const CHARACTER_STRUCTURES = [
 export const characterStructuresMap = Object.fromEntries(
   CHARACTER_STRUCTURES.map(s => [s.code, s]))
 
+// 结构展示名（不含「结构」二字、无示例；对应静态数据 meta.json 中存储的结构编码）
+export const STRUCTURE_DISPLAY_NAMES = {
+  0: '未指定', 1: '独体', 2: '左右', 3: '左中右', 4: '上下',
+  5: '上中下', 6: '全包围', 7: '半包围', 8: '品字', 9: '镶嵌'
+}
+
+export function structureDisplayName(code) {
+  return STRUCTURE_DISPLAY_NAMES[code ?? 0] ?? '未指定'
+}
+
 // 结构显示文本（名称 + 示例，如 "左右结构 (好·明·林)"）
 export function structureLabel(code) {
   const s = characterStructuresMap[code ?? 0]
