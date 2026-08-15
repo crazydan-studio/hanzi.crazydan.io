@@ -59,13 +59,14 @@ export class AnimationEngine {
     this.strokes = [...strokes]
       .filter(s => s && s.trajectory_data && s.trajectory_data.points?.length > 0)
       .sort((a, b) => (a.stroke_order ?? 0) - (b.stroke_order ?? 0))
-    // 元组数组 [x,y,pressure,timestamp]（归一化×10000）→ ÷10000 还原 → 内部像素坐标
+    // 元组数组 [x,y,pressure,timestamp]（x/y 归一化×10000；pressure×100；timestamp×10）
+    // → ÷还原为内部像素坐标与浮点值
     for (const s of this.strokes) {
       s.pxPoints = s.trajectory_data.points.map(p => ({
         x: (p[0] / 10000) * this.cssW,
         y: (p[1] / 10000) * this.cssH,
-        pressure: p[2] ?? 0.5,
-        timestamp: p[3] ?? 0
+        pressure: (p[2] ?? 50) / 100,
+        timestamp: (p[3] ?? 0) / 10
       }))
     }
     this.reset()

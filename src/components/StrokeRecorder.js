@@ -38,14 +38,17 @@ export class StrokeRecorder {
 
   // 仅记录坐标点数据（元组数组 [x,y,pressure,timestamp]，降低存储开销）
   // x/y: 归一化×10000 整数；前端显示时 ÷10000 还原
+  // pressure: 0-1 浮点 ×100 存整数（保留 2 位小数，0.01 步进不可感知）
+  // timestamp: 毫秒浮点 ×10 存整数（保留 1 位小数，0.1ms 远高于 60fps 需求）
+  // 整数存储可消除浮点噪声（如 1.4000000059604645）并减小体积
   generateTrajectoryData() {
     return {
-      version: '4.0',
+      version: '5.0',
       points: this.points.map(p => [
         Math.round(p.x / CANVAS_SIZE.width * 10000),   // x
         Math.round(p.y / CANVAS_SIZE.height * 10000),  // y
-        p.pressure,                                     // pressure
-        p.timestamp                                     // timestamp
+        Math.round(p.pressure * 100),                   // pressure ×100
+        Math.round(p.timestamp * 10)                    // timestamp ×10
       ])
     }
   }

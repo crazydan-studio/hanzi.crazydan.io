@@ -570,8 +570,8 @@ Alpine.data('strokePad', (opts = {}) => ({
     const px = pts.map(p => ({
       x: (p[0] / 10000) * this.width,
       y: (p[1] / 10000) * this.height,
-      pressure: p[2],
-      timestamp: p[3]
+      pressure: (p[2] ?? 50) / 100,
+      timestamp: (p[3] ?? 0) / 10
     }))
     const strokeColor = highlight ? this.HIGHLIGHT_COLOR : color
     const widthCoef = this.penWidth / BASE_WIDTH

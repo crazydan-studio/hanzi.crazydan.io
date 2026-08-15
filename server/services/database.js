@@ -69,6 +69,7 @@ export function initDatabase(dbPath = DB_PATH) {
   migrateStrokeSchemaV2()
   migrateStrokeCoordV3()
   migrateStrokeV4()
+  migrateStrokeV5()
   return db
 }
 
@@ -449,6 +450,34 @@ function migrateStrokeV4() {
     throw err
   } finally {
     db.exec('PRAGMA foreign_keys = ON')
+  }
+}
+
+// 迁移6: strokes v5 — 轨迹点 pressure ×100、timestamp ×10 存整数
+// （消除浮点噪声并减小存储：pressure 保留 2 位小数，timestamp 保留 1 位小数）
+function migrateStrokeV5() {
+  const rows = db.prepare(
+    'SELECT id, trajectory_data FROM strokes WHERE deleted_at IS NULL'
+  ).all()
+  let changed = false
+  const update = db.prepare('UPDATE strokes SET trajectory_data = ? WHERE id = ?')
+  for (const r of rows) {
+    let traj
+    try { traj = JSON.parse(r.trajectory_data) } catch { continue }
+    if (!traj || traj.version !== '4.0' || !Array.isArray(traj.points)) continue
+    if (traj.points.length === 0 || !Array.isArray(traj.points[0])) continue
+    traj.version = '5.0'
+    traj.points = traj.points.map(pt => [
+      pt[0],
+      pt[1],
+      Math.round((pt[2] ?? 0.5) * 100),   // pressure ×100
+      Math.round((pt[3] ?? 0) * 10)        // timestamp ×10
+    ])
+    update.run(JSON.stringify(traj), r.id)
+    changed = true
+  }
+  if (changed) {
+    console.log('DB migrated: stroke coords v5 (pressure ×100, timestamp ×10)')
   }
 }
 
