@@ -149,8 +149,8 @@ Alpine.data('characterList', () => ({
       if (pts.length === 0) continue
       ctx.beginPath()
       pts.forEach((p, i) => {
-        const x = (p[0] / 10000) * size
-        const y = (p[1] / 10000) * size
+        const x = (p[0] / 1000) * size   // 坐标归一化 ×1000（v7 格式）
+        const y = (p[1] / 1000) * size
         if (i === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       })
