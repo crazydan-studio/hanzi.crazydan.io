@@ -12,7 +12,7 @@
   <div class="max-w-3xl mx-auto px-4 py-6">
     <header class="flex items-center justify-between mb-4">
       <a href="/" class="btn-sm">← 返回首页</a>
-      <button x-data="themeToggle()" @click="toggle()" class="btn-sm inline-flex items-center justify-center !px-2" :title="tip" x-html="icon"></button>
+      <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
     </header>
 
     <p x-show="loading" class="text-center text-gray-500 py-16 dark:text-gray-400">加载中...</p>
@@ -21,7 +21,7 @@
     <template x-if="meta && !loading">
       <div>
         <!-- 书写动画面板（汉字信息置于其上，按行流式布局） -->
-        <section class="bg-white border rounded-lg shadow-sm p-4 md:p-5 dark:bg-gray-800 dark:border-gray-700">
+        <section class="panel p-4 md:p-5">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-lg font-bold">书写动画</h2>
             <!-- 汉典网详情（信息区域右上角） -->
@@ -96,7 +96,7 @@
 
         <!-- 笔画分解图: 每笔的笔画名称、笔顺、在字型中的位置；
              点击分解图播放/终止该笔画的书写动画（自动循环当前笔画） -->
-        <section class="bg-white border rounded-lg shadow-sm p-4 md:p-5 mt-6 dark:bg-gray-800 dark:border-gray-700">
+        <section class="panel p-4 md:p-5 mt-6">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h2 class="text-lg font-bold">笔画分解图</h2>
             <p x-show="hasStrokes" class="text-xs text-gray-500 dark:text-gray-400">

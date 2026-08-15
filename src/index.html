@@ -11,7 +11,7 @@
 
   <!-- 主题切换（移动优先: 右上角固定，图标形式） -->
   <div class="absolute top-3 right-3 md:top-4 md:right-4">
-    <button x-data="themeToggle()" @click="toggle()" class="btn-sm inline-flex items-center justify-center !px-2" :title="tip" x-html="icon"></button>
+    <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
   </div>
 
   <div class="max-w-4xl mx-auto px-4 py-12">
@@ -31,7 +31,7 @@
     <p x-show="error" class="text-center text-red-600 text-sm mb-4" x-text="error"></p>
 
     <!-- 移动端 App 下载（显著位置，离线使用汉字笔画数据） -->
-    <section class="bg-blue-50 border border-blue-200 rounded-lg shadow-sm p-4 md:p-5 mb-6 dark:bg-blue-900/20 dark:border-blue-800">
+    <section class="panel border-blue-200 p-4 md:p-5 mb-6 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-bold">下载移动端 App</h2>
@@ -51,7 +51,7 @@
     </section>
 
     <!-- 常用字速览: 按权重显示前 20 个常用汉字，读音在汉字上方 -->
-    <section class="bg-white border rounded-lg shadow-sm p-4 md:p-6 dark:bg-gray-800 dark:border-gray-700">
+    <section class="panel p-4 md:p-6">
       <h2 class="text-lg font-bold mb-4">常用字速览</h2>
       <div class="relative min-h-[160px]">
         <!-- 内容: 加载失败 / 无结果 / 结果 互斥显示 -->
@@ -61,12 +61,11 @@
           class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">暂无常用字数据</p>
         <div x-show="!commonsLoading && !commonsError && commons.length"
         x-data="charGrid()" x-effect="setChars(commons)" @click="onGridClick($event)" x-html="gridHtml"
-        class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-2 md:gap-3"></div>
+        class="char-grid"></div>
         <!-- 加载中: 悬浮于列表区域上层 -->
-        <div x-show="commonsLoading"
-          class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/60 backdrop-blur-[1px] dark:bg-gray-800/60">
+        <div x-show="commonsLoading" class="loading-overlay">
           <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
+            <span class="spinner"></span>
             正在加载常用字…
           </span>
         </div>

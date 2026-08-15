@@ -16,7 +16,7 @@
         <button @click="goBack()" class="btn-sm">← 返回</button>
         <h1 class="text-xl md:text-2xl font-bold">汉字书写</h1>
       </div>
-      <button x-data="themeToggle()" @click="toggle()" class="btn-sm inline-flex items-center justify-center !px-2" :title="tip" x-html="icon"></button>
+      <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
     </header>
 
     <!-- 笔画编辑器（独立页面）: 公共书写板 strokePad 经 padOpts 回调输出数据，
@@ -25,7 +25,7 @@
       <p x-show="error" class="text-red-600 text-sm mb-2" x-text="error"></p>
 
       <!-- character-info（内联于编辑器作用域）: 只读信息 + 结构可编辑 + 笔顺参考 -->
-      <div class="border rounded-lg p-4 md:p-5 mb-4 bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700">
+      <div class="panel p-4 md:p-5 mb-4">
         <template x-if="character">
           <div>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -180,7 +180,7 @@
         <!-- 右侧: 笔画列表（先书写，再在行内定类型；回放模式只读并联动高亮） -->
         <div class="w-full lg:w-1/2">
           <!-- stroke-list（内联于编辑器作用域） -->
-          <div class="border rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700">
+          <div class="panel">
             <div class="p-2 font-medium text-sm border-b flex items-center justify-between dark:border-gray-700">
               <span>
                 笔画列表 (共 <span x-text="strokes.length"></span> 笔)

@@ -18,7 +18,7 @@
           <p class="text-xs text-gray-500 dark:text-gray-400">本地管理与维护汉字结构、笔画数据</p>
         </div>
       </div>
-      <button x-data="themeToggle()" @click="toggle()" class="btn-sm inline-flex items-center justify-center !px-2" :title="tip" x-html="icon"></button>
+      <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
     </header>
 
     <!-- 汉字列表（独立页面；点击行进入书写页 write/?char=） -->
@@ -81,10 +81,9 @@
           </tbody>
         </table>
         <!-- 加载中: 悬浮于列表区域上层 -->
-        <div x-show="loading"
-          class="absolute inset-0 z-10 flex items-center justify-center rounded bg-white/60 backdrop-blur-[1px] dark:bg-gray-800/60">
+        <div x-show="loading" class="loading-overlay">
           <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
+            <span class="spinner"></span>
             加载中...
           </span>
         </div>

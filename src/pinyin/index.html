@@ -17,11 +17,11 @@
         <span class="text-sm text-gray-400 font-normal dark:text-gray-500"
           x-text="list.length ? '（' + list.length + ' 个）' : ''"></span>
       </h1>
-      <button x-data="themeToggle()" @click="toggle()" class="btn-sm inline-flex items-center justify-center !px-2" :title="tip" x-html="icon"></button>
+      <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
     </header>
 
     <!-- 列表面板: 加载提示位于面板中心 -->
-    <section class="bg-white border rounded-lg shadow-sm p-4 md:p-6 dark:bg-gray-800 dark:border-gray-700">
+    <section class="panel p-4 md:p-6">
       <!-- 列表面板: 内容（加载失败 / 无结果 / 结果）互斥显示；加载中悬浮于列表区域上层 -->
       <div class="relative min-h-[120px]">
         <p x-show="!loading && error" x-cloak class="py-12 text-center text-red-600" x-text="error"></p>
@@ -31,12 +31,11 @@
         <!-- 汉字展示形式与首页常用字速览一致，点击跳转汉字信息页 -->
         <div x-show="!loading && !error && !empty"
           x-data="charGrid()" x-effect="setChars(list)" @click="onGridClick($event)" x-html="gridHtml"
-          class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-2 md:gap-3"></div>
+          class="char-grid"></div>
         <!-- 加载中: 悬浮于列表区域上层 -->
-        <div x-show="loading"
-          class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/60 backdrop-blur-[1px] dark:bg-gray-800/60">
+        <div x-show="loading" class="loading-overlay">
           <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
+            <span class="spinner"></span>
             正在加载汉字…
           </span>
         </div>

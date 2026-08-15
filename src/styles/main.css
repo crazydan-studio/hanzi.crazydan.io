@@ -67,11 +67,31 @@ body {
   .btn-sm {
     @apply px-2 py-1 text-xs rounded border border-gray-300 hover:bg-gray-100 transition-colors dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700;
   }
+  /* 图标按钮（主题切换等） */
+  .icon-btn {
+    @apply btn-sm inline-flex items-center justify-center !px-2;
+  }
   .input {
     @apply px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100;
   }
   /* 浮动按钮（本地开发模式入口） */
   .fab {
     @apply fixed bottom-4 right-4 z-40 inline-flex items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2.5 text-sm text-white shadow-lg hover:bg-blue-600;
+  }
+  /* 内容面板 */
+  .panel {
+    @apply bg-white border rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700;
+  }
+  /* 列表加载中悬浮层（置于列表区域上层） */
+  .loading-overlay {
+    @apply absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/60 backdrop-blur-[1px] dark:bg-gray-800/60;
+  }
+  /* 加载指示器 */
+  .spinner {
+    @apply inline-block h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500;
+  }
+  /* 汉字格子网格（常用字速览 / 拼音字列表） */
+  .char-grid {
+    @apply grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-2 md:gap-3;
   }
 }
