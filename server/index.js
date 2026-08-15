@@ -37,10 +37,16 @@ if (fs.existsSync(distDir)) {
   app.use(express.static(distDir))
   // SPA fallback: 目录式多页结构，未知路径按前缀回到对应页面的 index.html
   app.get('*', (req, res) => {
-    const page = /^\/write(\/|$)/.test(req.path)
-      ? path.join(distDir, 'write', 'index.html')
-      : path.join(distDir, 'index.html')
-    res.sendFile(page)
+    const p = req.path
+    if (/^\/char(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'char', 'index.html'))
+    if (/^\/pinyin(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'pinyin', 'index.html'))
+    if (/^\/strokes\/write(\/|$)/.test(p)) {
+      return res.sendFile(path.join(distDir, 'strokes', 'write', 'index.html'))
+    }
+    if (/^\/strokes(\/|$)/.test(p)) {
+      return res.sendFile(path.join(distDir, 'strokes', 'index.html'))
+    }
+    res.sendFile(path.join(distDir, 'index.html'))
   })
 }
 

@@ -1,6 +1,9 @@
 node_modules/
 dist/
 server/data/
+data/
+public/assets/zi/
+public/assets/pinyin/
 *.log
 .env
 .DS_Store

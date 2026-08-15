@@ -1,5 +1,5 @@
 // 统一启动前后端，支持命令行指定端口与监听地址:
-//   node scripts/dev-all.js --frontend-port 5173 --backend-port 3001 --host 0.0.0.0
+//   node build/dev-all.js --frontend-port 5173 --backend-port 3001 --host 0.0.0.0
 //   pnpm dev:all -- --frontend-port 5174 --backend-port 3100 -H 127.0.0.1
 import { spawn } from 'child_process'
 

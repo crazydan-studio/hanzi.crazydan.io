@@ -6,12 +6,13 @@
   "scripts": {
     "dev": "vite",
     "dev:server": "node --watch --disable-warning=ExperimentalWarning server/index.js",
-    "dev:all": "node scripts/dev-all.js",
+    "dev:all": "node build/dev-all.js",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node --disable-warning=ExperimentalWarning server/index.js",
     "seed": "node --disable-warning=ExperimentalWarning server/scripts/seed.js",
-    "import:pinyin": "node --disable-warning=ExperimentalWarning server/scripts/import-pinyin.js"
+    "import:pinyin": "node --disable-warning=ExperimentalWarning server/scripts/import-pinyin.js",
+    "export:data": "node --disable-warning=ExperimentalWarning build/export-data.js"
   },
   "dependencies": {
     "alpinejs": "^3.13.0",

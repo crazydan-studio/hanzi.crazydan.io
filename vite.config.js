@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -17,36 +18,78 @@ function apiPort() {
 }
 
 // 目录式页面: 跳转只指定目录，自动定位到目录下的 index.html
-// dev/preview 下将 /write 重定向到 /write/（与生产 express.static 行为一致）
-const dirIndexRewrite = {
-  name: 'hanzi-dir-index-rewrite',
-  configureServer(server) {
-    server.middlewares.use((req, res, next) => {
-      if (req.url === '/write' || req.url === '/write?') {
-        res.writeHead(302, { Location: '/write/' })
-        res.end()
-      } else {
-        next()
+// dev/preview 下将 /char /pinyin /strokes(/write) 重定向到带尾斜杠路径
+// （与生产 express.static 行为一致）
+const DIR_PAGES = ['/strokes/write', '/strokes', '/char', '/pinyin']
+
+function dirIndexRewrite(req, res, next) {
+  const pathname = req.url.split('?')[0]
+  if (DIR_PAGES.includes(pathname)) {
+    res.writeHead(302, { Location: pathname + '/' })
+    res.end()
+  } else {
+    next()
+  }
+}
+
+// 构建产物扁平化: src 源码目录结构 → dist 页面目录结构（与页面 URL 一致）
+function flattenPages() {
+  return {
+    name: 'hanzi-flatten-pages',
+    closeBundle() {
+      const srcDist = path.join(__dirname, 'dist', 'src')
+      for (const name of ['index.html', 'char/index.html', 'pinyin/index.html',
+        'strokes/index.html', 'strokes/write/index.html']) {
+        const from = path.join(srcDist, name)
+        const to = path.join(__dirname, 'dist', name)
+        if (fs.existsSync(from)) {
+          fs.mkdirSync(path.dirname(to), { recursive: true })
+          fs.renameSync(from, to)
+        }
       }
-    })
-  },
-  configurePreviewServer(server) {
-    server.middlewares.use((req, res, next) => {
-      if (req.url === '/write' || req.url === '/write?') {
-        res.writeHead(302, { Location: '/write/' })
-        res.end()
-      } else {
-        next()
-      }
-    })
+      fs.rmSync(srcDist, { recursive: true, force: true })
+    }
   }
 }
 
 export default defineConfig({
-  plugins: [dirIndexRewrite],
+  plugins: [
+    flattenPages(),
+    {
+      name: 'hanzi-dir-index-rewrite',
+      configureServer(server) {
+        server.middlewares.use(dirIndexRewrite)
+        // 功能页入口位于 src/ 源码目录，dev 下将页面 URL 映射到对应 HTML 文件
+        const SRC_PAGES = {
+          '/': 'src/index.html',
+          '/char/': 'src/char/index.html',
+          '/pinyin/': 'src/pinyin/index.html',
+          '/strokes/': 'src/strokes/index.html',
+          '/strokes/write/': 'src/strokes/write/index.html'
+        }
+        server.middlewares.use(async (req, res, next) => {
+          const file = SRC_PAGES[req.url.split('?')[0]]
+          if (!file) return next()
+          try {
+            let html = fs.readFileSync(path.resolve(__dirname, file), 'utf-8')
+            html = await server.transformIndexHtml(req.url, html, req.originalUrl)
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'text/html')
+            res.end(html)
+          } catch (err) {
+            next(err)
+          }
+        })
+      },
+      configurePreviewServer(server) {
+        server.middlewares.use(dirIndexRewrite)
+      }
+    }
+  ],
   resolve: {
     alias: {
-      '@fonts': path.resolve(__dirname, 'fonts')
+      '@components': path.resolve(__dirname, 'src', 'components'),
+      '@services': path.resolve(__dirname, 'src', 'services')
     }
   },
   server: {
@@ -65,8 +108,11 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       input: {
-        index: path.resolve(__dirname, 'index.html'),
-        write: path.resolve(__dirname, 'write/index.html')
+        index: path.resolve(__dirname, 'src/index.html'),
+        char: path.resolve(__dirname, 'src/char/index.html'),
+        pinyin: path.resolve(__dirname, 'src/pinyin/index.html'),
+        'strokes/index': path.resolve(__dirname, 'src/strokes/index.html'),
+        'strokes/write': path.resolve(__dirname, 'src/strokes/write/index.html')
       }
     }
   }
