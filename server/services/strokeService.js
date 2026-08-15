@@ -1,5 +1,6 @@
 import { getDb, serializeStroke, withTransaction } from './database.js'
 import { AppError } from '../middleware/errorHandler.js'
+import { syncCharacterStrokes } from './staticSync.js'
 
 export const strokeService = {
   findByCharacter(characterId) {
@@ -36,7 +37,10 @@ export const strokeService = {
       VALUES (?, ?, ?, ?)
     `).run(characterId, data.stroke_order, data.stroke_type,
       JSON.stringify(data.trajectory_data))
-    return serializeStroke(db.prepare('SELECT * FROM strokes WHERE id = ?').get(result.lastInsertRowid))
+    const stroke = serializeStroke(db.prepare('SELECT * FROM strokes WHERE id = ?').get(result.lastInsertRowid))
+    // 同步到静态数据 strokes.json（仅文件已存在时更新）
+    syncCharacterStrokes(characterId, this.findByCharacter(characterId))
+    return stroke
   },
 
   // 批量创建（事务）
@@ -70,8 +74,11 @@ export const strokeService = {
       return result
     })
     const placeholders = ids.map(() => '?').join(',')
-    return db.prepare(`SELECT * FROM strokes WHERE id IN (${placeholders})`)
+    const createdStrokes = db.prepare(`SELECT * FROM strokes WHERE id IN (${placeholders})`)
       .all(...ids).map(serializeStroke)
+    // 同步到静态数据 strokes.json（仅文件已存在时更新）
+    syncCharacterStrokes(characterId, this.findByCharacter(characterId))
+    return createdStrokes
   },
 
   update(id, data) {
@@ -97,12 +104,18 @@ export const strokeService = {
     updates.push("updated_at = datetime('now')")
     params.push(id)
     db.prepare(`UPDATE strokes SET ${updates.join(', ')} WHERE id = ? AND deleted_at IS NULL`).run(...params)
-    return serializeStroke(db.prepare('SELECT * FROM strokes WHERE id = ?').get(id))
+    const stroke = serializeStroke(db.prepare('SELECT * FROM strokes WHERE id = ?').get(id))
+    // 同步到静态数据 strokes.json（仅文件已存在时更新）
+    syncCharacterStrokes(stroke.character_id, this.findByCharacter(stroke.character_id))
+    return stroke
   },
 
   delete(id) {
     const db = getDb()
+    const current = db.prepare('SELECT * FROM strokes WHERE id = ? AND deleted_at IS NULL').get(id)
     db.prepare("UPDATE strokes SET deleted_at = datetime('now') WHERE id = ? AND deleted_at IS NULL").run(id)
+    // 同步到静态数据 strokes.json（仅文件已存在时更新）
+    if (current) syncCharacterStrokes(current.character_id, this.findByCharacter(current.character_id))
     return { success: true }
   },
 
@@ -140,6 +153,9 @@ export const strokeService = {
       // 再按新顺序逐个赋最终值 1..N
       strokeIds.forEach((id, index) => update.run(index + 1, id))
     })
-    return this.findByCharacter(characterId)
+    const strokes = this.findByCharacter(characterId)
+    // 同步到静态数据 strokes.json（仅文件已存在时更新）
+    syncCharacterStrokes(characterId, strokes)
+    return strokes
   }
 }

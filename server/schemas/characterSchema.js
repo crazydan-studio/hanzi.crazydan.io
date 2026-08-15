@@ -24,7 +24,8 @@ export const createCharacterSchema = z.object({
   total_stroke_count: z.number().int().min(0).default(0)
 })
 
-// 更新: 仅 structure 可编辑（其余数据只读，来自字典导入）
+// 更新: 仅 structure / radical 可编辑（其余数据只读，来自字典导入）
 export const updateCharacterSchema = z.object({
-  structure: z.number().int().min(0).max(9).optional()
+  structure: z.number().int().min(0).max(9).optional(),
+  radical: z.string().max(10).optional()
 })

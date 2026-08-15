@@ -1,4 +1,5 @@
 import { getDb, serializeCharacter, serializeStroke } from './database.js'
+import { syncCharacterMeta } from './staticSync.js'
 
 export const characterService = {
   // 列表: 按权重降序，支持 按字/拼音搜索 + 笔画图过滤，附带笔画（缩略图用）
@@ -101,15 +102,29 @@ export const characterService = {
     return this.findById(id)
   },
 
-  // 仅允许更新 structure（其余只读）
+  // 仅允许更新 structure / radical（其余只读）
   update(id, data) {
     const db = getDb()
-    if (data.structure === undefined) return this.findById(id)
+    const updates = []
+    const params = []
+    if (data.structure !== undefined) {
+      updates.push('structure = ?')
+      params.push(data.structure)
+    }
+    if (data.radical !== undefined) {
+      updates.push('radical = ?')
+      params.push(data.radical)
+    }
+    if (updates.length === 0) return this.findById(id)
+    params.push(id)
     db.prepare(`
-      UPDATE characters SET structure = ?, updated_at = datetime('now')
+      UPDATE characters SET ${updates.join(', ')}, updated_at = datetime('now')
       WHERE id = ? AND deleted_at IS NULL
-    `).run(data.structure, id)
-    return this.findById(id)
+    `).run(...params)
+    const updated = this.findById(id)
+    // 同步到静态数据 meta.json（仅文件已存在时更新）
+    syncCharacterMeta(updated)
+    return updated
   },
 
   delete(id) {

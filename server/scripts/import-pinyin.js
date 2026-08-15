@@ -14,8 +14,9 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DEFAULT_SRC = path.join(__dirname, '..', 'data', 'pinyin-dict.v3.sqlite')
-const DEFAULT_DST = path.join(__dirname, '..', 'data', 'hanzi_stroke.db')
+const ROOT = path.join(__dirname, '..', '..')
+const DEFAULT_SRC = path.join(ROOT, 'data', 'pinyin-dict.v3.sqlite')
+const DEFAULT_DST = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
 
 // 解析命令行参数: --source/--db 选项 + 位置参数（相对 CWD 解析）
 function parseArgs() {
@@ -67,24 +68,25 @@ async function main() {
 
   // 读取全部 pinyin_word（按字聚合）
   const rows = src.prepare(`
-    SELECT word_, spell_, spell_chars_, used_weight_, total_stroke_count_, glyph_struct_
+    SELECT word_, spell_, spell_chars_, used_weight_, total_stroke_count_, glyph_struct_, radical_
     FROM pinyin_word
     ORDER BY word_
   `).all()
 
-  // 聚合: word_ → { pinyin:Set, plain:Set, weight, strokes, struct }
+  // 聚合: word_ → { pinyin:Set, plain:Set, weight, strokes, struct, radical }
   const agg = new Map()
   for (const r of rows) {
     if (!r.word_ || r.word_.length !== 1) continue
     let e = agg.get(r.word_)
     if (!e) {
-      e = { pinyin: new Set(), plain: new Set(), weight: 0, strokes: 0, struct: 0 }
+      e = { pinyin: new Set(), plain: new Set(), weight: 0, strokes: 0, struct: 0, radical: '' }
       agg.set(r.word_, e)
     }
     if (r.spell_) e.pinyin.add(r.spell_)
     if (r.spell_chars_) e.plain.add(r.spell_chars_)
     e.weight = Math.max(e.weight, r.used_weight_ ?? 0)
     e.strokes = Math.max(e.strokes, r.total_stroke_count_ ?? 0)
+    if (r.radical_ && !e.radical) e.radical = r.radical_
     if (r.glyph_struct_ && STRUCTURE_MAP[r.glyph_struct_] !== undefined) {
       e.struct = STRUCTURE_MAP[r.glyph_struct_]
     }
@@ -92,13 +94,14 @@ async function main() {
 
   // 写入 hanzi_stroke.db（upsert，保留已有笔画）
   const upsert = dst.prepare(`
-    INSERT INTO characters (id, character, pinyin, pinyin_plain, used_weight, structure, total_stroke_count)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO characters (id, character, pinyin, pinyin_plain, used_weight, structure, radical, total_stroke_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       pinyin = excluded.pinyin,
       pinyin_plain = excluded.pinyin_plain,
       used_weight = excluded.used_weight,
       structure = CASE WHEN excluded.structure != 0 THEN excluded.structure ELSE characters.structure END,
+      radical = CASE WHEN excluded.radical != '' THEN excluded.radical ELSE characters.radical END,
       total_stroke_count = excluded.total_stroke_count,
       updated_at = datetime('now')
   `)
@@ -115,7 +118,7 @@ async function main() {
         upsert.run(unicode, word,
           JSON.stringify([...e.pinyin]),
           JSON.stringify([...e.plain]),
-          e.weight, e.struct, e.strokes)
+          e.weight, e.struct, e.radical, e.strokes)
         count++
       }
       dst.exec('COMMIT')

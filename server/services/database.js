@@ -30,6 +30,7 @@ export function initDatabase(dbPath = DB_PATH) {
       pinyin_plain TEXT NOT NULL DEFAULT '[]',  -- 拼音 JSON 数组（无声调，可多音）
       used_weight INTEGER NOT NULL DEFAULT 0,   -- 使用频率权重
       structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 9),
+      radical TEXT NOT NULL DEFAULT '',         -- 部首（书写页可编辑）
       total_stroke_count INTEGER NOT NULL DEFAULT 0,   -- 笔画数
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -63,6 +64,7 @@ export function initDatabase(dbPath = DB_PATH) {
   migrateStrokeCharId()
   // 迁移: characters.structure 列 + strokes.stroke_type 字符串→数字编码
   migrateStructureColumn()
+  migrateRadicalColumn()
   migrateStrokeTypeToInt()
   migrateStrokeSchemaV2()
   migrateStrokeCoordV3()
@@ -183,6 +185,14 @@ function migrateStructureColumn() {
   if (cols.some(c => c.name === 'structure')) return
   db.exec("ALTER TABLE characters ADD COLUMN structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 9)")
   console.log('DB migrated: characters.structure column added')
+}
+
+// 迁移: characters.radical 列（部首，书写页可编辑）
+function migrateRadicalColumn() {
+  const cols = db.prepare("PRAGMA table_info(characters)").all()
+  if (cols.some(c => c.name === 'radical')) return
+  db.exec("ALTER TABLE characters ADD COLUMN radical TEXT NOT NULL DEFAULT ''")
+  console.log('DB migrated: characters.radical column added')
 }
 
 // 迁移2: strokes.stroke_type 从 TEXT 字符串改为 INTEGER 数字编码（0-35）
