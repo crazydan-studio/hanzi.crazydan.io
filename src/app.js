@@ -6,6 +6,7 @@ import { loadCommons } from '@services/data.js'
 Alpine.data('homeApp', () => ({
   commons: [],
   commonsLoading: true,
+  commonsError: '',
   query: '',
   error: '',
   // 本地开发模式下显示「笔画管理」浮动入口
@@ -18,7 +19,7 @@ Alpine.data('homeApp', () => ({
         this.commons = (list || []).slice(0, 20)
       })
       .catch(() => {
-        this.error = '常用字数据加载失败'
+        this.commonsError = '常用字数据加载失败'
       })
       .finally(() => {
         this.commonsLoading = false

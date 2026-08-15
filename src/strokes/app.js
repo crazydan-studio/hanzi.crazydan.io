@@ -19,6 +19,7 @@ Alpine.data('characterList', () => ({
   jumpPage: 1,             // 分页跳转输入
   LIMIT_OPTIONS: [20, 50, 100],
   themeVersion: 0,         // 主题版本号（x-effect 依赖，主题切换时重绘笔画缩略图）
+  loadError: '',           // 列表加载失败提示（与加载中/无结果互斥）
   CHARACTER_STRUCTURES: CHARACTER_STRUCTURES,   // 结构内联编辑下拉
   structureLabel: structureLabel,               // 结构名显示
   loading: false,
@@ -65,6 +66,7 @@ Alpine.data('characterList', () => ({
 
   async load() {
     this.loading = true
+    this.loadError = ''
     try {
       const params = new URLSearchParams({ page: this.page, limit: this.limit })
       if (this.search) params.set('search', this.search)
@@ -74,8 +76,8 @@ Alpine.data('characterList', () => ({
       this.totalPages = res.meta?.totalPages ?? 1
       this.jumpPage = this.page   // 加载完成后同步跳转输入框
     } catch (e) {
-      this.error = e.message
-      this.characters = this.characters || []
+      this.loadError = e.message
+      this.characters = []
     } finally {
       this.loading = false
     }

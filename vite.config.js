@@ -52,9 +52,27 @@ function flattenPages() {
   }
 }
 
+// 注入内联主题脚本（head 阻塞执行，于首次绘制前应用主题类）
+// 避免刷新时因设置的主题与默认主题不一致而造成的页面跳闪
+function injectThemeScript() {
+  const snippet = "try{var t=localStorage.getItem('hanzi:theme');" +
+    "if(t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches)" +
+    "document.documentElement.classList.add('dark')}catch(e){}"
+  return {
+    name: 'hanzi-inject-theme-script',
+    transformIndexHtml() {
+      return {
+        html: undefined,
+        tags: [{ tag: 'script', attrs: {}, children: snippet, injectTo: 'head-prepend' }]
+      }
+    }
+  }
+}
+
 export default defineConfig({
   plugins: [
     flattenPages(),
+    injectThemeScript(),
     {
       name: 'hanzi-dir-index-rewrite',
       configureServer(server) {

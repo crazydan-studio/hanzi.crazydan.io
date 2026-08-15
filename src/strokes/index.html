@@ -41,6 +41,7 @@
           <span class="text-sm text-gray-500 dark:text-gray-400" x-text="`按使用频率降序`"></span>
         </div>
 
+        <div class="relative min-h-[120px]">
         <table class="w-full text-sm bg-white rounded shadow-sm dark:bg-gray-800">
           <thead>
             <tr class="border-b bg-gray-100 dark:bg-gray-700 dark:border-gray-600">
@@ -57,7 +58,7 @@
                   :title="'笔画数: ' + c.total_stroke_count">
                   <span x-text="c.character"></span>
                   <span class="text-xs text-gray-400 font-normal ml-1 dark:text-gray-500"
-                    x-text="'(' + c.total_stroke_count + '笔)'"></span>
+                    x-text="'(' + c.total_stroke_count + ' 笔)'"></span>
                 </td>
                 <td class="px-3 py-2" x-text="c.pinyin.join('、')"></td>
                 <td class="px-3 py-2">
@@ -71,14 +72,23 @@
                 </td>
               </tr>
             </template>
-            <tr x-show="!loading && characters.length === 0">
-              <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">无匹配汉字</td>
+            <tr x-show="!loading && loadError" x-cloak>
+              <td colspan="4" class="px-3 py-6 text-center text-red-600" x-text="loadError"></td>
             </tr>
-            <tr x-show="loading">
-              <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">加载中...</td>
+            <tr x-show="!loading && !loadError && characters.length === 0" x-cloak>
+              <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">无匹配汉字</td>
             </tr>
           </tbody>
         </table>
+        <!-- 加载中: 悬浮于列表区域上层 -->
+        <div x-show="loading"
+          class="absolute inset-0 z-10 flex items-center justify-center rounded bg-white/60 backdrop-blur-[1px] dark:bg-gray-800/60">
+          <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
+            加载中...
+          </span>
+        </div>
+        </div>
 
         <!-- 常驻分页组件: 分页大小下拉 + 上一页/页码/下一页 -->
         <div class="mt-4 flex flex-wrap items-center gap-3">
@@ -111,6 +121,8 @@
       </div>
     </section>
   </div>
+
+  <footer x-data="appFooter()" x-html="html"></footer>
 
   <script type="module" src="/src/strokes/main.js"></script>
 </body>

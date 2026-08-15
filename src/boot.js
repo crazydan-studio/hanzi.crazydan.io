@@ -1,20 +1,13 @@
-// 页面引导（head 内同步加载的经典脚本）:
-// 1. 主题初始化: 存储值优先，否则跟随系统（防止暗黑主题闪烁）
-// 2. 字体加载遮罩: 系统无 SimKai 时加载静态楷体资源，加载期间遮住页面并提示
+// 页面引导（各页面入口模块副作用导入，随共享 chunk 执行）:
+// 字体加载遮罩: 系统无 SimKai 时加载静态楷体资源，加载期间遮住页面并提示
+// （主题初始化由 vite 插件注入的内联脚本在 head 阻塞执行，避免刷新跳闪）
 (function () {
-  try {
-    var saved = localStorage.getItem('hanzi:theme')
-    if (saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.classList.add('dark')
-    }
-  } catch (e) { /* 存储不可用时忽略 */ }
-
   function hasSimKai() {
     try { return !!document.fonts && document.fonts.check('100px "SimKai"') } catch (e) { return false }
   }
 
   function addOverlay() {
-    var el = document.createElement('div')
+    const el = document.createElement('div')
     el.id = 'font-loading-overlay'
     el.className = 'fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-white dark:bg-gray-900'
     el.innerHTML =
@@ -24,16 +17,16 @@
   }
 
   function hideOverlay() {
-    var el = document.getElementById('font-loading-overlay')
+    const el = document.getElementById('font-loading-overlay')
     if (el) el.remove()
   }
 
   function initFontLoading() {
     if (!document.fonts || !document.fonts.load || hasSimKai()) { hideOverlay(); return }
-    var timer = setTimeout(hideOverlay, 6000)
+    const timer = setTimeout(hideOverlay, 6000)
     document.fonts.load('300px "ZhongYiKaiTi"')
-      .then(function () { clearTimeout(timer); hideOverlay() })
-      .catch(function () { clearTimeout(timer); hideOverlay() })
+      .then(() => { clearTimeout(timer); hideOverlay() })
+      .catch(() => { clearTimeout(timer); hideOverlay() })
   }
 
   if (document.body) { addOverlay(); initFontLoading() }

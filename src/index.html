@@ -33,26 +33,35 @@
     <!-- 常用字速览: 按权重显示前 20 个常用汉字，读音在汉字上方 -->
     <section class="bg-white border rounded-lg shadow-sm p-4 md:p-6 dark:bg-gray-800 dark:border-gray-700">
       <h2 class="text-lg font-bold mb-4">常用字速览</h2>
-      <div class="min-h-[160px]">
-        <div x-show="commonsLoading"
-          class="flex items-center justify-center py-10 text-gray-500 dark:text-gray-400">
-          <span class="inline-block h-5 w-5 mr-2 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
-          正在加载常用字…
-        </div>
-        <p x-show="!commonsLoading && commons.length === 0"
+      <div class="relative min-h-[160px]">
+        <!-- 内容: 加载失败 / 无结果 / 结果 互斥显示 -->
+        <p x-show="!commonsLoading && commonsError" x-cloak
+          class="py-10 text-center text-sm text-red-600" x-text="commonsError"></p>
+        <p x-show="!commonsLoading && !commonsError && commons.length === 0" x-cloak
           class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">暂无常用字数据</p>
-        <div x-show="!commonsLoading && commons.length"
+        <div x-show="!commonsLoading && !commonsError && commons.length"
         x-data="charGrid()" x-effect="setChars(commons)" @click="onGridClick($event)" x-html="gridHtml"
-        class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-2 md:gap-3"></div>      </div>
+        class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-2 md:gap-3"></div>
+        <!-- 加载中: 悬浮于列表区域上层 -->
+        <div x-show="commonsLoading"
+          class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/60 backdrop-blur-[1px] dark:bg-gray-800/60">
+          <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
+            正在加载常用字…
+          </span>
+        </div>
+      </div>
     </section>
   </div>
 
   <!-- 本地开发模式: 首页右下角浮动入口 → 汉字笔画管理页面 -->
-  <a x-show="devButton" href="/strokes/"
+  <a x-show="devButton" href="/strokes/" x-cloak
     class="fab">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
     笔画管理
   </a>
+
+  <footer x-data="appFooter()" x-html="html"></footer>
 
   <script type="module" src="/src/main.js"></script>
 </body>
