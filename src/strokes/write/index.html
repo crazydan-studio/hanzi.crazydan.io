@@ -189,7 +189,7 @@
                 :class="padMode === 'playback' ? 'text-blue-600' : 'text-gray-400'"
                 x-text="padMode === 'playback' ? '回放模式 · 点击笔画行即可播放' : '书写模式'"></span>
             </div>
-            <div x-show="strokes.length === 0" class="p-3 text-sm text-gray-500 dark:text-gray-400">尚无笔画，请在左侧画布书写</div>
+            <div x-show="strokes.length === 0 && character" class="p-3 text-sm text-gray-500 dark:text-gray-400">尚无笔画，请在左侧画布书写</div>
             <template x-for="s in strokes" :key="s.id">
               <div class="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 text-sm select-none dark:border-gray-700"
                 :draggable="padMode === 'write' && !isTouch"
@@ -260,6 +260,8 @@
       </div>
     </section>
   </div>
+
+  <footer x-data="appFooter()" x-html="html"></footer>
 
   <script type="module" src="/src/strokes/write/main.js"></script>
 </body>
