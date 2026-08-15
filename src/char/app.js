@@ -1,11 +1,14 @@
 // ============ 汉字信息页组件（char/index.html） ============
 // 展示: 书写动画（倍速/暂停/重置）/ 读音试听 / 复制 / 汉典链接 / 笔画分解图
 import Alpine from 'alpinejs'
-import { AnimationEngine } from '@components/animationEngine.js'
-import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor } from '@components/strokeBackground.js'
+import { AnimationEngine } from '@components/AnimationEngine.js'
+import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from '@components/StrokeBackground.js'
+import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
+import { DISPLAY_PEN_WIDTH_COEF } from '@components/Constants.js'
 import { loadCharMeta, loadCharStrokes } from '@services/data.js'
 import { pinyinAudioName } from '@services/pinyin.js'
 import { copyText } from '@services/clipboard.js'
+import { setBackUrl } from '@services/session.js'
 
 Alpine.data('charApp', () => ({
   char: '',
@@ -56,13 +59,7 @@ Alpine.data('charApp', () => ({
 
   // 楷体可用后画布才能以楷体绘制字型背景（系统 SimKai 优先）
   async ensureFont() {
-    try {
-      const hasFont = (family) =>
-        document.fonts?.check ? document.fonts.check(`100px "${family}"`) : false
-      if (!hasFont('SimKai') && !hasFont('ZhongYiKaiTi')) {
-        await document.fonts.load('300px "ZhongYiKaiTi"')
-      }
-    } catch { /* 字体加载失败不影响页面 */ }
+    await ensureKaiFont()
   },
 
   // 书写动画引擎: 田字格 + 字型背景（背景汉字半透明，颜色适配主题），
@@ -75,7 +72,7 @@ Alpine.data('charApp', () => ({
     this.engine = new AnimationEngine(this.$refs.mainCanvas, {
       highlightColor: '#dc2626',
       strokeGap: 300,
-      penWidthCoef: 6,                       // 与笔画书写页默认笔触（特粗）一致
+      penWidthCoef: DISPLAY_PEN_WIDTH_COEF,
       completedColor: () => strokeInkColor()   // 已绘笔画墨色（适配主题）
     })
     this.engine.onBeforeRender = () => {
@@ -83,8 +80,7 @@ Alpine.data('charApp', () => ({
       if (!canvas) return
       const rect = canvas.getBoundingClientRect()
       if (!rect.width) return   // 尺寸未确定，暂不绘制
-      const unit = Math.max(0.5, Math.min(8, canvas.width / rect.width))
-      drawTianZiGe(this.engine.ctx, this.engine.cssW, this.engine.cssH, unit, rect.width)
+      drawTianZiGe(this.engine.ctx, this.engine.cssW, this.engine.cssH, displayUnit(canvas, rect), rect.width)
       drawCharRef(this.engine.ctx, this.engine.cssW, this.engine.cssH, this.char, charRefColor())
     }
     this.engine.onComplete = () => {
@@ -111,7 +107,7 @@ Alpine.data('charApp', () => ({
     requestAnimationFrame(retry)
 
     // 主题切换时重绘背景
-    window.addEventListener('hanzi:theme-change', () => {
+    window.addEventListener(THEME_CHANGE_EVENT, () => {
       const e = this.engine
       if (!e || e.state === 'PLAYING') return
       e.clearCanvas()
@@ -176,7 +172,7 @@ Alpine.data('charApp', () => ({
 
   // 记录返回地址（书写页"返回"按钮据此回到汉字信息页）
   rememberBack() {
-    sessionStorage.setItem('hanzi:backUrl', window.location.href)
+    setBackUrl()
   },
 
   // 复制到剪贴板（含非安全上下文回退），成功后提示「已复制」

@@ -1,13 +1,14 @@
 // ============ 书写页编排组件（持有后端状态；组合公共书写板组件） ============
 // 职责: 汉字信息/笔画列表的服务端同步（API 耦合留在此层）
-//   - 组合 src/components/strokePad.js（公共书写板，零后端耦合）
+//   - 组合 src/components/StrokePad.js（公共书写板，零后端耦合）
 //   - 通过 padOpts 回调接收书写板输出（录入笔画/悬停/模式/回放进度）
 //   - 通过 $refs.pad 调用书写板实例方法注入数据（loadStrokes/setCharacter/setMode...）
 import Alpine from 'alpinejs'
 import { api } from '@services/api.js'
 import { createSyncClient } from '@services/syncClient.js'
-import { STROKE_TYPES, strokeTypesMap } from '@components/strokeTypes.js'
-import { CHARACTER_STRUCTURES, characterStructuresMap, structureLabel } from '@components/characterStructures.js'
+import { STROKE_TYPES, strokeTypesMap } from '@components/StrokeTypes.js'
+import { CHARACTER_STRUCTURES, characterStructuresMap, structureLabel } from '@components/CharacterStructures.js'
+import { takeBackUrl } from '@services/session.js'
 
 export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
@@ -111,12 +112,11 @@ export function registerStrokeEditor() {
       })
     },
 
-    // 返回进入前的页面（入口页面写入 hanzi:backUrl: 笔画管理列表 / 汉字信息页等）；
+    // 返回进入前的页面（入口页面写入返回地址: 笔画管理列表 / 汉字信息页等）；
     // 无记录时回退浏览器历史，再回退首页
     goBack() {
-      const stored = sessionStorage.getItem('hanzi:backUrl')
+      const stored = takeBackUrl()
       if (stored) {
-        sessionStorage.removeItem('hanzi:backUrl')
         this.sync?.emit('navigate', { url: stored })
         location.href = stored
         return

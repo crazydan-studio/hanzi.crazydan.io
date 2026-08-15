@@ -6,50 +6,13 @@
   <title>汉字 | 汉字信息</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="stylesheet" href="/src/styles/main.css">
-  <script>
-    // 初始主题: 存储值优先，否则跟随系统（防止暗黑主题闪烁）
-    (function () {
-      try {
-        var t = localStorage.getItem('hanzi:theme')
-        if (t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.documentElement.classList.add('dark')
-        }
-      } catch (e) {}
-    })()
-  </script>
 </head>
 <body class="bg-gray-50 min-h-screen dark:bg-gray-900" x-data="charApp()">
-  <!-- 字体加载遮罩: 系统无 SimKai 时加载静态楷体资源，加载期间遮住页面 -->
-  <div id="font-loading-overlay" class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-white dark:bg-gray-900">
-    <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
-    <span class="text-sm text-gray-600 dark:text-gray-300">正在加载中易楷体…</span>
-  </div>
-  <script>
-    (function () {
-      function hide() { var el = document.getElementById('font-loading-overlay'); if (el) el.remove() }
-      function hasSimKai() {
-        try { return !!document.fonts && document.fonts.check('100px "SimKai"') } catch (e) { return false }
-      }
-      if (!document.fonts || !document.fonts.load || hasSimKai()) { hide(); return }
-      var t = setTimeout(hide, 6000)
-      document.fonts.load('300px "ZhongYiKaiTi"')
-        .then(function () { clearTimeout(t); hide() })
-        .catch(function () { clearTimeout(t); hide() })
-    })()
-  </script>
 
   <div class="max-w-3xl mx-auto px-4 py-6">
     <header class="flex items-center justify-between mb-4">
       <a href="/" class="btn-sm">← 返回首页</a>
-      <button x-data="themeToggle()" @click="toggle()" class="btn-sm inline-flex items-center justify-center !px-2"
-        :title="dark ? '切换到明亮' : '切换到暗黑'">
-        <template x-if="!dark">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        </template>
-        <template x-if="dark">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-        </template>
-      </button>
+      <button x-data="themeToggle()" @click="toggle()" class="btn-sm inline-flex items-center justify-center !px-2" :title="tip" x-html="icon"></button>
     </header>
 
     <p x-show="loading" class="text-center text-gray-500 py-16 dark:text-gray-400">加载中...</p>
@@ -116,7 +79,7 @@
           <div class="mt-3 flex flex-wrap items-center justify-center gap-2" x-show="hasStrokes">
             <button @click="play()" :disabled="playing" class="btn btn-primary disabled:opacity-50">播放</button>
             <button @click="pause()" :disabled="!playing" class="btn bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50">暂停</button>
-            <button @click="resetPlay()" class="btn bg-gray-500 text-white hover:bg-gray-600">重置</button>
+            <button @click="resetPlay()" class="btn btn-gray">重置</button>
             <span class="flex items-center gap-1">
               <span class="text-sm text-gray-500 dark:text-gray-400">倍速</span>
               <template x-for="s in SPEEDS" :key="s">
@@ -165,7 +128,7 @@
 
   <!-- 本地开发模式: 浮动按钮 → 跳转到该汉字的笔画书写页面（记录返回地址） -->
   <a x-show="writeButton && meta" :href="writeUrl" @click="rememberBack()"
-    class="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2.5 text-sm text-white shadow-lg hover:bg-blue-600">
+    class="fab">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
     书写该字
   </a>

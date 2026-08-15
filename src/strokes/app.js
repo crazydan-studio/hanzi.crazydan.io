@@ -4,8 +4,10 @@
 import Alpine from 'alpinejs'
 import { api } from '@services/api.js'
 import { createSyncClient } from '@services/syncClient.js'
-import { CHARACTER_STRUCTURES, structureLabel } from '@components/characterStructures.js'
-import { strokeInkColor } from '@components/strokeBackground.js'
+import { CHARACTER_STRUCTURES, structureLabel } from '@components/CharacterStructures.js'
+import { strokeInkColor } from '@components/StrokeBackground.js'
+import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
+import { setBackUrl } from '@services/session.js'
 
 Alpine.data('characterList', () => ({
   characters: [],
@@ -34,7 +36,7 @@ Alpine.data('characterList', () => ({
     this.load()
     this.setupSync()
     // 主题切换时递增版本号，驱动笔画缩略图 x-effect 重绘（颜色适配主题）
-    window.addEventListener('hanzi:theme-change', () => {
+    window.addEventListener(THEME_CHANGE_EVENT, () => {
       this.themeVersion++
     })
   },
@@ -156,7 +158,7 @@ Alpine.data('characterList', () => ({
   // 记录来源 URL（含过滤/分页参数），书写页"返回"按钮据此恢复进入前的页面
   // 广播 navigate: 其他端的列表/书写页同步跳转到该字的书写页
   openWriter(character) {
-    sessionStorage.setItem('hanzi:backUrl', window.location.href)
+    setBackUrl()
     this.sync?.emit('navigate', {
       url: `write/?char=${encodeURIComponent(character.character)}&mode=write`
     })
