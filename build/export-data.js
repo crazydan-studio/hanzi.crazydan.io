@@ -1,13 +1,13 @@
 // 从开发数据库导出静态数据到 public/assets（供前端页面直接加载）
 // 数据源:
-//   - data/pinyin-dict.v3.sqlite  汉字词典（表 pinyin_word: 读音/权重/结构/部首/笔画数）
+//   - data/pinyin-dict.sqlite     汉字词典（表 pinyin_zi: 读音/权重/结构/部首/笔画数）
 //   - server/data/hanzi_stroke.db 笔画数据库（笔画轨迹，由汉字笔画模块维护）
 // 导出内容:
 //   - public/assets/zi/commons.json          常用字列表（[字, 读音][]，按权重排序，仅字+第一个读音）
 //   - public/assets/pinyin/{拼音}/meta.json  拼音字列表（[字, 读音][]，按权重排序；
 //                                            读音为该无声调拼音对应的第一个带声调拼音）
 //   - public/assets/zi/{Unicode}/meta.json   单个汉字信息（读音/笔画数/部首/结构/Unicode）
-//   - public/assets/zi/{Unicode}/strokes.json 笔画数据（仅常用字且存在笔画时导出）
+//   - public/assets/zi/{Unicode}/strokes.json 笔画数据（仅常用字生成，无笔画时为空数组）
 // 用法:
 //   pnpm export:data                                       # 默认导出 100 个常用字 + 全量拼音
 //   pnpm export:data -- --count 200                        # 指定常用字数量
@@ -19,10 +19,10 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..')
-const DEFAULT_SRC = path.join(ROOT, 'data', 'pinyin-dict.v3.sqlite')
+const DEFAULT_SRC = path.join(ROOT, 'data', 'pinyin-dict.sqlite')
 const DEFAULT_DB = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
 const DEFAULT_OUT = path.join(ROOT, 'public')
-const DEFAULT_COUNT = 100
+const DEFAULT_COUNT = 20
 
 function parseArgs() {
   const args = process.argv.slice(2)
@@ -86,39 +86,48 @@ function main() {
 
   const src = new DatabaseSync(source, { readOnly: true })
 
-  // ---- 1. 读取词典（按行序取每个字的第一个读音，多音聚合） ----
+  // ---- 1. 读取词典（pinyin_zi: 读音按 used_weight_ 降序，权重为 (zi_, spell_raw_) 组合去重后的和） ----
   const rows = src.prepare(`
-    SELECT id_, word_, spell_, spell_chars_, used_weight_,
+    SELECT zi_, spell_raw_, spell_value_, used_weight_,
            total_stroke_count_, glyph_struct_, radical_, unicode_
-    FROM pinyin_word
+    FROM pinyin_zi
     ORDER BY id_
   `).all()
   src.close()
 
-  const words = new Map()   // word_ → { char, weight, readings[], plainSet, strokes, radical, struct, unicode }
+  const words = new Map()   // zi_ → { char, weight, readings[], plainSet, strokes, radical, struct, unicode }
   for (const r of rows) {
-    if (!r.word_ || r.word_.length !== 1) continue
-    let e = words.get(r.word_)
+    if (!r.zi_ || r.zi_.length !== 1) continue
+    let e = words.get(r.zi_)
     if (!e) {
       e = {
-        char: r.word_,
+        char: r.zi_,
         weight: 0,
-        readings: [],
+        readings: new Map(),   // spell_raw_ → 权重和
         plainSet: new Set(),
         totalStrokes: 0,
         radical: '',
         structure: '未指定',
         unicode: ''
       }
-      words.set(r.word_, e)
+      words.set(r.zi_, e)
     }
-    if (r.spell_ && !e.readings.includes(r.spell_)) e.readings.push(r.spell_)
-    if (r.spell_chars_) e.plainSet.add(r.spell_chars_)
-    e.weight = Math.max(e.weight, r.used_weight_ ?? 0)
+    // 权重: 该汉字各带声调拼音组合 used_weight_ 的最大值
+    if (r.spell_raw_ && !e.readings.has(r.spell_raw_)) {
+      e.readings.set(r.spell_raw_, r.used_weight_ ?? 0)
+      e.weight = Math.max(e.weight, r.used_weight_ ?? 0)
+    }
+    if (r.spell_value_) e.plainSet.add(r.spell_value_)
     e.totalStrokes = Math.max(e.totalStrokes, r.total_stroke_count_ ?? 0)
     if (r.radical_ && !e.radical) e.radical = r.radical_
     if (r.glyph_struct_) e.structure = structureName(r.glyph_struct_)
     if (r.unicode_ && !e.unicode) e.unicode = r.unicode_
+  }
+  // 读音按 used_weight_ 降序（该汉字读音的排序结果）
+  for (const e of words.values()) {
+    e.readings = [...e.readings.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([raw]) => raw)
   }
 
   // ---- 2. 读取笔画库（常用字的笔画数据） ----
@@ -165,7 +174,8 @@ function main() {
   const ziDir = path.join(out, 'assets', 'zi')
   const pinyinDir = path.join(out, 'assets', 'pinyin')
 
-  // 清理旧导出（防止数量减少/拼音变更后残留过期文件）
+  // 清理旧导出（先删除现有目录与文件，含 meta.json/strokes.json，
+  // 防止常用字范围/数据变更后残留过期文件）
   fs.rmSync(ziDir, { recursive: true, force: true })
   fs.rmSync(pinyinDir, { recursive: true, force: true })
 
@@ -209,13 +219,10 @@ function main() {
         structure: w.structure
       })
       metaCount++
-      // 仅常用字导出笔画数据
+      // 仅常用字生成笔画数据文件（无笔画时为空数组，供书写页直接更新）
       if (commonSet.has(w.char)) {
-        const strokes = strokeMap.get(cp)
-        if (strokes && strokes.length > 0) {
-          writeJson(path.join(dir, 'strokes.json'), strokes)
-          strokeCount++
-        }
+        writeJson(path.join(dir, 'strokes.json'), strokeMap.get(cp) || [])
+        strokeCount++
       }
     }
     console.log(`已导出汉字信息 ${metaCount}/${entries.length}`)

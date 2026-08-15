@@ -1,13 +1,16 @@
 // 从 sqlite 汉字数据源导入到 hanzi_stroke.db
 // 用法:
-//   pnpm import:pinyin                                    # 默认数据源 server/data/pinyin-dict.v3.sqlite
+//   pnpm import:pinyin                                    # 默认数据源 data/pinyin-dict.sqlite
 //   pnpm import:pinyin -- --source /path/to/dict.sqlite   # 指定数据源路径
 //   pnpm import:pinyin -- /path/to/dict.sqlite            # 位置参数指定
 //   pnpm import:pinyin -- --source a.sqlite --db out.db   # 同时指定目标库
-// 数据源表 pinyin_word 列: word_(字) spell_(读音含声调) spell_chars_(拼音无声调)
-//       used_weight_(权重) total_stroke_count_(笔画数) glyph_struct_(结构)
-// 存储: characters 表（id = 汉字 unicode 数值），仅 读音/拼音/权重/结构/笔画数
-// 多音字聚合多个读音/拼音；重复行去重；已存在记录更新（保留已有笔画）
+// 数据源表 pinyin_zi 列: zi_(字) spell_raw_(读音含声调) spell_value_(拼音无声调)
+//       used_weight_(该读音使用频率) total_stroke_count_(笔画数) glyph_struct_(结构) radical_(部首)
+// 聚合规则:
+//   - 读音: 按 used_weight_ 降序排序（该汉字读音的排序结果）
+//   - 权重: 该汉字带声调拼音组合 used_weight_ 的最大值
+//   - 结构: glyph_struct_ 按数字编码存储（前端映射展示名与示例）
+// 存储: characters 表（id = 汉字 unicode 数值）；已存在记录更新（保留已有笔画）
 import { DatabaseSync } from 'node:sqlite'
 import path from 'path'
 import fs from 'fs'
@@ -15,7 +18,7 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..', '..')
-const DEFAULT_SRC = path.join(ROOT, 'data', 'pinyin-dict.v3.sqlite')
+const DEFAULT_SRC = path.join(ROOT, 'data', 'pinyin-dict.sqlite')
 const DEFAULT_DST = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
 
 // 解析命令行参数: --source/--db 选项 + 位置参数（相对 CWD 解析）
@@ -66,30 +69,40 @@ async function main() {
   const src = new DatabaseSync(SRC_DB, { readOnly: true })
   const dst = getDb()
 
-  // 读取全部 pinyin_word（按字聚合）
+  // 读取全部 pinyin_zi（按字聚合）
   const rows = src.prepare(`
-    SELECT word_, spell_, spell_chars_, used_weight_, total_stroke_count_, glyph_struct_, radical_
-    FROM pinyin_word
-    ORDER BY word_
+    SELECT zi_, spell_raw_, spell_value_, used_weight_, total_stroke_count_, glyph_struct_, radical_
+    FROM pinyin_zi
+    ORDER BY id_
   `).all()
 
-  // 聚合: word_ → { pinyin:Set, plain:Set, weight, strokes, struct, radical }
+  // 聚合: zi_ → { readings:Map(spell_raw_ → 权重和), plain:Set, weight, strokes, struct, radical }
   const agg = new Map()
   for (const r of rows) {
-    if (!r.word_ || r.word_.length !== 1) continue
-    let e = agg.get(r.word_)
+    if (!r.zi_ || r.zi_.length !== 1) continue
+    let e = agg.get(r.zi_)
     if (!e) {
-      e = { pinyin: new Set(), plain: new Set(), weight: 0, strokes: 0, struct: 0, radical: '' }
-      agg.set(r.word_, e)
+      e = { readings: new Map(), plain: new Set(), weight: 0, strokes: 0, struct: 0, radical: '' }
+      agg.set(r.zi_, e)
     }
-    if (r.spell_) e.pinyin.add(r.spell_)
-    if (r.spell_chars_) e.plain.add(r.spell_chars_)
-    e.weight = Math.max(e.weight, r.used_weight_ ?? 0)
+    // 权重: 该汉字各带声调拼音组合 used_weight_ 的最大值
+    if (r.spell_raw_ && !e.readings.has(r.spell_raw_)) {
+      e.readings.set(r.spell_raw_, r.used_weight_ ?? 0)
+      e.weight = Math.max(e.weight, r.used_weight_ ?? 0)
+    }
+    if (r.spell_value_) e.plain.add(r.spell_value_)
     e.strokes = Math.max(e.strokes, r.total_stroke_count_ ?? 0)
     if (r.radical_ && !e.radical) e.radical = r.radical_
     if (r.glyph_struct_ && STRUCTURE_MAP[r.glyph_struct_] !== undefined) {
       e.struct = STRUCTURE_MAP[r.glyph_struct_]
     }
+  }
+
+  // 读音按 used_weight_ 降序（该汉字读音的排序结果）
+  for (const e of agg.values()) {
+    e.readings = [...e.readings.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([raw]) => raw)
   }
 
   // 写入 hanzi_stroke.db（upsert，保留已有笔画）
@@ -116,7 +129,7 @@ async function main() {
         const [word, e] = entries[k]
         const unicode = word.codePointAt(0)
         upsert.run(unicode, word,
-          JSON.stringify([...e.pinyin]),
+          JSON.stringify(e.readings),
           JSON.stringify([...e.plain]),
           e.weight, e.struct, e.radical, e.strokes)
         count++
@@ -128,6 +141,17 @@ async function main() {
     }
     console.log(`已导入 ${count}/${entries.length}`)
   }
+
+  // 清理: 新词典中不存在的汉字标记删除（保持与数据源一致）
+  dst.exec('CREATE TEMP TABLE _keep(id INTEGER PRIMARY KEY)')
+  const keep = dst.prepare('INSERT OR IGNORE INTO _keep(id) VALUES (?)')
+  for (const w of agg.keys()) keep.run(w.codePointAt(0))
+  const { changes } = dst.prepare(`
+    UPDATE characters SET deleted_at = datetime('now')
+    WHERE deleted_at IS NULL AND id NOT IN (SELECT id FROM _keep)
+  `).run()
+  dst.exec('DROP TABLE _keep')
+  if (changes > 0) console.log(`已清理词典外汉字: ${changes} 个`)
 
   console.log(`导入完成: ${count} 个汉字（多音聚合、重复去重）`)
   src.close()
