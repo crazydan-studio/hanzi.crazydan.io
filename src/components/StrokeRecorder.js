@@ -1,4 +1,4 @@
-import { CANVAS_SIZE } from './constants.js'
+import { CANVAS_SIZE } from './Constants.js'
 
 // 录制核心（与画布解耦，可复用）
 export class StrokeRecorder {

@@ -18,11 +18,12 @@
 //     .loadStrokes([...]) / .confirmStrokeSaved(localId, saved) / .removeStroke(id)
 //     .setMode('playback') / .seekToStroke(strokeId)
 import Alpine from 'alpinejs'
-import { StrokeRecorder } from './strokeRecorder.js'
-import { AnimationEngine } from './animationEngine.js'
-import { computeBrushWidths, drawBrushStroke } from './brush.js'
-import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor } from './strokeBackground.js'
-import { BASE_WIDTH, CANVAS_SIZE } from './constants.js'
+import { StrokeRecorder } from './StrokeRecorder.js'
+import { AnimationEngine } from './AnimationEngine.js'
+import { computeBrushWidths, drawBrushStroke } from './Brush.js'
+import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
+import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
+import { BASE_WIDTH, CANVAS_SIZE } from './Constants.js'
 
 Alpine.data('strokePad', (opts = {}) => ({
   width: opts.width || CANVAS_SIZE.width,
@@ -126,7 +127,7 @@ Alpine.data('strokePad', (opts = {}) => ({
     this._opts.onReady?.(this)
 
     // 主题切换时重绘背景（田字格与背景汉字颜色适配主题色）
-    window.addEventListener('hanzi:theme-change', () => {
+    window.addEventListener(THEME_CHANGE_EVENT, () => {
       if (this.mode === 'write') this.redrawCanvas()
       else if (this.mode === 'playback') this.syncPlaybackData()
     })
@@ -205,29 +206,14 @@ Alpine.data('strokePad', (opts = {}) => ({
       else if (this.mode === 'playback') this.syncPlaybackData()
     }
 
-    const hasFont = (family) => {
-      try {
-        return document.fonts?.check ? document.fonts.check(`100px "${family}"`) : false
-      } catch { return false }
-    }
-
-    // 已就绪（系统 SimKai / 静态中易楷体）
-    if (hasFont('SimKai') || hasFont('ZhongYiKaiTi')) {
-      enable()
-      return
-    }
-    // 无 Font Loading API → 直接启用
     if (!document.fonts?.load) {
       enable()
       return
     }
-
     this.fontReady = false
     // 超时兜底: 加载异常也启用（回退字体）
     const timeout = setTimeout(enable, 6000)
-    document.fonts.load('300px "ZhongYiKaiTi"')
-      .then(() => { clearTimeout(timeout); enable() })
-      .catch(() => { clearTimeout(timeout); enable() })
+    ensureKaiFont().then(() => { clearTimeout(timeout); enable() })
   },
 
   // 回调输出回放进度（笔画列表联动高亮当前绘制笔画）
@@ -277,8 +263,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   // 换算系数由画布设备像素与实测显示宽度得出，任意显示尺寸/DPR 下线宽与虚线模式一致
   drawTianZiGe() {
     const rect = this.canvas.getBoundingClientRect()
-    const unit = rect.width > 0 ? Math.max(0.5, Math.min(8, this.canvas.width / rect.width)) : 1
-    drawTianZiGe(this.ctx, this.width, this.height, unit, rect.width)
+    drawTianZiGe(this.ctx, this.width, this.height, displayUnit(this.canvas, rect), rect.width)
   },
 
   // 书写模式参考字: 以楷体半透明显示当前汉字（供描红参考）
@@ -611,20 +596,13 @@ Alpine.data('strokePad', (opts = {}) => ({
     this._opts.onStrokeRemoveRequest?.({ strokeId: last.id, reason: 'undo' })
   },
 
-  // 清空画布（当前会话的全部笔画）:
-  // 有 onStrokeClearAll 回调（宿主可备份全部笔画以支持恢复）时走之，否则逐个请求删除
+  // 清空画布（当前会话的全部笔画）: 回调宿主备份全部笔画（支持恢复）
   clearPad() {
     if (this.mode !== 'write') return
     const all = this.strokes
     this.strokes = []
     this.redrawCanvas()
-    if (this._opts.onStrokeClearAll) {
-      this._opts.onStrokeClearAll(all)
-    } else {
-      for (const s of all) {
-        this._opts.onStrokeRemoveRequest?.({ strokeId: s.id })
-      }
-    }
+    this._opts.onStrokeClearAll(all)
   },
 
   // ---- 回放模式静态显示（非播放时: 只显示已播放笔画，后续笔画始终不显示） ----

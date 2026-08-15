@@ -1,4 +1,4 @@
-import { BASE_WIDTH } from './constants.js'
+import { BASE_WIDTH } from './Constants.js'
 
 // ============ 笔触模拟（brush stroke） ============
 // 依据 压力/速度/首尾锥形 计算每点宽度，并用轮廓法（可变宽度多边形）渲染，

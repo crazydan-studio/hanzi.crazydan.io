@@ -1,5 +1,5 @@
-import { BASE_WIDTH } from './constants.js'
-import { computeBrushWidths, drawBrushStroke } from './brush.js'
+import { BASE_WIDTH } from './Constants.js'
+import { computeBrushWidths, drawBrushStroke } from './Brush.js'
 
 // 单一RAF状态机。不使用 async/await + Promise 链，全部状态显式管理，
 // pause/resume/seek 均为状态切换，天然安全。
@@ -10,7 +10,6 @@ export class AnimationEngine {
     this.strokeGap = options.strokeGap ?? 300   // 笔画间停顿(墙钟毫秒)
     this.baseWidth = options.baseWidth ?? BASE_WIDTH
     this.highlightColor = options.highlightColor ?? null   // 正在绘制笔画的动画高亮色
-    this.backgroundRenderer = options.backgroundRenderer ?? null  // (engine) 每帧清屏后绘制背景
     this.penWidthCoef = options.penWidthCoef ?? 1   // 前端笔触宽度系数（展示配置）
     // 已完成笔画的颜色: 可为函数（每帧求值，适配主题切换）
     this.completedColor = options.completedColor ?? '#000000'

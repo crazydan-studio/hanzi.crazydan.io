@@ -5,14 +5,11 @@
 // （循环间插入短暂等待，避免视觉跳动），再次点击终止播放。
 // 田字格线宽按画布显示尺寸缩放，确保缩小显示的分解图中虚线清晰可见。
 import Alpine from 'alpinejs'
-import { AnimationEngine } from './animationEngine.js'
-import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor } from './strokeBackground.js'
-import { strokeTypesMap } from './strokeTypes.js'
-
-// 内部单位换算系数（每 1 CSS 像素对应的内部单位数），带合理上下限
-function clampUnit(u) {
-  return Math.max(0.5, Math.min(8, u))
-}
+import { AnimationEngine } from './AnimationEngine.js'
+import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor, displayUnit } from './StrokeBackground.js'
+import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
+import { DISPLAY_PEN_WIDTH_COEF } from './Constants.js'
+import { strokeTypesMap } from './StrokeTypes.js'
 
 Alpine.data('strokeCell', (char, index, strokes) => ({
   canvas: null,
@@ -25,7 +22,7 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
     this.engine = new AnimationEngine(this.canvas, {
       highlightColor: '#dc2626',   // 正在绘制的笔画: 红色笔触
       strokeGap: 0,
-      penWidthCoef: 6,             // 与笔画书写页默认笔触（特粗）一致
+      penWidthCoef: DISPLAY_PEN_WIDTH_COEF,
       completedColor: () => strokeInkColor()   // 已绘笔画墨色（适配主题）
     })
     // 背景: 田字格 + 半透明汉字字型（颜色适配主题）
@@ -34,8 +31,7 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
     this.engine.onBeforeRender = () => {
       const rect = this.canvas.getBoundingClientRect()
       if (!rect.width) return
-      const unit = clampUnit(this.canvas.width / rect.width)
-      drawTianZiGe(this.engine.ctx, this.engine.cssW, this.engine.cssH, unit, rect.width)
+      drawTianZiGe(this.engine.ctx, this.engine.cssW, this.engine.cssH, displayUnit(this.canvas, rect), rect.width)
       drawCharRef(this.engine.ctx, this.engine.cssW, this.engine.cssH, char, charRefColor())
     }
     this.engine.onStrokeStart = () => { this.playing = true }
@@ -55,7 +51,7 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
     this.renderStatic()
 
     // 主题切换时重绘（田字格/背景汉字/已绘笔画颜色适配主题色）
-    window.addEventListener('hanzi:theme-change', () => {
+    window.addEventListener(THEME_CHANGE_EVENT, () => {
       if (!this.playing) this.renderStatic()
     })
     // 窗口尺寸变化（断点切换等）时按新显示比例重绘

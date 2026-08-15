@@ -15,6 +15,30 @@ export function strokeInkColor() {
   return isDark() ? '#f9fafb' : '#000000'
 }
 
+// 画布内部坐标换算系数: 每 1 CSS 像素对应的内部单位数
+// （由设备像素 canvas.width 与实测显示宽度得出，与显示尺寸/DPR 无关）
+export function displayUnit(canvas, rect) {
+  return rect.width > 0 ? Math.max(0.5, Math.min(8, canvas.width / rect.width)) : 1
+}
+
+// 指定字体族是否可用
+export function fontAvailable(family) {
+  try {
+    return document.fonts?.check ? document.fonts.check(`100px "${family}"`) : false
+  } catch {
+    return false
+  }
+}
+
+// 等待楷体可用: 优先系统 SimKai，缺失时加载静态字体资源
+export async function ensureKaiFont() {
+  if (fontAvailable('SimKai') || fontAvailable('ZhongYiKaiTi')) return
+  if (!document.fonts?.load) return
+  try {
+    await document.fonts.load('300px "ZhongYiKaiTi"')
+  } catch { /* 加载失败回退系统字体 */ }
+}
+
 // 选择能渲染该字的字体族（优先系统 SimKai，其次静态中易楷体，均缺失时回退）
 export function pickCharFont(char) {
   if (document.fonts?.check) {

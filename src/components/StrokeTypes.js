@@ -45,12 +45,3 @@ export const STROKE_TYPES = [
 
 // code → 类型对象映射（保存笔画时取名称/形状）
 export const strokeTypesMap = Object.fromEntries(STROKE_TYPES.map(t => [t.code, t]))
-
-// 旧字符串编码 → 新数字编码（迁移用）
-export const LEGACY_STROKE_TYPE_MAP = {
-  unassigned: 0,
-  dian: 1, heng: 2, shu: 3, pie: 4, na: 5, ti: 6,
-  hengzhe: 7, hengpie: 8, henggou: 9, hengzhegou: 10,
-  hengzhehenggou: 18, shuzhe: 21, shugou: 22, shuwangou: 24,
-  shuzhe: 21, piezhe: 29
-}
