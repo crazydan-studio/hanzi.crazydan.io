@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>汉字 | 拼音字列表</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="stylesheet" href="/src/styles/main.css">
+  <script>
+    // 初始主题: 存储值优先，否则跟随系统（防止暗黑主题闪烁）
+    (function () {
+      try {
+        var t = localStorage.getItem('hanzi:theme')
+        if (t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark')
+        }
+      } catch (e) {}
+    })()
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen dark:bg-gray-900" x-data="pinyinApp()">
+  <!-- 字体加载遮罩: 系统无 SimKai 时加载静态楷体资源，加载期间遮住页面 -->
+  <div id="font-loading-overlay" class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-white dark:bg-gray-900">
+    <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
+    <span class="text-sm text-gray-600 dark:text-gray-300">正在加载中易楷体…</span>
+  </div>
+  <script>
+    (function () {
+      function hide() { var el = document.getElementById('font-loading-overlay'); if (el) el.remove() }
+      function hasSimKai() {
+        try { return !!document.fonts && document.fonts.check('100px "SimKai"') } catch (e) { return false }
+      }
+      if (!document.fonts || !document.fonts.load || hasSimKai()) { hide(); return }
+      var t = setTimeout(hide, 6000)
+      document.fonts.load('300px "ZhongYiKaiTi"')
+        .then(function () { clearTimeout(t); hide() })
+        .catch(function () { clearTimeout(t); hide() })
+    })()
+  </script>
+
+  <div class="max-w-4xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-4">
+      <a href="/" class="btn-sm">← 返回首页</a>
+      <h1 class="text-lg md:text-xl font-bold">
+        拼音「<span class="text-blue-600" x-text="p"></span>」的汉字
+        <span class="text-sm text-gray-400 font-normal dark:text-gray-500"
+          x-text="list.length ? '（' + list.length + ' 个）' : ''"></span>
+      </h1>
+      <button x-data="themeToggle()" @click="toggle()" class="btn-sm inline-flex items-center justify-center !px-2"
+        :title="dark ? '切换到明亮' : '切换到暗黑'">
+        <template x-if="!dark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </template>
+        <template x-if="dark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </template>
+      </button>
+    </header>
+
+    <!-- 列表面板: 加载提示位于面板中心 -->
+    <section class="bg-white border rounded-lg shadow-sm p-4 md:p-6 dark:bg-gray-800 dark:border-gray-700">
+      <div x-show="loading" class="flex items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+        <span class="inline-block h-5 w-5 mr-2 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
+        正在加载汉字…
+      </div>
+      <p x-show="!loading && error" class="py-12 text-center text-red-600" x-text="error"></p>
+      <!-- 汉字展示形式与首页常用字速览一致，点击跳转汉字信息页 -->
+      <div x-show="!loading && !error && list.length"
+        x-data="charGrid()" x-effect="setChars(list)"
+        class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-2 md:gap-3">
+        <template x-for="c in chars" :key="c[0]">
+          <button @click="openChar(c)"
+            class="flex flex-col items-center gap-0.5 py-2 rounded-lg border border-transparent hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer dark:hover:bg-gray-700 dark:hover:border-blue-500">
+            <span class="text-xs text-gray-400 dark:text-gray-400" x-text="c[1]"></span>
+            <span class="text-3xl font-kaiti leading-none" x-text="c[0]"></span>
+          </button>
+        </template>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="/src/pinyin/main.js"></script>
+</body>
+</html>

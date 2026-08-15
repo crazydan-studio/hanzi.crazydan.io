@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>汉字 | 汉字信息</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="stylesheet" href="/src/styles/main.css">
+  <script>
+    // 初始主题: 存储值优先，否则跟随系统（防止暗黑主题闪烁）
+    (function () {
+      try {
+        var t = localStorage.getItem('hanzi:theme')
+        if (t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark')
+        }
+      } catch (e) {}
+    })()
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen dark:bg-gray-900" x-data="charApp()">
+  <!-- 字体加载遮罩: 系统无 SimKai 时加载静态楷体资源，加载期间遮住页面 -->
+  <div id="font-loading-overlay" class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-white dark:bg-gray-900">
+    <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></span>
+    <span class="text-sm text-gray-600 dark:text-gray-300">正在加载中易楷体…</span>
+  </div>
+  <script>
+    (function () {
+      function hide() { var el = document.getElementById('font-loading-overlay'); if (el) el.remove() }
+      function hasSimKai() {
+        try { return !!document.fonts && document.fonts.check('100px "SimKai"') } catch (e) { return false }
+      }
+      if (!document.fonts || !document.fonts.load || hasSimKai()) { hide(); return }
+      var t = setTimeout(hide, 6000)
+      document.fonts.load('300px "ZhongYiKaiTi"')
+        .then(function () { clearTimeout(t); hide() })
+        .catch(function () { clearTimeout(t); hide() })
+    })()
+  </script>
+
+  <div class="max-w-3xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-4">
+      <a href="/" class="btn-sm">← 返回首页</a>
+      <button x-data="themeToggle()" @click="toggle()" class="btn-sm inline-flex items-center justify-center !px-2"
+        :title="dark ? '切换到明亮' : '切换到暗黑'">
+        <template x-if="!dark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </template>
+        <template x-if="dark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </template>
+      </button>
+    </header>
+
+    <p x-show="loading" class="text-center text-gray-500 py-16 dark:text-gray-400">加载中...</p>
+    <p x-show="error && !loading" class="text-center text-red-600 py-16" x-text="error"></p>
+
+    <template x-if="meta && !loading">
+      <div>
+        <!-- 书写动画面板（汉字信息置于其上，按行流式布局） -->
+        <section class="bg-white border rounded-lg shadow-sm p-4 md:p-5 dark:bg-gray-800 dark:border-gray-700">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-bold">书写动画</h2>
+            <!-- 汉典网详情（信息区域右上角） -->
+            <a :href="zdicUrl" target="_blank" rel="noopener" class="btn-sm">汉典网详情 →</a>
+          </div>
+
+          <!-- 汉字信息: 置于书写动画面板上，按行流式布局，信息间以竖线分隔符分隔 -->
+          <div class="mb-4 rounded border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
+            <!-- 读音行与左侧汉字作为一个整体做流式布局: 溢出时读音行整体独占一行 -->
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span class="text-5xl md:text-6xl font-kaiti leading-none" x-text="meta.character"></span>
+              <button @click="copy(meta.character)" class="btn-sm"
+                x-text="copiedValue === meta.character ? '已复制' : '复制'"></button>
+              <!-- 读音（整体作为一行单元）: 试听 + 复制 -->
+              <div class="flex flex-wrap items-center gap-2">
+                <template x-for="p in meta.pinyin" :key="p">
+                  <span class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 dark:border-gray-600 dark:bg-gray-800">
+                    <span class="font-medium" x-text="p"></span>
+                    <button @click="playPinyin(p)" class="text-blue-500 hover:text-blue-700">试听</button>
+                    <button @click="copy(p)" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                      x-text="copiedValue === p ? '已复制' : '复制'"></button>
+                  </span>
+                </template>
+              </div>
+            </div>
+            <!-- 基础信息行: 笔画总数 / 部首 / 字型结构 / Unicode（流式排列，竖线分隔） -->
+            <div class="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1.5 text-sm text-gray-600 dark:text-gray-300">
+              <span>笔画总数 <b x-text="meta.total_stroke_count"></b> 画</span>
+              <span class="text-gray-300 dark:text-gray-600" aria-hidden="true">|</span>
+              <span class="flex items-center gap-1.5">部首
+                <b class="font-kaiti text-xl" x-text="meta.radical"></b>
+                <button @click="copy(meta.radical)" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                  x-text="copiedValue === meta.radical ? '已复制' : '复制'"></button>
+              </span>
+              <span class="text-gray-300 dark:text-gray-600" aria-hidden="true">|</span>
+              <span>字型结构 <b x-text="meta.structure"></b></span>
+              <span class="text-gray-300 dark:text-gray-600" aria-hidden="true">|</span>
+              <span class="flex items-center gap-1.5">Unicode
+                <b x-text="meta.unicode"></b>
+                <button @click="copy(meta.unicode)" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                  x-text="copiedValue === meta.unicode ? '已复制' : '复制'"></button>
+              </span>
+            </div>
+            <p x-show="audioHint" class="mt-1 text-xs text-gray-400" x-text="audioHint"></p>
+          </div>
+
+          <!-- 书写动画: 田字格 + 字型背景；无笔画数据时同样显示背景，仅无播放功能
+               画布自适应父容器（w-full + 正方形比例，最大 500px），移动端不溢出 -->
+          <div class="flex justify-center w-full">
+            <div class="border rounded bg-white p-2 w-full max-w-[500px] dark:bg-gray-900 dark:border-gray-700">
+              <canvas x-ref="mainCanvas" class="block w-full" style="aspect-ratio:1"></canvas>
+            </div>
+          </div>
+          <!-- 播放控制: 播放 / 暂停 / 重置 + 倍速 -->
+          <div class="mt-3 flex flex-wrap items-center justify-center gap-2" x-show="hasStrokes">
+            <button @click="play()" :disabled="playing" class="btn btn-primary disabled:opacity-50">播放</button>
+            <button @click="pause()" :disabled="!playing" class="btn bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50">暂停</button>
+            <button @click="resetPlay()" class="btn bg-gray-500 text-white hover:bg-gray-600">重置</button>
+            <span class="flex items-center gap-1">
+              <span class="text-sm text-gray-500 dark:text-gray-400">倍速</span>
+              <template x-for="s in SPEEDS" :key="s">
+                <button @click="setSpeed(s)" class="btn-sm"
+                  :class="playbackSpeed === s ? 'bg-blue-500 text-white border-blue-500' : ''"
+                  x-text="s + 'x'"></button>
+              </template>
+            </span>
+          </div>
+          <p x-show="!hasStrokes" class="mt-3 text-center text-sm text-gray-500 dark:text-gray-400">
+            该汉字暂无笔画数据，不支持播放笔画书写动画
+          </p>
+        </section>
+
+        <!-- 笔画分解图: 每笔的笔画名称、笔顺、在字型中的位置；
+             点击分解图播放/终止该笔画的书写动画（自动循环当前笔画） -->
+        <section class="bg-white border rounded-lg shadow-sm p-4 md:p-5 mt-6 dark:bg-gray-800 dark:border-gray-700">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <h2 class="text-lg font-bold">笔画分解图</h2>
+            <p x-show="hasStrokes" class="text-xs text-gray-500 dark:text-gray-400">
+              点击任一笔画分解图即可播放该笔画的书写动画，再次点击终止播放
+            </p>
+          </div>
+          <template x-if="hasStrokes">
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <template x-for="(s, i) in strokes" :key="s.stroke_order">
+                <div x-data="strokeCell(meta.character, i, strokes)" class="flex flex-col items-center gap-1">
+                  <div @click="togglePlay()"
+                    class="relative border border-gray-200 rounded bg-white p-1 w-full cursor-pointer select-none dark:border-gray-700 dark:bg-gray-900"
+                    :title="playing ? '点击终止播放' : '点击播放该笔画动画'">
+                    <canvas x-ref="canvas" class="block w-full pointer-events-none" style="aspect-ratio:1"></canvas>
+                  </div>
+                  <span class="text-sm font-kaiti" x-text="name"></span>
+                  <span class="text-xs text-gray-400 dark:text-gray-500" x-text="'第' + (i + 1) + '笔'"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+          <p x-show="!hasStrokes" class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+            该汉字暂无笔画数据
+          </p>
+        </section>
+      </div>
+    </template>
+  </div>
+
+  <!-- 本地开发模式: 浮动按钮 → 跳转到该汉字的笔画书写页面（记录返回地址） -->
+  <a x-show="writeButton && meta" :href="writeUrl" @click="rememberBack()"
+    class="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2.5 text-sm text-white shadow-lg hover:bg-blue-600">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+    书写该字
+  </a>
+
+  <script type="module" src="/src/char/main.js"></script>
+</body>
+</html>

@@ -1,159 +1,41 @@
-// ============ 汉字列表页组件（列表页 index.html 专用） ============
-// 列: 汉字/读音/结构(内联编辑)/笔画图(小图)；按权重降序
-// 过滤: 完整笔画图 + 字/拼音搜索；分页大小可选；过滤与分页均 URL 路由
+// ============ 首页组件（index.html） ============
+// 功能: 汉字/拼音查询（URL 参数路由）+ 常用字速览
 import Alpine from 'alpinejs'
-import { api } from './services/api.js'
-import { createSyncClient } from './services/syncClient.js'
-import { CHARACTER_STRUCTURES, structureLabel } from './components/characterStructures.js'
+import { loadCommons } from '@services/data.js'
 
-Alpine.data('characterList', () => ({
-  characters: [],
-  search: '',
-  page: 1,
-  limit: 20,
-  hasStrokes: '',          // ''全部 | '1'完整 | '2'仅含部分笔画图 | '0'无笔画图
-  totalPages: 1,
-  jumpPage: 1,             // 分页跳转输入
-  LIMIT_OPTIONS: [20, 50, 100],
-  CHARACTER_STRUCTURES: CHARACTER_STRUCTURES,   // 结构内联编辑下拉
-  structureLabel: structureLabel,               // 结构名显示
-  loading: false,
-  error: null,
+Alpine.data('homeApp', () => ({
+  commons: [],
+  commonsLoading: true,
+  query: '',
+  error: '',
+  // 本地开发模式下显示「笔画管理」浮动入口
+  devButton: import.meta.env.DEV,
 
   init() {
-    // 从 URL 参数恢复 过滤/分页（?page=&limit=&search=&has_strokes=）
-    const params = new URLSearchParams(window.location.search)
-    this.page = parseInt(params.get('page')) || 1
-    this.jumpPage = this.page          // 跳转输入框与 URL 解析的当前页同步
-    this.limit = parseInt(params.get('limit')) || 20
-    this.search = params.get('search') || ''
-    const hs = params.get('has_strokes')
-    if (hs === '1' || hs === '0' || hs === '2') this.hasStrokes = hs
-    this.load()
-    this.setupSync()
-  },
-
-  // ---- 多端同步: 他端写入笔画/修改信息 → 刷新列表；他端跳转 → 跟随 ----
-  setupSync() {
-    this.sync = createSyncClient()
-    this.sync.on('navigate', (p) => {
-      if (p.url) location.href = p.url
-    })
-    this.sync.on('strokes-changed', () => this.load())
-    this.sync.on('character-updated', () => this.load())
-  },
-
-  // 更新 URL 路由参数（过滤/分页），并刷新列表
-  updateUrl() {
-    const params = new URLSearchParams()
-    if (this.page > 1) params.set('page', String(this.page))
-    if (this.limit !== 20) params.set('limit', String(this.limit))
-    if (this.search) params.set('search', this.search)
-    if (this.hasStrokes !== '') params.set('has_strokes', this.hasStrokes)
-    const qs = params.toString()
-    history.replaceState(null, '', qs ? '?' + qs : window.location.pathname)
-    this.load()
-  },
-
-  async load() {
-    this.loading = true
-    try {
-      const params = new URLSearchParams({ page: this.page, limit: this.limit })
-      if (this.search) params.set('search', this.search)
-      if (this.hasStrokes !== '') params.set('has_strokes', this.hasStrokes)
-      const res = await api.get(`/api/characters?${params}`)
-      this.characters = res.data || []
-      this.totalPages = res.meta?.totalPages ?? 1
-      this.jumpPage = this.page   // 加载完成后同步跳转输入框
-    } catch (e) {
-      this.error = e.message
-      this.characters = this.characters || []
-    } finally {
-      this.loading = false
-    }
-  },
-
-  setPage(p) {
-    this.page = Math.max(1, Math.min(p, this.totalPages))
-    this.jumpPage = this.page   // 跳转输入框与当前页保持同步
-    this.updateUrl()
-  },
-
-  // 跳转到指定页码（分页输入框）
-  jumpTo() {
-    const p = parseInt(this.jumpPage)
-    if (Number.isInteger(p) && p >= 1) {
-      this.setPage(p)           // setPage 内会同步 jumpPage
-    } else {
-      this.jumpPage = this.page
-    }
-  },
-
-  setLimit(l) {
-    this.limit = l
-    this.page = 1
-    this.updateUrl()
-  },
-
-  onSearch() {
-    this.page = 1
-    this.updateUrl()
-  },
-
-  setHasStrokes(v) {
-    this.hasStrokes = v
-    this.page = 1
-    this.updateUrl()
-  },
-
-  // 结构内联编辑（唯一可编辑字段，其余只读）
-  async updateStructure(character, structure) {
-    const code = Number(structure)
-    if (!Number.isInteger(code) || character.structure === code) return
-    try {
-      const res = await api.patch(`/api/characters/${character.id}`, { structure: code })
-      character.structure = res.data.structure
-    } catch (e) {
-      this.error = e.message
-    }
-  },
-
-  // 笔画小图: 渲染该字所有笔画轨迹（归一化坐标 × 缩略图尺寸）
-  renderThumb(canvas, strokes) {
-    if (!canvas) return
-    const size = 44
-    const dpr = window.devicePixelRatio || 1
-    canvas.width = size * dpr
-    canvas.height = size * dpr
-    const ctx = canvas.getContext('2d')
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.clearRect(0, 0, size, size)
-    ctx.strokeStyle = '#374151'   // gray-700
-    ctx.lineWidth = 2
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    for (const stroke of strokes || []) {
-      const pts = stroke.trajectory_data?.points || []
-      if (pts.length === 0) continue
-      ctx.beginPath()
-      pts.forEach((p, i) => {
-        const x = (p[0] / 10000) * size
-        const y = (p[1] / 10000) * size
-        if (i === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
+    loadCommons()
+      .then((list) => {
+        // 常用字速览: 按权重显示前 20 个常用汉字
+        this.commons = (list || []).slice(0, 20)
       })
-      ctx.stroke()
-    }
+      .catch(() => {
+        this.error = '常用字数据加载失败'
+      })
+      .finally(() => {
+        this.commonsLoading = false
+      })
   },
 
-  // 点击行 → 跳转书写页（目录式: 指定目录 write/，自动定位 write/index.html）
-  // 记录来源 URL（含过滤/分页参数），书写页"返回列表"按钮据此恢复，而非重置列表
-  // 广播 navigate: 其他端的列表/书写页同步跳转到该字的书写页
-  openWriter(character) {
-    sessionStorage.setItem('hanzi:listBack', window.location.href)
-    this.sync?.emit('navigate', {
-      url: `write/?char=${encodeURIComponent(character.character)}&mode=write`
-    })
-    location.href = `write/?char=${encodeURIComponent(character.character)}&mode=write`
+  // 查询: 单个汉字 → 汉字信息页 /char/?v=
+  //       纯拼音（不带声调，允许 ü）→ 拼音字列表页 /pinyin/?v=
+  search() {
+    const q = this.query.trim()
+    if (!q) return
+    if (/^[\u4e00-\u9fff]$/.test(q)) {
+      location.href = `/char/?v=${encodeURIComponent(q)}`
+    } else if (/^[a-z\u00fc]+$/i.test(q)) {
+      location.href = `/pinyin/?v=${q.toLowerCase()}`
+    } else {
+      this.error = '请输入单个汉字或纯拼音（不带声调）'
+    }
   }
 }))
