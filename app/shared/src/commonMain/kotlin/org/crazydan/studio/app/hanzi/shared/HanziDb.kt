@@ -58,6 +58,18 @@ interface HanziDb : AutoCloseable {
 
     /** 笔画数据（按笔顺排序，绝对坐标）；该汉字无笔画时返回空列表 */
     fun queryCharStrokes(unicode: Int): List<CharStroke>
+
+    /**
+     * 创建拼音查询索引（端侧按需执行，幂等）:
+     * 拼音索引不在打包时生成（避免增加安装包体积），由 App 启动复制数据库后创建。
+     * 索引为紧凑关联表（整数 id 关联，控制体积）:
+     *   - pinyin:        带声调拼音 id → 读音（如 di4）
+     *   - pinyin_plain:  无声调拼音 id → 无声调拼音（如 di）
+     *   - pinyin_map:    带声调拼音 id → 无声调拼音 id
+     *   - char_pinyin:   汉字 id + 带声调拼音 id + 权重（按字去重，每字每无声调拼音仅首条读音）
+     * 另建 characters 权重索引（idx_characters_weight）。
+     */
+    fun ensurePinyinIndexes()
 }
 
 /** 数据源工厂（Android: android.database.sqlite 实现；iOS 预留） */
