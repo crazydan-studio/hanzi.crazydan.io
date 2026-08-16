@@ -5,6 +5,16 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// App 版本号（单一来源 app/version.txt，与 app/android/build.gradle.kts 的 versionName 一致）
+// 以 __HANZI_APP_VERSION__ 注入前端，供 App 下载面板展示版本信息
+function appVersion() {
+  try {
+    return fs.readFileSync(path.join(__dirname, 'app', 'version.txt'), 'utf-8').trim()
+  } catch {
+    return ''
+  }
+}
+
 // 命令行参数解析: --api-port N 指定后端端口（优先级: 参数 > 环境变量 VITE_API_PORT > 默认3001）
 function apiPort() {
   const i = process.argv.indexOf('--api-port')
@@ -106,6 +116,10 @@ export default defineConfig({
       }
     }
   ],
+  // App 版本号注入（下载面板版本信息）
+  define: {
+    __HANZI_APP_VERSION__: JSON.stringify(appVersion())
+  },
   resolve: {
     alias: {
       '@components': path.resolve(__dirname, 'src', 'components'),
