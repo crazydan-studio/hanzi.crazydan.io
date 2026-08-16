@@ -21,17 +21,45 @@
       <p class="mt-4 text-gray-500 text-sm md:text-base tracking-[0.3em] dark:text-gray-400">传承千年的人类文明瑰宝</p>
     </header>
 
-    <!-- 查询: 单个汉字 → 汉字信息页；纯拼音（不带声调）→ 拼音字列表页 -->
-    <form class="flex justify-center gap-2 mb-4" @submit.prevent="search()">
-      <input x-model="query" type="text" autocomplete="off"
-        placeholder="输入汉字或拼音（不带声调），如：的 / de"
-        class="input w-full max-w-md">
-      <button type="submit" class="btn btn-primary">查询</button>
+    <!-- 查询区（输入框/按钮/提示整体布局）: 单个汉字 → 汉字信息页；纯拼音 → 拼音字列表页 -->
+    <form class="mx-auto mb-10 flex w-full max-w-md flex-col items-center gap-2" @submit.prevent="search()">
+      <div class="flex w-full gap-2">
+        <input x-model="query" type="text" autocomplete="off"
+          placeholder="示例：的 / de / lv" class="input flex-1">
+        <button type="submit" class="btn btn-primary">查询</button>
+      </div>
+      <p class="self-start text-left text-xs text-gray-400 dark:text-gray-500">
+        仅可输入单个汉字或单个无声调拼音；拼音中的 ü 可用 v 代替（如 lv 等同于 lü）
+      </p>
     </form>
-    <p x-show="error" class="text-center text-red-600 text-sm mb-4" x-text="error"></p>
+    <p x-show="error" class="mb-10 text-center text-sm text-red-600" x-text="error"></p>
 
+    <!-- 常用字速览: 按权重显示前 20 个常用汉字，读音在汉字上方 -->
+    <section class="panel p-4 md:p-6 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold">常用字速览</h2>
+        <a href="/commons/" class="btn-sm">查看全部常用字 →</a>
+      </div>
+      <div class="relative min-h-[160px]">
+        <!-- 内容: 加载失败 / 无结果 / 结果 互斥显示 -->
+        <p x-show="!commonsLoading && commonsError" x-cloak
+          class="py-10 text-center text-sm text-red-600" x-text="commonsError"></p>
+        <p x-show="!commonsLoading && !commonsError && commons.length === 0" x-cloak
+          class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">暂无常用字数据</p>
+        <div x-show="!commonsLoading && !commonsError && commons.length"
+        x-data="charGrid()" x-effect="setChars(commons)" @click="onGridClick($event)" x-html="gridHtml"
+        class="char-grid"></div>
+        <!-- 加载中: 悬浮于列表区域上层 -->
+        <div x-show="commonsLoading" class="loading-overlay">
+          <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <span class="spinner"></span>
+            正在加载常用字…
+          </span>
+        </div>
+      </div>
+    </section>
     <!-- 移动端 App 下载（显著位置，离线使用汉字笔画数据） -->
-    <section class="panel border-blue-200 p-4 md:p-5 mb-6 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
+    <section class="panel border-blue-200 p-4 md:p-5 my-6 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-bold">下载移动端 App</h2>
@@ -50,24 +78,39 @@
       </div>
     </section>
 
-    <!-- 常用字速览: 按权重显示前 20 个常用汉字，读音在汉字上方 -->
-    <section class="panel p-4 md:p-6">
-      <h2 class="text-lg font-bold mb-4">常用字速览</h2>
-      <div class="relative min-h-[160px]">
-        <!-- 内容: 加载失败 / 无结果 / 结果 互斥显示 -->
-        <p x-show="!commonsLoading && commonsError" x-cloak
-          class="py-10 text-center text-sm text-red-600" x-text="commonsError"></p>
-        <p x-show="!commonsLoading && !commonsError && commons.length === 0" x-cloak
-          class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">暂无常用字数据</p>
-        <div x-show="!commonsLoading && !commonsError && commons.length"
-        x-data="charGrid()" x-effect="setChars(commons)" @click="onGridClick($event)" x-html="gridHtml"
-        class="char-grid"></div>
-        <!-- 加载中: 悬浮于列表区域上层 -->
-        <div x-show="commonsLoading" class="loading-overlay">
-          <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span class="spinner"></span>
-            正在加载常用字…
-          </span>
+    <!-- 友情赞助 -->
+    <section class="panel p-4 md:p-5 mt-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-bold">友情赞助</h2>
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">支持本项目持续发展，让更多人免费使用汉字笔画数据</p>
+        </div>
+        <a href="/donate/" class="btn btn-primary">去赞助</a>
+      </div>
+    </section>
+    <!-- 关于本站: 建站初心 / 许可协议 / 建议与意见 / 致谢 -->
+    <section class="panel p-4 md:p-5 mt-6">
+      <h2 class="text-lg font-bold mb-4">关于本站</h2>
+      <div class="space-y-4 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+        <div>
+          <h3 class="mb-1 font-bold">建站初心</h3>
+          <p>本站是 <a href="https://github.com/crazydan-studio/kuaizi-ime" target="_blank" rel="noopener" class="text-blue-600 hover:underline dark:text-blue-400">筷字输入法</a> 的衍生项目，旨在汇总汉字信息与资源，并向公共领域免费提供高质量的汉字笔画数据，方便个人学习与课堂教学使用，为汉字的广泛传播与学习、增强汉字的世界影响力贡献一份力量。</p>
+        </div>
+        <div>
+          <h3 class="mb-1 font-bold">许可协议</h3>
+          <p>本站点（https://hanzi.crazydan.io）所提供的资源和源代码，仅限用于个人学习、师生教学等非商业用途；商业使用本站点所提供的汉字笔画数据，需获得商业授权。本站点所提供的汉字信息数据、拼音音频文件来源于 <a href="https://zdic.net/" target="_blank" rel="noopener" class="text-blue-600 hover:underline dark:text-blue-400">汉典网</a>（https://zdic.net/），直接使用需遵从其<a href="https://zdic.net/terms/" target="_blank" rel="noopener" class="text-blue-600 hover:underline dark:text-blue-400">使用条款</a>。</p>
+        </div>
+        <div>
+          <h3 class="mb-1 font-bold">建议与意见</h3>
+          <p>若在使用过程中遇到任何问题，或有好的改进建议，欢迎在 <a href="https://github.com/crazydan-studio/hanzi.crazydan.io/issues" target="_blank" rel="noopener" class="text-blue-600 hover:underline dark:text-blue-400">Issues</a> 页面提出，我们将积极回应，并尽可能解决相关疑难。</p>
+        </div>
+        <div>
+          <h3 class="mb-1 font-bold">联系我们</h3>
+          <p>如有合作或商务需求，可发送邮件至 <a href="mailto:support@studio.crazydan.org" class="text-blue-600 hover:underline dark:text-blue-400">support@studio.crazydan.org</a>。</p>
+        </div>
+        <div>
+          <h3 class="mb-1 font-bold">致谢</h3>
+          <p>感谢 <a href="https://zdic.net/" target="_blank" rel="noopener" class="text-blue-600 hover:underline dark:text-blue-400">汉典网</a> 收集和提供的汉字详细信息。</p>
         </div>
       </div>
     </section>

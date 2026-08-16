@@ -173,6 +173,13 @@ Alpine.data('charApp', () => ({
     setBackUrl()
   },
 
+  // 问题反馈链接: title 为【问题字】【{汉字}】，body 为问题描述模板
+  get issueUrl() {
+    const title = `【问题字】【${this.char}】`
+    const body = `【${this.char}】字存在以下问题或需做以下改进：\n\n`
+    return `https://github.com/crazydan-studio/hanzi.crazydan.io/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`
+  },
+
   // 数字声调拼音 → 符号声调拼音（展示用）
   symbolPinyin(p) {
     return numberToSymbolTonePinyin(p)

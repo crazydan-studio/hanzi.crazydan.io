@@ -24,8 +24,12 @@
         <section class="panel p-4 md:p-5">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-lg font-bold">书写动画</h2>
-            <!-- 汉典网详情（信息区域右上角） -->
-            <a :href="zdicUrl" target="_blank" rel="noopener" class="btn-sm">汉典网详情 →</a>
+            <div class="flex items-center gap-2">
+              <!-- 问题反馈（含当前汉字标题/模板） -->
+              <a :href="issueUrl" target="_blank" rel="noopener" class="btn-sm">问题反馈</a>
+              <!-- 汉典网详情（信息区域右上角） -->
+              <a :href="zdicUrl" target="_blank" rel="noopener" class="btn-sm">汉典网详情 →</a>
+            </div>
           </div>
 
           <!-- 汉字信息: 置于书写动画面板上，按行流式布局，信息间以竖线分隔符分隔 -->
@@ -121,6 +125,13 @@
           <p x-show="!hasStrokes" class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
             该汉字暂无笔画数据
           </p>
+        </section>
+        <!-- 友情赞助 -->
+        <section class="panel p-4 md:p-5 mt-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm text-gray-500 dark:text-gray-400">喜欢本站？您的赞助将支持我们持续提供免费的汉字学习服务</p>
+            <a href="/donate/" class="btn btn-primary">友情赞助</a>
+          </div>
         </section>
       </div>
     </template>

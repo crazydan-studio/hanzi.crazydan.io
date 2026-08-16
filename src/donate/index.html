@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>汉字 | 友情赞助</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body class="bg-gray-50 min-h-screen dark:bg-gray-900">
+
+  <div class="max-w-3xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-6">
+      <a href="/" class="btn-sm">← 返回首页</a>
+      <h1 class="text-lg md:text-xl font-bold">友情赞助</h1>
+      <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
+    </header>
+
+    <section class="panel p-4 md:p-6">
+      <h2 class="text-lg font-bold mb-2">支持汉字网</h2>
+      <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
+        感谢您的热心支持！您的赞助将用于本项目的持续开发与维护，让更多人免费使用汉字笔画数据。
+      </p>
+
+      <!-- 付款备注醒目提示 -->
+      <div class="mb-5 rounded-lg border-2 border-amber-400 bg-amber-50 p-4 text-center dark:border-amber-500 dark:bg-amber-900/20">
+        <p class="text-sm font-bold text-amber-700 dark:text-amber-300">付款时请在备注中注明「汉字网」或「hanzi」，以便我们记录您的支持！</p>
+      </div>
+
+      <!-- 收款码 -->
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="flex flex-col items-center gap-2 rounded-lg border border-gray-200 p-4 dark:border-gray-600">
+          <span class="text-sm font-bold text-blue-600">支付宝</span>
+          <img src="https://studio.crazydan.org/donate/alipay.jpg" alt="支付宝收款码"
+            class="w-full max-w-[160px] rounded border border-gray-200 dark:border-gray-600">
+        </div>
+        <div class="flex flex-col items-center gap-2 rounded-lg border border-gray-200 p-4 dark:border-gray-600">
+          <span class="text-sm font-bold text-green-600">微信</span>
+          <img src="https://studio.crazydan.org/donate/wechat.png" alt="微信收款码"
+            class="w-full max-w-[160px] rounded border border-gray-200 dark:border-gray-600">
+        </div>
+        <div class="flex flex-col items-center gap-2 rounded-lg border border-gray-200 p-4 dark:border-gray-600">
+          <span class="text-sm font-bold text-indigo-600">PayPal</span>
+          <img src="https://studio.crazydan.org/donate/hanzi-site.png" alt="PayPal 收款码"
+            class="w-full max-w-[160px] rounded border border-gray-200 dark:border-gray-600">
+        </div>
+      </div>
+
+      <p class="mt-5 text-center text-sm text-gray-600 dark:text-gray-300">
+        再次感谢您的热心支持！
+      </p>
+      <p class="mt-2 text-center">
+        <a href="https://github.com/crazydan-studio/hanzi.crazydan.io/blob/master/docs/donate/index.md"
+          target="_blank" rel="noopener" class="btn-sm">友情赞助清单 →</a>
+      </p>
+    </section>
+  </div>
+
+  <footer x-data="appFooter()" x-html="html"></footer>
+
+  <script type="module" src="/src/donate/main.js"></script>
+</body>
+</html>
