@@ -14,11 +14,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -53,6 +56,8 @@ import org.crazydan.studio.app.hanzi.shared.unicodePointAt
 import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
 import org.crazydan.studio.app.hanzi.ui.Platform
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
+import org.crazydan.studio.app.hanzi.ui.components.BugReportIcon
+import org.crazydan.studio.app.hanzi.ui.components.OpenInNewIcon
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
 import org.crazydan.studio.app.hanzi.ui.components.StrokeCellCanvas
 import org.crazydan.studio.app.hanzi.ui.components.WritingAnimationCanvas
@@ -157,6 +162,7 @@ fun CharDetailScreen(
                         // 问题反馈（与 web 一致: 以当前汉字为标题/模板打开 GitHub Issues 新建页）
                         SmallTextButton(
                             text = "问题反馈",
+                            icon = BugReportIcon,
                             onClick = {
                                 val title = "【问题字】【${m.character}】"
                                 val body = "【${m.character}】字存在以下问题或需做以下改进：\n\n"
@@ -167,7 +173,8 @@ fun CharDetailScreen(
                             }
                         )
                         SmallTextButton(
-                            text = "汉典网详情 →",
+                            text = "汉典网详情",
+                            icon = OpenInNewIcon,
                             onClick = {
                                 Platform.openUrl("https://zdic.net/hans/${encodeUrl(m.character)}")
                             }
@@ -503,18 +510,33 @@ private fun SmallTextButton(
     text: String,
     onClick: () -> Unit,
     highlighted: Boolean = false,
+    icon: ImageVector? = null,
     modifier: Modifier = Modifier
 ) {
-    Text(
-        text = text,
-        color = if (highlighted) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.bodySmall,
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 6.dp, vertical = 4.dp)
-    )
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = if (highlighted) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(3.dp))
+        }
+        Text(
+            text = text,
+            color = if (highlighted) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
 }
 
 // ---- 信息行（与 web 内联布局一致） ----
