@@ -154,6 +154,18 @@ fun CharDetailScreen(
                     ) {
                         Text("书写动画", style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.weight(1f))
+                        // 问题反馈（与 web 一致: 以当前汉字为标题/模板打开 GitHub Issues 新建页）
+                        SmallTextButton(
+                            text = "问题反馈",
+                            onClick = {
+                                val title = "【问题字】【${m.character}】"
+                                val body = "【${m.character}】字存在以下问题或需做以下改进：\n\n"
+                                Platform.openUrl(
+                                    "https://github.com/crazydan-studio/hanzi.crazydan.io/issues/new" +
+                                        "?title=${encodeUrl(title)}&body=${encodeUrl(body)}"
+                                )
+                            }
+                        )
                         SmallTextButton(
                             text = "汉典网详情 →",
                             onClick = {
@@ -268,12 +280,15 @@ fun CharDetailScreen(
                 // 笔画分解图（格子内单笔动画）
                 SectionCard(modifier = Modifier.padding(top = 12.dp)) {
                     Text("笔画分解图", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "点击任一笔画分解图即可在该格内播放该笔画的书写动画",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
+                    if (strokeList.isNotEmpty()) {
+                        // 仅在有笔画数据时提示动画触发方式（与 web 一致）
+                        Text(
+                            "点击任一笔画分解图即可在该格内播放该笔画的书写动画",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
                     if (strokeList.isEmpty()) {
                         Text(
                             text = "该汉字暂无笔画数据",
