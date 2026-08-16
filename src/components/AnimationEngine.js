@@ -167,7 +167,11 @@ export class AnimationEngine {
     this.elapsed += dt
     if (this.elapsed >= duration) {
       // 完成当前笔画 → 全帧重绘（背景+已完成黑色+当前笔黑色）→ 进入下一笔停顿
-      this.renderFrame(stroke, null)
+      // 单笔播放模式（分解图循环播放）: 不重绘为墨色，保持绘制颜色
+      // （红色笔触）直至下一轮从头开始，避免循环间闪现已播放（墨色）笔画
+      if (!this.singleStrokePlayback) {
+        this.renderFrame(stroke, null)
+      }
       this.onStrokeEnd?.(this.currentIndex)
       this.currentIndex++
       // 单笔播放模式: 该笔结束即停止，不播放后续笔画
