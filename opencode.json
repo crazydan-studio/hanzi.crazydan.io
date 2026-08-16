@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow",
+      "**/keystore/**": "deny",
+      "**/keystore": "deny"
+    },
+    "edit": {
+      "*": "allow",
+      "**/keystore/**": "deny",
+      "**/keystore": "deny"
+    },
+    "glob": {
+      "*": "allow",
+      "**/keystore/**": "deny",
+      "**/keystore": "deny"
+    },
+    "list": {
+      "*": "allow",
+      "**/keystore/**": "deny",
+      "**/keystore": "deny"
+    },
+    "bash": {
+      "*": "allow",
+      "*app/keystore*": "deny",
+      "*keystore/*": "deny"
+    }
+  }
+}
