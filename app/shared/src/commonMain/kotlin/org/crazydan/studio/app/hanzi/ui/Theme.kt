@@ -2,6 +2,7 @@ package org.crazydan.studio.app.hanzi.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -61,11 +62,35 @@ private val DarkColors = darkColorScheme(
     error = Red400
 )
 
-/** 应用主题: 浅/暗色配色跟随手动切换或系统 */
+/** 全部文字采用中易楷体（各 Typography 样式均以楷体为默认字族） */
+private val KaiTiTypography: Typography by lazy {
+    val base = Typography()
+    fun withKaiTi(style: androidx.compose.ui.text.TextStyle) = style.copy(fontFamily = KaiTiFontFamily)
+    Typography(
+        displayLarge = withKaiTi(base.displayLarge),
+        displayMedium = withKaiTi(base.displayMedium),
+        displaySmall = withKaiTi(base.displaySmall),
+        headlineLarge = withKaiTi(base.headlineLarge),
+        headlineMedium = withKaiTi(base.headlineMedium),
+        headlineSmall = withKaiTi(base.headlineSmall),
+        titleLarge = withKaiTi(base.titleLarge),
+        titleMedium = withKaiTi(base.titleMedium),
+        titleSmall = withKaiTi(base.titleSmall),
+        bodyLarge = withKaiTi(base.bodyLarge),
+        bodyMedium = withKaiTi(base.bodyMedium),
+        bodySmall = withKaiTi(base.bodySmall),
+        labelLarge = withKaiTi(base.labelLarge),
+        labelMedium = withKaiTi(base.labelMedium),
+        labelSmall = withKaiTi(base.labelSmall)
+    )
+}
+
+/** 应用主题: 浅/暗色配色跟随手动切换或系统；全部文字默认采用中易楷体 */
 @Composable
 fun HanziTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
+        typography = KaiTiTypography,
         content = content
     )
 }
