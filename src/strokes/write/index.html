@@ -197,13 +197,15 @@
                 @dragover.prevent="onStrokeDragOver($event, s)"
                 @drop.prevent="onStrokeDrop($event, s)"
                 @dragend="onStrokeDragEnd()"
-                @click="padMode === 'playback' && selectAndPlay(s.id)"
+                @click="padMode === 'write' ? selectStroke(s) : selectAndPlay(s.id)"
                 @mouseenter="hoverStroke(s.id)"
                 @mouseleave="hoverStroke(null)"
                 :class="{
                   'opacity-60': s.isPending,
                   // 重绘目标: 醒目高亮
                   'bg-amber-50 border-l-4 border-amber-400 dark:bg-amber-900/30 dark:border-amber-500': redrawStroke?.id === s.id,
+                  // 书写模式选中: 列表行高亮（点击选中/取消）
+                  'bg-blue-100 border-l-4 border-blue-500 dark:bg-blue-900/40 dark:border-blue-500': padMode === 'write' && selectedStrokeId === s.id,
                   // 书写模式悬停: 高亮并提示可拖拽（暗黑主题适配）
                   'hover:bg-blue-50 dark:hover:bg-gray-700 cursor-grab active:cursor-grabbing': padMode === 'write' && !s.isPending && !isTouch,
                   // 回放联动高亮: 播放中显示正在绘制的笔画；非播放时保持选中笔画

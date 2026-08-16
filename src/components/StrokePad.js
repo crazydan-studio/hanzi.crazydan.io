@@ -48,6 +48,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   inkCtx: null,
   activePointerId: null,
   hoveredStrokeId: null,         // 列表悬停高亮的笔画 id
+  selectedStrokeId: null,        // 书写模式选中笔画 id（画布置顶高亮）
   currentChar: '',               // 当前汉字（书写模式半透明参考字）
   fontReady: false,              // 中易楷体加载完成（启用书写）
 
@@ -287,12 +288,19 @@ Alpine.data('strokePad', (opts = {}) => ({
     this.drawTianZiGe()
     this.drawReferenceChar()
     const hovered = this.hoveredStrokeId
+    const selected = this.selectedStrokeId
+    const topLayers = new Set([hovered, selected].filter(Boolean))
     for (const stroke of this.strokes) {
-      if (stroke.id === hovered) continue
+      if (topLayers.has(stroke.id)) continue
       // 用轨迹数据重绘（与回放引擎同一渲染路径）
       this.drawTrajectory(stroke.trajectory_data, strokeInkColor(), false)
     }
-    if (hovered) {
+    // 选中笔画: 置顶高亮（鼠标离开列表行后仍保持）
+    if (selected) {
+      const s = this.strokes.find(x => x.id === selected)
+      if (s) this.drawTrajectory(s.trajectory_data, this.HIGHLIGHT_COLOR, true)
+    }
+    if (hovered && hovered !== selected) {
       const s = this.strokes.find(x => x.id === hovered)
       if (s) this.drawTrajectory(s.trajectory_data, this.HIGHLIGHT_COLOR, true)
     }
@@ -546,6 +554,12 @@ Alpine.data('strokePad', (opts = {}) => ({
     if (this.inkCtx) {
       this.inkCtx.clearRect(0, 0, this.width, this.height)
     }
+  },
+
+  // 书写模式选中笔画: 画布置顶高亮（点击列表行选中/取消选中）
+  setSelectedStroke(strokeId) {
+    this.selectedStrokeId = strokeId
+    this.redrawCanvas()
   },
 
   // 列表行悬停: 高亮书写框内对应笔画
