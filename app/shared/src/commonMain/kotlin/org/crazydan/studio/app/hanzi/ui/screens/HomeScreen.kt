@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,13 +32,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.crazydan.studio.app.hanzi.shared.CharEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
+import org.crazydan.studio.app.hanzi.ui.Blue500
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
 import org.crazydan.studio.app.hanzi.ui.components.CharCell
 import org.crazydan.studio.app.hanzi.ui.components.DarkModeIcon
@@ -129,9 +132,16 @@ fun HomeScreen(
                 }),
                 modifier = Modifier.weight(1f)
             )
-            Button(onClick = {
-                onSearch(query, onOpenChar, onOpenPinyin) { error = it }
-            }) {
+            Button(
+                // 与 web 一致: 深蓝主按钮（浅/暗主题相同，不随主题变浅）
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Blue500,
+                    contentColor = Color.White
+                ),
+                onClick = {
+                    onSearch(query, onOpenChar, onOpenPinyin) { error = it }
+                }
+            ) {
                 Text("查询")
             }
         }
@@ -231,7 +241,14 @@ fun HomeScreen(
                         )
                     }
                     Spacer(Modifier.width(12.dp))
-                    Button(onClick = onOpenDonate) {
+                    Button(
+                        // 与 web 一致: 深蓝主按钮
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Blue500,
+                            contentColor = Color.White
+                        ),
+                        onClick = onOpenDonate
+                    ) {
                         Text("去赞助")
                     }
                 }

@@ -53,6 +53,7 @@ import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.shared.HanziLabels
 import org.crazydan.studio.app.hanzi.shared.Pinyin
 import org.crazydan.studio.app.hanzi.shared.unicodePointAt
+import org.crazydan.studio.app.hanzi.ui.Blue500
 import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
 import org.crazydan.studio.app.hanzi.ui.Platform
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
@@ -368,12 +369,9 @@ private fun WritingPanel(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.padding(top = 12.dp)
             ) {
+                // 播放中仅禁用按钮，不切换标签（避免按钮尺寸变化）
                 SmallButton(
-                    text = when (player.state) {
-                        WritingPlayer.State.COMPLETED -> "重播"
-                        WritingPlayer.State.PLAYING -> "播放中"
-                        else -> "播放"
-                    },
+                    text = if (player.state == WritingPlayer.State.COMPLETED) "重播" else "播放",
                     enabled = player.state != WritingPlayer.State.PLAYING,
                     primary = true,
                     onClick = {
@@ -484,8 +482,9 @@ private fun SmallButton(
     primary: Boolean = false
 ) {
     val shape = RoundedCornerShape(6.dp)
-    val bg = if (primary) MaterialTheme.colorScheme.primary else Color.Transparent
-    val fg = if (primary) MaterialTheme.colorScheme.onPrimary
+    // 主按钮颜色与 web 一致（bg-blue-500 白字，浅/暗主题相同，不随主题变浅）
+    val bg = if (primary) Blue500 else Color.Transparent
+    val fg = if (primary) Color.White
     else if (enabled) MaterialTheme.colorScheme.onSurface
     else MaterialTheme.colorScheme.onSurfaceVariant
     Text(
