@@ -26,7 +26,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -88,27 +87,11 @@ fun CharListScreen(
     gridState: LazyGridState = rememberLazyGridState(),
     selectedCharacter: String = ""
 ) {
-    // 回退定位: 滚动到已选中的汉字（如从汉字信息页返回），并居中显示
+    // 回退定位: 滚动到已选中的汉字（如从汉字信息页返回），定位于顶部
     LaunchedEffect(entries, selectedCharacter) {
         val index = entries.indexOfFirst { it.character == selectedCharacter }
         if (index >= 0) {
             gridState.scrollToItem(index)
-            // 等待目标条目完成布局（尺寸就绪），再按视口计算居中偏移
-            var itemHeight = 0
-            repeat(10) {
-                withFrameNanos { }
-                itemHeight = gridState.layoutInfo
-                    .visibleItemsInfo.firstOrNull { it.index == index }?.size?.height ?: 0
-                if (itemHeight > 0) return@repeat
-            }
-            if (itemHeight > 0) {
-                val info = gridState.layoutInfo
-                val viewportHeight = info.viewportEndOffset - info.viewportStartOffset
-                if (viewportHeight > 0) {
-                    val centerOffset = ((viewportHeight - itemHeight) / 2).coerceAtLeast(0)
-                    gridState.scrollToItem(index, centerOffset)
-                }
-            }
         }
     }
 
