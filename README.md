@@ -59,7 +59,7 @@ pnpm build
 pnpm start
 ```
 
-生产模式由后端服务托管前端构建产物与静态数据，访问 http://localhost:3001。
+生产模式由后端服务托管前端构建产物与静态数据，访问 http://localhost:3001 。
 
 ### 目录结构
 
@@ -79,7 +79,7 @@ pnpm start
 
 ## 许可协议
 
-本站点（https://hanzi.crazydan.io）所提供的资源和源代码，仅限用于个人学习、师生教学等非商业用途；商业使用本站点所提供的汉字笔画数据，需获得商业授权。本站点所提供的汉字信息数据、拼音音频文件来源于 [汉典网](https://zdic.net/)（https://zdic.net/），直接使用需遵从其[使用条款](https://zdic.net/terms/)。
+本站点（ https://hanzi.crazydan.io ）所提供的资源和源代码，仅限用于个人学习、师生教学等非商业用途；商业使用本站点所提供的汉字笔画数据，需获得商业授权。本站点所提供的汉字信息数据、拼音音频文件来源于 [汉典网](https://zdic.net/)（ https://zdic.net/ ），直接使用需遵从其[使用条款](https://zdic.net/terms/)。
 
 ## 致谢
 
