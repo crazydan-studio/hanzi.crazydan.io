@@ -32,6 +32,9 @@ class AppNavigator(initial: Screen = Screen.Home) {
         private set
     private val stack = ArrayDeque<Screen>()
 
+    /** 常用字列表选中字（从汉字信息页回退后自动定位） */
+    var commonsSelected by mutableStateOf("")
+
     fun open(screen: Screen) {
         stack.addLast(this.screen)
         this.screen = screen
@@ -89,14 +92,19 @@ fun HanziApp(
                     dark = darkTheme,
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
-                    onHome = { navigator.toHome() }
+                    onOpenDonate = { navigator.open(Screen.Donate) }
                 )
                 is Screen.Commons -> CommonsScreen(
                     db = db,
                     dark = darkTheme,
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
-                    onOpenChar = { navigator.open(Screen.CharDetail(it)) }
+                    onOpenChar = { char ->
+                        // 记录选中字，返回本页时自动定位
+                        navigator.commonsSelected = char
+                        navigator.open(Screen.CharDetail(char))
+                    },
+                    selected = navigator.commonsSelected
                 )
                 is Screen.PinyinList -> PinyinListScreen(
                     db = db,
