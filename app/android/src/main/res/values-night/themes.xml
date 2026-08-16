@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 暗色主题: 启动窗口与系统栏背景与页面暗色背景（gray-900）一致，避免白屏闪烁 -->
+    <style name="Theme.Hanzi" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/window_background_dark</item>
+        <item name="android:statusBarColor">@color/window_background_dark</item>
+        <item name="android:navigationBarColor">@color/window_background_dark</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
