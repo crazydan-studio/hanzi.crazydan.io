@@ -2,9 +2,8 @@ package org.crazydan.studio.app.hanzi.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -33,9 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.crazydan.studio.app.hanzi.shared.CharStroke
 import org.crazydan.studio.app.hanzi.shared.StrokePoint
-import org.crazydan.studio.app.hanzi.ui.Gray700
 import org.crazydan.studio.app.hanzi.ui.Gray900
-import org.crazydan.studio.app.hanzi.ui.Gray200
 import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
 import org.crazydan.studio.app.hanzi.ui.charRefColor
 import org.crazydan.studio.app.hanzi.ui.strokeHighlightColor
@@ -156,7 +152,7 @@ class WritingPlayer(private val strokes: List<CharStroke>) {
 }
 
 // 笔画时长: 首尾点时间差（毫秒）；单点/无时长笔画取 200ms（与前端一致）
-private fun strokeDuration(points: List<StrokePoint>): Float {
+internal fun strokeDuration(points: List<StrokePoint>): Float {
     if (points.size <= 1) return 200f
     val d = points.last().timestamp - points.first().timestamp
     return if (d > 0f) d else 200f
@@ -267,11 +263,11 @@ fun WritingAnimationCanvas(
     Canvas(
         modifier = modifier
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(if (dark) Gray900 else Color.White)
-            .border(1.dp, if (dark) Gray700 else Gray200, RoundedCornerShape(8.dp))
     ) {
         val unit = size.width / 500f   // 前端 500×500 内部坐标系缩放
+        // 与 web 一致: 田字格在下，浅色非半透明背景字在上
         drawTianZiGe(border, unit)
         drawCharRef(character, ref, textMeasurer)
 
@@ -288,69 +284,119 @@ fun WritingAnimationCanvas(
     }
 }
 
-/** 单笔静态小图（笔画分解图格子） */
+/**
+ * 单笔小图（笔画分解图格子，与 web StrokeCell 一致）:
+ * 田字格 + 背景汉字；此前笔画墨色已绘，当前笔画红色示位。
+ *  - progress 为 null 时静态展示（当前笔画满红色）
+ *  - 非 null 时按进度绘制（格子内单笔动画，红色笔触）
+ */
 @Composable
 fun StrokeCellCanvas(
-    stroke: CharStroke,
+    strokes: List<CharStroke>,
+    index: Int,
+    character: String,
     dark: Boolean,
     modifier: Modifier = Modifier,
+    progress: Float? = null,
     textMeasurer: TextMeasurer = rememberTextMeasurer()
 ) {
+    val stroke = strokes.getOrNull(index) ?: return
     val ink = strokeInkColor(dark)
+    val highlight = strokeHighlightColor
     val border = tianZiGeColor(dark)
+    val ref = charRefColor(dark)
     Canvas(
         modifier = modifier
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(6.dp))
+            .clip(RectangleShape)
             .background(if (dark) Gray900 else Color.White)
-            .border(1.dp, if (dark) Gray700 else Gray200, RoundedCornerShape(6.dp))
     ) {
         val unit = size.width / 500f
+        // 与 web 一致: 田字格在下，浅色非半透明背景字在上
         drawTianZiGe(border, unit)
-        drawFullStroke(stroke, ink, unit)
+        drawCharRef(character, ref, textMeasurer)
+        // 此前笔画墨色已绘
+        for (i in 0 until index) {
+            drawFullStroke(strokes[i], ink, unit)
+        }
+        // 当前笔画红色（静态满红示位 / 动画按进度绘制）
+        val p = progress
+        when {
+            p == null || p >= 1f -> drawFullStroke(stroke, highlight, unit)
+            p > 0f -> drawPartialStroke(stroke, p, highlight, unit)
+        }
     }
 }
 
 // ---- 绘制实现 ----
 
+/** 田字格: 红色外框 + 米字格中央十字半透明虚线（中心空心，向四周发散） */
 private fun DrawScope.drawTianZiGe(border: Color, unit: Float) {
     val w = size.width
     val h = size.height
-    val borderW = (1.5f * unit).coerceAtLeast(0.7f)
-    val dashW = (1.2f * unit).coerceAtLeast(0.7f)
+    // 线宽按画布基准 500px 等比缩放，且不小于最小可见宽度
+    val borderW = (1.5f * unit).coerceAtLeast(1.2f)
+    val dashW = (1.2f * unit).coerceAtLeast(1f)
+    val dashLen = (10f * unit).coerceAtLeast(9f)   // 虚线段长
+    val gapLen = (8f * unit).coerceAtLeast(8f)     // 虚线间隔
     val cx = w / 2f
     val cy = h / 2f
-    val r = 10f * unit   // 中心空心半径
+    val r = (10f * unit).coerceAtLeast(6f)   // 中心空心半径
 
-    // 外框
+    // 外框（内缩半个线宽，保证完整可见，不被画布边缘裁剪）
     drawRect(
         color = border,
-        topLeft = Offset(0.5f, 0.5f),
-        size = androidx.compose.ui.geometry.Size(w - 1f, h - 1f),
+        topLeft = Offset(borderW / 2f, borderW / 2f),
+        size = androidx.compose.ui.geometry.Size(w - borderW, h - borderW),
         style = Stroke(width = borderW)
     )
-    // 米字格中央十字虚线（中心向四周发散的 4 条射线）
-    val dash = PathEffect.dashPathEffect(floatArrayOf(9f * unit, 7f * unit))
-    drawLine(
-        color = border.copy(alpha = 0.5f),
-        start = Offset(cx, cy - r), end = Offset(cx, 0f),
-        strokeWidth = dashW, pathEffect = dash
+    // 米字格中央十字: 半透明虚线（手动分段绘制，段长与间隔清晰可见）
+    val dashColor = border.copy(alpha = 0.45f)
+    drawDashedLine(
+        start = Offset(cx, 0f), end = Offset(cx, cy - r),
+        color = dashColor, width = dashW, dashLen = dashLen, gapLen = gapLen
     )
-    drawLine(
-        color = border.copy(alpha = 0.5f),
+    drawDashedLine(
         start = Offset(cx, cy + r), end = Offset(cx, h),
-        strokeWidth = dashW, pathEffect = dash
+        color = dashColor, width = dashW, dashLen = dashLen, gapLen = gapLen
     )
-    drawLine(
-        color = border.copy(alpha = 0.5f),
-        start = Offset(cx - r, cy), end = Offset(0f, cy),
-        strokeWidth = dashW, pathEffect = dash
+    drawDashedLine(
+        start = Offset(0f, cy), end = Offset(cx - r, cy),
+        color = dashColor, width = dashW, dashLen = dashLen, gapLen = gapLen
     )
-    drawLine(
-        color = border.copy(alpha = 0.5f),
+    drawDashedLine(
         start = Offset(cx + r, cy), end = Offset(w, cy),
-        strokeWidth = dashW, pathEffect = dash
+        color = dashColor, width = dashW, dashLen = dashLen, gapLen = gapLen
     )
+}
+
+// 手动分段绘制虚线（对线宽/段长/间隔完全可控，兼容性好）
+private fun DrawScope.drawDashedLine(
+    start: Offset,
+    end: Offset,
+    color: Color,
+    width: Float,
+    dashLen: Float,
+    gapLen: Float
+) {
+    val dx = end.x - start.x
+    val dy = end.y - start.y
+    val len = kotlin.math.hypot(dx, dy)
+    if (len <= 0f) return
+    val ux = dx / len
+    val uy = dy / len
+    var t = 0f
+    while (t < len) {
+        val segEnd = minOf(t + dashLen, len)
+        drawLine(
+            color = color,
+            start = Offset(start.x + ux * t, start.y + uy * t),
+            end = Offset(start.x + ux * segEnd, start.y + uy * segEnd),
+            strokeWidth = width,
+            cap = StrokeCap.Round
+        )
+        t += dashLen + gapLen
+    }
 }
 
 private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer: TextMeasurer) {
