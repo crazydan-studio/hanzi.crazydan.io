@@ -72,6 +72,7 @@ fun TopBar(
 /**
  * 汉字列表页（常用字列表 / 拼音字列表）: 整页滚动
  * （顶部栏/加载状态/网格/页脚均在 LazyVerticalGrid 内，随页面整体滚动）
+ *  - autoScrollToSelected: 回退时是否滚动定位到选中字（常用字列表定位，拼音字列表仅高亮）
  */
 @Composable
 fun CharListScreen(
@@ -85,10 +86,12 @@ fun CharListScreen(
     onBack: () -> Unit,
     onOpenChar: (String) -> Unit,
     gridState: LazyGridState = rememberLazyGridState(),
-    selectedCharacter: String = ""
+    selectedCharacter: String = "",
+    autoScrollToSelected: Boolean = true
 ) {
     // 回退定位: 滚动到已选中的汉字（如从汉字信息页返回），定位于顶部
-    LaunchedEffect(entries, selectedCharacter) {
+    LaunchedEffect(entries, selectedCharacter, autoScrollToSelected) {
+        if (!autoScrollToSelected) return@LaunchedEffect
         val index = entries.indexOfFirst { it.character == selectedCharacter }
         if (index >= 0) {
             gridState.scrollToItem(index)
@@ -189,7 +192,7 @@ fun CommonsScreen(
     )
 }
 
-/** 拼音字列表页 */
+/** 拼音字列表页（记录选中字，回退时仅高亮不定位） */
 @Composable
 fun PinyinListScreen(
     db: HanziDb,
@@ -197,7 +200,8 @@ fun PinyinListScreen(
     dark: Boolean,
     onToggleTheme: () -> Unit,
     onBack: () -> Unit,
-    onOpenChar: (String) -> Unit
+    onOpenChar: (String) -> Unit,
+    selected: String = ""
 ) {
     var entries by remember { mutableStateOf<List<CharEntry>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -221,6 +225,9 @@ fun PinyinListScreen(
         dark = dark,
         onToggleTheme = onToggleTheme,
         onBack = onBack,
-        onOpenChar = onOpenChar
+        onOpenChar = onOpenChar,
+        selectedCharacter = selected,
+        // 拼音字列表仅高亮选中字，不做定位滚动
+        autoScrollToSelected = false
     )
 }

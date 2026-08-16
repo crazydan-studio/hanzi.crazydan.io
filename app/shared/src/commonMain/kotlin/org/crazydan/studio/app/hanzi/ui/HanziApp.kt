@@ -35,6 +35,9 @@ class AppNavigator(initial: Screen = Screen.Home) {
     /** 常用字列表选中字（从汉字信息页回退后自动定位） */
     var commonsSelected by mutableStateOf("")
 
+    /** 拼音字列表选中字（从汉字信息页回退后仅高亮，不定位） */
+    var pinyinSelected by mutableStateOf("")
+
     fun open(screen: Screen) {
         stack.addLast(this.screen)
         this.screen = screen
@@ -112,7 +115,12 @@ fun HanziApp(
                     dark = darkTheme,
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
-                    onOpenChar = { navigator.open(Screen.CharDetail(it)) }
+                    onOpenChar = { char ->
+                        // 记录选中字，返回本页时仅高亮（不定位）
+                        navigator.pinyinSelected = char
+                        navigator.open(Screen.CharDetail(char))
+                    },
+                    selected = navigator.pinyinSelected
                 )
                 is Screen.Donate -> DonateScreen(
                     dark = darkTheme,

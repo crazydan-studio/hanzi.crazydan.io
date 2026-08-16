@@ -30,7 +30,7 @@
         </p>
         <!-- 汉字展示形式与首页常用字速览一致，点击跳转汉字信息页 -->
         <div x-show="!loading && !error && !empty"
-          x-data="charGrid()" x-effect="setChars(list)" @click="onGridClick($event)" x-html="gridHtml"
+          x-data="charGrid()" x-effect="setChars(list)" @click="onCellClick($event)" x-html="gridHtml"
           class="char-grid"></div>
         <!-- 加载中: 悬浮于列表区域上层 -->
         <div x-show="loading" class="loading-overlay">
