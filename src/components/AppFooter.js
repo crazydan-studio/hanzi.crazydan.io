@@ -7,7 +7,7 @@ const FOOTER_HTML = [
   '    <a href="https://github.com/crazydan-studio/kuaizi-ime" target="_blank" rel="noopener" class="hover:text-gray-600 dark:hover:text-gray-300">筷字输入法</a>',
   '    <a href="https://zdic.net/" target="_blank" rel="noopener" class="hover:text-gray-600 dark:hover:text-gray-300">汉典网</a>',
   '  </div>',
-  '  <p>本网站内容版权归',
+  '  <p>本站点内容版权归',
   '    <a href="https://studio.crazydan.org/" target="_blank" rel="noopener" class="hover:text-gray-600 dark:hover:text-gray-300">Crazydan Studio</a>',
   '    所有</p>',
   '</div>'
