@@ -1,0 +1,117 @@
+package org.crazydan.studio.app.hanzi.ui
+
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import org.crazydan.studio.app.hanzi.shared.HanziDb
+import org.crazydan.studio.app.hanzi.ui.screens.CharDetailScreen
+import org.crazydan.studio.app.hanzi.ui.screens.CommonsScreen
+import org.crazydan.studio.app.hanzi.ui.screens.DonateScreen
+import org.crazydan.studio.app.hanzi.ui.screens.HomeScreen
+import org.crazydan.studio.app.hanzi.ui.screens.PinyinListScreen
+
+/** 页面 */
+sealed interface Screen {
+    data object Home : Screen
+    data class CharDetail(val character: String) : Screen
+    data object Commons : Screen
+    data class PinyinList(val pinyin: String) : Screen
+    data object Donate : Screen
+}
+
+/** 页面导航（简单返回栈） */
+class AppNavigator(initial: Screen = Screen.Home) {
+    var screen by mutableStateOf(initial)
+        private set
+    private val stack = ArrayDeque<Screen>()
+
+    fun open(screen: Screen) {
+        stack.addLast(this.screen)
+        this.screen = screen
+    }
+
+    /** 返回上一页; 无上一页时返回 false（宿主处理退出） */
+    fun back(): Boolean {
+        if (stack.isEmpty()) return false
+        screen = stack.removeLast()
+        return true
+    }
+
+    /** 返回首页（清空返回栈） */
+    fun toHome() {
+        stack.clear()
+        screen = Screen.Home
+    }
+}
+
+/**
+ * 汉字 App 根组件（原生 Compose UI，替代原 WebView 方案）
+ */
+@Composable
+fun HanziApp(
+    db: HanziDb,
+    navigator: AppNavigator,
+    onExit: () -> Unit
+) {
+    val systemDark = isSystemInDarkTheme()
+    // 主题持久化: 已保存的设置为准，未设置时跟随系统
+    var darkTheme by remember { mutableStateOf(ThemeStore.load() ?: systemDark) }
+    val toggleTheme: () -> Unit = {
+        darkTheme = !darkTheme
+        ThemeStore.save(darkTheme)
+    }
+
+    HanziTheme(darkTheme = darkTheme) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            when (val s = navigator.screen) {
+                is Screen.Home -> HomeScreen(
+                    db = db,
+                    dark = darkTheme,
+                    onToggleTheme = toggleTheme,
+                    onOpenChar = { navigator.open(Screen.CharDetail(it)) },
+                    onOpenCommons = { navigator.open(Screen.Commons) },
+                    onOpenPinyin = { navigator.open(Screen.PinyinList(it)) },
+                    onOpenDonate = { navigator.open(Screen.Donate) }
+                )
+                is Screen.CharDetail -> CharDetailScreen(
+                    db = db,
+                    character = s.character,
+                    dark = darkTheme,
+                    onToggleTheme = toggleTheme,
+                    onBack = { navigator.back() },
+                    onHome = { navigator.toHome() }
+                )
+                is Screen.Commons -> CommonsScreen(
+                    db = db,
+                    dark = darkTheme,
+                    onToggleTheme = toggleTheme,
+                    onBack = { navigator.back() },
+                    onOpenChar = { navigator.open(Screen.CharDetail(it)) }
+                )
+                is Screen.PinyinList -> PinyinListScreen(
+                    db = db,
+                    pinyin = s.pinyin,
+                    dark = darkTheme,
+                    onToggleTheme = toggleTheme,
+                    onBack = { navigator.back() },
+                    onOpenChar = { navigator.open(Screen.CharDetail(it)) }
+                )
+                is Screen.Donate -> DonateScreen(
+                    dark = darkTheme,
+                    onToggleTheme = toggleTheme,
+                    onBack = { navigator.back() }
+                )
+            }
+        }
+    }
+}

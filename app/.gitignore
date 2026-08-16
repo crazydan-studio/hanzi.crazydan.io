@@ -1,0 +1,25 @@
+# ===== App 构建产物与本地环境（不提交 git） =====
+# Gradle 缓存与构建产物
+.gradle/
+.kotlin/
+**/build/
+
+# 本地 SDK 路径
+local.properties
+
+# 拼音读音资源（build/app-pack.sh 从 public/assets 拷贝）
+android/src/main/assets/audio/
+
+# 赞助页收款码（build/app-pack.sh 从站点下载）
+android/src/main/assets/donate/
+
+# App 内置数据库（build/app-db-pack.js 生成）
+android/src/main/assets/db/
+
+# 发布签名密钥与配置（含口令，整个目录不提交 git）
+# 配置格式与生成方法见 keystore.example/release.properties 模板
+keystore/
+
+# IDE
+.idea/
+*.iml
