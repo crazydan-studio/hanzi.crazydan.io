@@ -2,6 +2,7 @@ node_modules/
 dist/
 server/data/
 data/
+public/assets/app/*/*-debug.*
 *.log
 .env
 .DS_Store
