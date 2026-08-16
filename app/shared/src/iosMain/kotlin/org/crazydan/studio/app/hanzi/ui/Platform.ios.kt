@@ -9,4 +9,5 @@ actual object Platform {
     actual fun copyToClipboard(text: String) {}
     actual fun openUrl(url: String) {}
     actual fun loadAssetImage(assetPath: String): ImageBitmap? = error("Platform: iOS 暂未实现")
+    actual fun shareImage(assetPath: String, title: String) {}
 }

@@ -9,6 +9,8 @@ import android.graphics.BitmapFactory
 import android.media.MediaPlayer
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.content.FileProvider
+import java.io.File
 
 /**
  * Android 平台能力实现
@@ -73,6 +75,31 @@ actual object Platform {
             }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    actual fun shareImage(assetPath: String, title: String) {
+        val context = AppContextHolder.appContext ?: return
+        try {
+            // 复制到应用缓存目录后经 FileProvider 分享（可保存到相册/发送给他人）
+            val dir = File(context.cacheDir, "share").apply { mkdirs() }
+            val fileName = assetPath.substringAfterLast('/')
+            val file = File(dir, fileName)
+            context.assets.open(assetPath).use { input ->
+                file.outputStream().use { output -> input.copyTo(output) }
+            }
+            val uri = FileProvider.getUriForFile(
+                context, "${context.packageName}.fileprovider", file
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/*"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_TITLE, title)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, title))
+        } catch (e: Exception) {
+            // 分享失败（如无可用应用），忽略
         }
     }
 

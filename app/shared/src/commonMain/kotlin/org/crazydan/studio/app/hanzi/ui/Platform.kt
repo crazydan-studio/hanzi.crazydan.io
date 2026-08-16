@@ -24,4 +24,7 @@ expect object Platform {
 
     /** 加载内置资源图片（assets/{path}），加载失败返回 null */
     fun loadAssetImage(assetPath: String): ImageBitmap?
+
+    /** 分享/保存内置资源图片（assets/{path}，经系统分享面板，可保存到相册等） */
+    fun shareImage(assetPath: String, title: String)
 }
