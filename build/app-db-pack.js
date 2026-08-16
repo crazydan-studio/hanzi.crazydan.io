@@ -9,6 +9,7 @@
 // 用法:
 //   node build/app-db-pack.js
 import { DatabaseSync } from 'node:sqlite'
+import { createHash } from 'node:crypto'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
@@ -43,8 +44,13 @@ function main() {
     db.close()
   }
 
+  // 构建时计算库的 SHA-256 并写入旁路文件（App 启动直接读取，
+  // 避免每次启动重复计算 hash 浪费 CPU）
+  const hash = createHash('sha256').update(fs.readFileSync(DST_DB)).digest('hex')
+  fs.writeFileSync(`${DST_DB}.sha256`, `${hash}\n`)
+
   const size = fs.statSync(DST_DB).size
-  console.log(`已打包数据库 → ${DST_DB}（${(size / 1024 / 1024).toFixed(2)} MB）`)
+  console.log(`已打包数据库 → ${DST_DB}（${(size / 1024 / 1024).toFixed(2)} MB，hash ${hash.slice(0, 12)}…）`)
 }
 
 main()

@@ -109,7 +109,8 @@ class MainActivity : ComponentActivity() {
         dir.mkdirs()
         val dest = File(dir, DB_NAME)
 
-        val assetHash = sha256Asset("$DB_ASSET_DIR/$DB_NAME")
+        // 读取构建时记录的库 hash（见 build/app-db-pack.js），避免每次启动计算 SHA-256
+        val assetHash = readAssetDbHash() ?: sha256Asset("$DB_ASSET_DIR/$DB_NAME")
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         if (assetHash != null && assetHash == prefs.getString(PREF_DB_HASH, null)) {
             return dest   // 同源: 直接复用（索引已建）
@@ -129,7 +130,16 @@ class MainActivity : ComponentActivity() {
         return dest
     }
 
-    // 内置库 SHA-256（流式计算，不加载全量到内存）
+    // 读取构建时记录的库 hash（assets/db/hanzi.db.sha256）
+    private fun readAssetDbHash(): String? {
+        return try {
+            assets.open("$DB_ASSET_DIR/$DB_NAME.sha256").bufferedReader().use { it.readLine()?.trim() }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // 内置库 SHA-256（流式计算，不加载全量到内存；hash 文件缺失时的兜底）
     private fun sha256Asset(assetPath: String): String? {
         return try {
             val digest = MessageDigest.getInstance("SHA-256")
