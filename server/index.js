@@ -40,6 +40,8 @@ if (fs.existsSync(distDir)) {
     const p = req.path
     if (/^\/char(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'char', 'index.html'))
     if (/^\/pinyin(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'pinyin', 'index.html'))
+    if (/^\/commons(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'commons', 'index.html'))
+    if (/^\/donate(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'donate', 'index.html'))
     if (/^\/strokes\/write(\/|$)/.test(p)) {
       return res.sendFile(path.join(distDir, 'strokes', 'write', 'index.html'))
     }

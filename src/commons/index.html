@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>汉字 | 常用字列表</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body class="bg-gray-50 min-h-screen dark:bg-gray-900" x-data="commonsApp()">
+
+  <div class="max-w-4xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-4">
+      <a href="/" class="btn-sm">← 返回首页</a>
+      <h1 class="text-lg md:text-xl font-bold">
+        常用字列表
+        <span class="text-sm text-gray-400 font-normal dark:text-gray-500"
+          x-text="list.length ? '（' + list.length + ' 个）' : ''"></span>
+      </h1>
+      <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
+    </header>
+
+    <!-- 列表面板: 布局与点击行为与拼音字列表页面一致 -->
+    <section class="panel p-4 md:p-6">
+      <div class="relative min-h-[120px]">
+        <p x-show="!loading && error" x-cloak class="py-12 text-center text-red-600" x-text="error"></p>
+        <p x-show="!loading && !error && empty" x-cloak class="py-12 text-center text-gray-500 dark:text-gray-400">
+          暂无常用字数据
+        </p>
+        <!-- 点击汉字: 就地更新 url 参数选中标记并跳转汉字信息页 -->
+        <div x-show="!loading && !error && !empty"
+          x-data="charGrid()" x-effect="setChars(list)" @click="onCellClick($event)" x-html="gridHtml"
+          class="char-grid"></div>
+        <!-- 加载中: 悬浮于列表区域上层 -->
+        <div x-show="loading" class="loading-overlay">
+          <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <span class="spinner"></span>
+            正在加载常用字…
+          </span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer x-data="appFooter()" x-html="html"></footer>
+
+  <script type="module" src="/src/commons/main.js"></script>
+</body>
+</html>

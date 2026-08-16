@@ -25,7 +25,7 @@ const ROOT = path.join(__dirname, '..')
 const DEFAULT_SRC = path.join(ROOT, 'data', 'pinyin-dict.sqlite')
 const DEFAULT_DB = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
 const DEFAULT_OUT = path.join(ROOT, 'public')
-const DEFAULT_COUNT = 20
+const DEFAULT_COUNT = 1500
 
 function parseArgs() {
   const args = process.argv.slice(2)

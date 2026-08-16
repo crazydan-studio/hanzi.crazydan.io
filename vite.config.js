@@ -20,7 +20,7 @@ function apiPort() {
 // 目录式页面: 跳转只指定目录，自动定位到目录下的 index.html
 // dev/preview 下将 /char /pinyin /strokes(/write) 重定向到带尾斜杠路径
 // （与生产 express.static 行为一致）
-const DIR_PAGES = ['/strokes/write', '/strokes', '/char', '/pinyin']
+const DIR_PAGES = ['/strokes/write', '/strokes', '/commons', '/donate', '/char', '/pinyin']
 
 function dirIndexRewrite(req, res, next) {
   const pathname = req.url.split('?')[0]
@@ -39,7 +39,7 @@ function flattenPages() {
     closeBundle() {
       const srcDist = path.join(__dirname, 'dist', 'src')
       for (const name of ['index.html', 'char/index.html', 'pinyin/index.html',
-        'strokes/index.html', 'strokes/write/index.html']) {
+        'commons/index.html', 'donate/index.html', 'strokes/index.html', 'strokes/write/index.html']) {
         const from = path.join(srcDist, name)
         const to = path.join(__dirname, 'dist', name)
         if (fs.existsSync(from)) {
@@ -82,6 +82,8 @@ export default defineConfig({
           '/': 'src/index.html',
           '/char/': 'src/char/index.html',
           '/pinyin/': 'src/pinyin/index.html',
+          '/commons/': 'src/commons/index.html',
+          '/donate/': 'src/donate/index.html',
           '/strokes/': 'src/strokes/index.html',
           '/strokes/write/': 'src/strokes/write/index.html'
         }
@@ -129,6 +131,8 @@ export default defineConfig({
         index: path.resolve(__dirname, 'src/index.html'),
         char: path.resolve(__dirname, 'src/char/index.html'),
         pinyin: path.resolve(__dirname, 'src/pinyin/index.html'),
+        commons: path.resolve(__dirname, 'src/commons/index.html'),
+        donate: path.resolve(__dirname, 'src/donate/index.html'),
         'strokes/index': path.resolve(__dirname, 'src/strokes/index.html'),
         'strokes/write': path.resolve(__dirname, 'src/strokes/write/index.html')
       }
