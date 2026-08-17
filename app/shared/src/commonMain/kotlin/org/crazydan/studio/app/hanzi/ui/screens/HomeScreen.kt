@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
@@ -72,7 +73,10 @@ fun HomeScreen(
     var commonsLoading by remember { mutableStateOf(true) }
     var commonsError by remember { mutableStateOf(false) }
 
+    // 进入首页时不自动聚焦搜索框（避免弹出键盘）
+    val focusManager = LocalFocusManager.current
     LaunchedEffect(Unit) {
+        focusManager.clearFocus()
         val list = withContext(Dispatchers.Default) { db.queryCommons(20) }
         commons = list
         commonsLoading = false
