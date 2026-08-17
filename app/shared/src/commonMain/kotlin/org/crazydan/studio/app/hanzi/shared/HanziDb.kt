@@ -7,8 +7,8 @@ package org.crazydan.studio.app.hanzi.shared
  *   - 汉字信息库（内置）: build/app-db-pack.js 打包的 hanzi.db（仅 characters 表），
  *     提供 常用字/拼音/汉字信息 查询
  *   - 笔画数据库（独立下载）: build/export-stroke-db.js 导出的 hanzi-stroke-{数量}.db，
- *     由用户下载后指定存放位置（经 [configureStrokeDb] 配置），提供笔画轨迹查询
- * 表结构与 server/services/database.js 一致。
+ *     仅包含 strokes 表，由用户下载后指定存放位置（经 [configureStrokeDb] 配置），
+ *     提供笔画轨迹查询；汉字信息仍由内置 hanzi.db 提供
  */
 
 /** 列表条目（常用字 / 拼音字列表）: [字, 读音] */

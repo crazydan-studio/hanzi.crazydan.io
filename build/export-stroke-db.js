@@ -1,7 +1,7 @@
 // 导出「汉字笔画数据」独立数据库（App 端按需下载使用）
 // 数据源: server/data/hanzi_stroke.db（笔画数据开发库，与 app-db-pack.js 同源）
 // 产物:   data/hanzi-stroke-{数量}.db（如 hanzi-stroke-1500.db）/ data/hanzi-stroke-full.db
-// 结构:   与 server/services/database.js 一致的 characters + strokes 表
+// 结构:   仅包含 strokes 表（汉字信息由 App 内置库 hanzi.db 提供，不重复携带）
 // 排序:   汉字按其所有拼音中权重最大的值（characters.used_weight）降序排列，
 //         再导出指定数量的汉字的笔画数据；缺省导出全部（full）
 // 用法:
@@ -34,17 +34,7 @@ function parseArgs() {
   return count
 }
 
-// 重建表结构（与 server/services/database.js 一致，供 App 端直接查询）
-const CREATE_CHARACTERS = `
-  CREATE TABLE characters (
-    id INTEGER PRIMARY KEY,
-    character TEXT NOT NULL UNIQUE,
-    pinyin TEXT NOT NULL DEFAULT '[]',
-    used_weight INTEGER NOT NULL DEFAULT 0,
-    structure INTEGER DEFAULT 0,
-    radical TEXT NOT NULL DEFAULT '',
-    total_stroke_count INTEGER NOT NULL DEFAULT 0
-  )`
+// 重建表结构（仅笔画表; 汉字信息由 App 内置库 hanzi.db 提供）
 const CREATE_STROKES = `
   CREATE TABLE strokes (
     id INTEGER PRIMARY KEY,
@@ -101,15 +91,7 @@ function main() {
   try {
     const out = new DatabaseSync(tmp)
     try {
-      out.exec(CREATE_CHARACTERS)
       out.exec(CREATE_STROKES)
-      const insChar = out.prepare(`
-        INSERT INTO characters (id, character, pinyin, used_weight, structure, radical, total_stroke_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      for (const c of selected) {
-        insChar.run(c.id, c.character, c.pinyin, c.used_weight ?? 0,
-          c.structure ?? 0, c.radical ?? '', c.total_stroke_count ?? 0)
-      }
       const insStroke = out.prepare(`
         INSERT INTO strokes (character_id, stroke_order, stroke_type, trajectory_data)
         VALUES (?, ?, ?, ?)`)
