@@ -442,22 +442,33 @@ private fun DrawScope.drawDashedLine(
 
 private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer: TextMeasurer) {
     if (character.isEmpty()) return
-    // 以固定字号测量后按目标尺寸缩放绘制，确保与密度/字体缩放无关（精确像素尺寸）
-    val layout = textMeasurer.measure(
-        text = character,
-        style = TextStyle(fontSize = 92.sp, fontFamily = KaiTiFontFamily, color = color, textAlign = TextAlign.Center)
+    // 与 web drawCharRef 完全一致:
+    //  - 字号为画布短边（正方形）的 92%
+    //  - 以基准字「永」的字体度量（ascent/descent）固定基线，所有字共用，
+    //    字形中心对齐画布中心（字体行高若含额外留白，行盒居中会致字形偏低、
+    //    笔画相对偏上）
+    val style = TextStyle(
+        fontSize = 92.sp,
+        fontFamily = KaiTiFontFamily,
+        color = color,
+        textAlign = TextAlign.Center
     )
-    // 按字形实际边界（而非行盒）居中，与 web 按字体度量（ascent/descent）居中一致；
-    // 字体行高若含额外留白，行盒居中会导致字形偏低、笔画相对显得偏上
-    val glyph = layout.getBoundingBox(0)
-    val glyphH = (glyph.bottom - glyph.top).coerceAtLeast(1f)
-    val scale = (size.width * 0.92f) / glyphH
+    val emPx = 92.sp.toPx()
+    val scale = (size.width * 0.92f) / emPx
+    val refLayout = textMeasurer.measure(text = "永", style = style)
+    val refGlyph = refLayout.getBoundingBox(0)
+    val ascent = refGlyph.top
+    val descent = refGlyph.bottom
+    // 字形中心 = baseline + (descent - ascent)/2 → 对齐画布中心
+    val baselineY = size.height / 2f + (descent - ascent) / 2f
+
+    val layout = textMeasurer.measure(text = character, style = style)
     scale(scale, scale, pivot = Offset(size.width / 2f, size.height / 2f)) {
         drawText(
             textLayoutResult = layout,
             topLeft = Offset(
                 (size.width - layout.size.width) / 2f,
-                size.height / 2f - glyph.center.y
+                baselineY - layout.getLineBaseline(0)
             )
         )
     }
