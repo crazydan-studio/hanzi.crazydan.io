@@ -21,7 +21,7 @@ import Alpine from 'alpinejs'
 import { StrokeRecorder } from './StrokeRecorder.js'
 import { AnimationEngine } from './AnimationEngine.js'
 import { computeBrushWidths, drawBrushStroke, normalizeBrush, brushBaseWidth } from './Brush.js'
-import { drawTianZiGe, drawCharRef, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
+import { drawTianZiGe, drawCharRef, drawCharBoxDebug, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 
@@ -301,6 +301,10 @@ Alpine.data('strokePad', (opts = {}) => ({
   // 楷体半透明参考字核心绘制（书写模式与回放背景共用）— 逻辑在共享模块 strokeBackground.js
   drawCharRef(color) {
     drawCharRef(this.ctx, this.width, this.height, this.currentChar, color)
+    // 调试: 绘制背景字墨迹盒边界（仅开发模式）
+    if (import.meta.env.DEV) {
+      drawCharBoxDebug(this.ctx, this.width, this.height, this.currentChar)
+    }
   },
 
   // 书写模式重绘: 田字格 → 参考字 → 笔画（展示颜色/宽度均前端配置，墨色适配主题）

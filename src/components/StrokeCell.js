@@ -8,7 +8,7 @@
 // 后才渲染背景字与笔画（坐标以墨迹盒为坐标系），等待期间显示加载信息。
 import Alpine from 'alpinejs'
 import { AnimationEngine } from './AnimationEngine.js'
-import { drawTianZiGe, drawCharRef, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
+import { drawTianZiGe, drawCharRef, drawCharBoxDebug, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { STROKE_HIGHLIGHT_COLOR } from './Constants.js'
 import { strokeTypesMap } from './StrokeTypes.js'
@@ -37,6 +37,10 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
       if (!rect.width) return
       drawTianZiGe(this.engine.ctx, this.engine.cssW, this.engine.cssH, displayUnit(this.canvas, rect), rect.width)
       drawCharRef(this.engine.ctx, this.engine.cssW, this.engine.cssH, char, charRefColor())
+      // 调试: 绘制背景字墨迹盒边界（仅开发模式）
+      if (import.meta.env.DEV) {
+        drawCharBoxDebug(this.engine.ctx, this.engine.cssW, this.engine.cssH, char)
+      }
     }
     this.engine.onStrokeStart = () => { this.playing = true }
     // 自动循环播放当前笔画（单笔播放，不会继续播放剩余笔画）;

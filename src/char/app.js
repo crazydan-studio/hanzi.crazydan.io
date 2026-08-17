@@ -2,7 +2,7 @@
 // 展示: 书写动画（倍速/暂停/重置）/ 读音试听 / 复制 / 汉典链接 / 笔画分解图
 import Alpine from 'alpinejs'
 import { AnimationEngine } from '@components/AnimationEngine.js'
-import { drawTianZiGe, drawCharRef, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from '@components/StrokeBackground.js'
+import { drawTianZiGe, drawCharRef, drawCharBoxDebug, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from '@components/StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
 import { strokeTypesMap } from '@components/StrokeTypes.js'
@@ -99,6 +99,10 @@ Alpine.data('charApp', () => ({
       if (!rect.width) return   // 尺寸未确定，暂不绘制
       drawTianZiGe(this.engine.ctx, this.engine.cssW, this.engine.cssH, displayUnit(canvas, rect), rect.width)
       drawCharRef(this.engine.ctx, this.engine.cssW, this.engine.cssH, this.char, charRefColor())
+      // 调试: 绘制背景字墨迹盒边界（仅开发模式）
+      if (import.meta.env.DEV) {
+        drawCharBoxDebug(this.engine.ctx, this.engine.cssW, this.engine.cssH, this.char)
+      }
     }
     // 笔画开始: 实时显示当前笔画名（未命名提示笔画类型未知）
     this.engine.onStrokeStart = (index) => {

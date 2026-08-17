@@ -103,8 +103,14 @@ actual object Platform {
         }
     }
 
+    actual fun isDebug(): Boolean {
+        val context = AppContextHolder.appContext ?: return false
+        return (context.applicationInfo.flags and
+            android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
+
     /** 应用上下文注入（MainActivity 初始化时调用） */
-    fun init(context: android.content.Context) {
+    fun init(context: Context) {
         AppContextHolder.appContext = context
     }
 }

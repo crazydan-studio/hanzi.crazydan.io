@@ -27,4 +27,7 @@ expect object Platform {
 
     /** 分享/保存内置资源图片（assets/{path}，经系统分享面板，可保存到相册等） */
     fun shareImage(assetPath: String, title: String)
+
+    /** 当前是否为开发/调试构建（用于绘制墨迹盒边界等调试信息） */
+    fun isDebug(): Boolean
 }

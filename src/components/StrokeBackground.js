@@ -144,8 +144,20 @@ export function charInkBox(ctx, width, height, char) {
   }
 }
 
-// 田字格: 外框 + 米字格中央十字虚线（颜色适配主题色，虚线低透明度）
-// 中央虚线从中心向四周发散绘制（上/下/左/右四条射线），中心留出空心
+// 调试用（仅开发模式）: 以半透明实线绘制背景汉字墨迹盒边界，
+// 便于核对笔画数据（盒相对坐标系）与背景字型的对齐关系
+export function drawCharBoxDebug(ctx, width, height, char) {
+  const box = charInkBox(ctx, width, height, char)
+  if (!box) return
+  ctx.save()
+  ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)'   // blue-500 半透明
+  ctx.lineWidth = 1.5
+  ctx.setLineDash([])
+  ctx.strokeRect(box.x0, box.y0, box.w, box.h)
+  ctx.restore()
+}
+
+// 田字格: 外框 + 米字格中央十字虚线（颜色适配主题色，虚线低透明度）// 中央虚线从中心向四周发散绘制（上/下/左/右四条射线），中心留出空心
 // unit: 内部坐标单位换算系数 = 每 1 CSS 像素对应的内部单位数
 //       （canvas.width / 画布显示宽度，由各宿主在绘制时实测）
 // cssWidth: 画布显示宽度（CSS 像素）

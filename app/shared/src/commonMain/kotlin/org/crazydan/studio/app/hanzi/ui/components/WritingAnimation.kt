@@ -33,6 +33,7 @@ import org.crazydan.studio.app.hanzi.shared.CharStroke
 import org.crazydan.studio.app.hanzi.shared.StrokePoint
 import org.crazydan.studio.app.hanzi.ui.Gray900
 import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
+import org.crazydan.studio.app.hanzi.ui.Platform
 import org.crazydan.studio.app.hanzi.ui.charRefColor
 import org.crazydan.studio.app.hanzi.ui.strokeHighlightColor
 import org.crazydan.studio.app.hanzi.ui.strokeInkColor
@@ -42,8 +43,8 @@ import org.crazydan.studio.app.hanzi.ui.tianZiGeColor
  * 书写动画（移植自前端 AnimationEngine.js + StrokeBackground.js + Brush.js）
  *  - 田字格: 外框 + 米字格中央十字虚线（中心空心）
  *  - 背景汉字: 半透明参考字（统一字号、固定基线、居中）
- *  - 笔画: 按轨迹时间戳插值回放，笔触宽度随压力/起笔收笔变化；
- *    已完成笔画墨色、当前笔画高亮色
+ *  - 笔画: 以背景字墨迹盒为坐标系还原轨迹（x 按盒宽、y 按盒高），
+ *    按时间戳插值回放，笔触宽度随压力/起笔收笔变化；已完成笔画墨色、当前笔画高亮色
  */
 
 // 笔画间停顿（毫秒，与前端 strokeGap 一致）
@@ -289,7 +290,7 @@ fun rememberWritingPlayer(strokes: List<CharStroke>): WritingPlayer {
 /**
  * 书写动画画布: 田字格 + 背景汉字 + 笔画回放
  *  - player 为 null 时静态展示（全部笔画墨色绘制，无播放）
- *  - 笔画坐标以背景字墨迹盒为坐标系（v8）: 每次绘制测量当前墨迹盒后还原
+ *  - 笔画坐标以背景字墨迹盒为坐标系: 每次绘制测量当前墨迹盒后还原
  */
 @Composable
 fun WritingAnimationCanvas(
@@ -315,6 +316,7 @@ fun WritingAnimationCanvas(
         // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
         drawTianZiGe(border, unit)
         val box = drawCharRef(character, ref, textMeasurer)
+        drawCharBoxDebug(box, unit)
 
         val completed = if (player != null) player.currentIndex.coerceIn(0, strokes.size) else strokes.size
         for (i in 0 until completed) {
@@ -360,6 +362,7 @@ fun StrokeCellCanvas(
         // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
         drawTianZiGe(border, unit)
         val box = drawCharRef(character, ref, textMeasurer)
+        drawCharBoxDebug(box, unit)
         // 此前笔画墨色已绘
         for (i in 0 until index) {
             drawFullStroke(strokes[i], ink, unit, box)
@@ -509,6 +512,17 @@ private fun brushBaseWidth(brush: Int, box: CharBox): Float {
     if (area <= 0f) return 4f
     val ratio = brush.toFloat() / BRUSH_SCALE
     return if (ratio > 0f) kotlin.math.sqrt(ratio * area) else 4f
+}
+
+/** 调试用（仅 debug 构建）: 以半透明实线绘制背景字墨迹盒边界 */
+private fun DrawScope.drawCharBoxDebug(box: CharBox?, unit: Float) {
+    if (box == null || !Platform.isDebug()) return
+    drawRect(
+        color = Color(0.23f, 0.51f, 0.96f, 0.6f),   // blue-500 半透明
+        topLeft = Offset(box.x0 * unit, box.y0 * unit),
+        size = androidx.compose.ui.geometry.Size(box.w * unit, box.h * unit),
+        style = Stroke(width = 1.5f)
+    )
 }
 
 /** 完整笔画（墨色） */
