@@ -2,6 +2,7 @@ package org.crazydan.studio.app.hanzi.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -26,17 +27,21 @@ sealed interface Screen {
     data object Donate : Screen
 }
 
-/** 页面导航（简单返回栈） */
+/** 页面导航（简单返回栈；列表滚动位置随导航器保持，回退时恢复） */
 class AppNavigator(initial: Screen = Screen.Home) {
     var screen by mutableStateOf(initial)
         private set
     private val stack = ArrayDeque<Screen>()
 
-    /** 常用字列表选中字（从汉字信息页回退后自动定位） */
+    /** 常用字列表选中字（从汉字信息页回退后高亮） */
     var commonsSelected by mutableStateOf("")
 
-    /** 拼音字列表选中字（从汉字信息页回退后仅高亮，不定位） */
+    /** 拼音字列表选中字（从汉字信息页回退后高亮） */
     var pinyinSelected by mutableStateOf("")
+
+    /** 常用字/拼音字列表滚动位置（跨页面切换保持，回退后恢复） */
+    val commonsGridState = LazyGridState()
+    val pinyinGridState = LazyGridState()
 
     fun open(screen: Screen) {
         stack.addLast(this.screen)
@@ -103,11 +108,12 @@ fun HanziApp(
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
                     onOpenChar = { char ->
-                        // 记录选中字，返回本页时自动定位
+                        // 记录选中字，返回本页时高亮
                         navigator.commonsSelected = char
                         navigator.open(Screen.CharDetail(char))
                     },
-                    selected = navigator.commonsSelected
+                    selected = navigator.commonsSelected,
+                    gridState = navigator.commonsGridState
                 )
                 is Screen.PinyinList -> PinyinListScreen(
                     db = db,
@@ -116,11 +122,12 @@ fun HanziApp(
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
                     onOpenChar = { char ->
-                        // 记录选中字，返回本页时仅高亮（不定位）
+                        // 记录选中字，返回本页时高亮
                         navigator.pinyinSelected = char
                         navigator.open(Screen.CharDetail(char))
                     },
-                    selected = navigator.pinyinSelected
+                    selected = navigator.pinyinSelected,
+                    gridState = navigator.pinyinGridState
                 )
                 is Screen.Donate -> DonateScreen(
                     dark = darkTheme,

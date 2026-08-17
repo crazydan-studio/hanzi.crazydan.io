@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -72,7 +73,8 @@ fun TopBar(
 /**
  * 汉字列表页（常用字列表 / 拼音字列表）: 整页滚动
  * （顶部栏/加载状态/网格/页脚均在 LazyVerticalGrid 内，随页面整体滚动）
- *  - autoScrollToSelected: 回退时是否滚动定位到选中字（常用字列表定位，拼音字列表仅高亮）
+ * 滚动位置由外部传入的 gridState 保持（跳转到汉字信息页再回退后恢复原位置），
+ * 选中字仅高亮不做定位
  */
 @Composable
 fun CharListScreen(
@@ -85,18 +87,9 @@ fun CharListScreen(
     onToggleTheme: () -> Unit,
     onBack: () -> Unit,
     onOpenChar: (String) -> Unit,
-    gridState: LazyGridState = rememberLazyGridState(),
-    selectedCharacter: String = "",
-    autoScrollToSelected: Boolean = true
+    gridState: LazyGridState,
+    selectedCharacter: String = ""
 ) {
-    // 回退定位: 滚动到已选中的汉字（如从汉字信息页返回），定位于顶部
-    LaunchedEffect(entries, selectedCharacter, autoScrollToSelected) {
-        if (!autoScrollToSelected) return@LaunchedEffect
-        val index = entries.indexOfFirst { it.character == selectedCharacter }
-        if (index >= 0) {
-            gridState.scrollToItem(index)
-        }
-    }
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(6),
@@ -128,7 +121,10 @@ fun CharListScreen(
                     text = error,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(vertical = 24.dp)
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp)
                 )
             }
             entries.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
@@ -136,7 +132,10 @@ fun CharListScreen(
                     text = emptyText,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(vertical = 24.dp)
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp)
                 )
             }
             else -> items(entries) { e ->
@@ -155,7 +154,7 @@ fun CharListScreen(
     }
 }
 
-/** 常用字列表页（记录选中字，回退时自动定位） */
+/** 常用字列表页（滚动位置由外部保持，回退时恢复并高亮选中字） */
 @Composable
 fun CommonsScreen(
     db: HanziDb,
@@ -163,7 +162,8 @@ fun CommonsScreen(
     onToggleTheme: () -> Unit,
     onBack: () -> Unit,
     onOpenChar: (String) -> Unit,
-    selected: String = ""
+    selected: String = "",
+    gridState: LazyGridState
 ) {
     var entries by remember { mutableStateOf<List<CharEntry>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -188,11 +188,12 @@ fun CommonsScreen(
         onToggleTheme = onToggleTheme,
         onBack = onBack,
         onOpenChar = onOpenChar,
+        gridState = gridState,
         selectedCharacter = selected
     )
 }
 
-/** 拼音字列表页（记录选中字，回退时仅高亮不定位） */
+/** 拼音字列表页（滚动位置由外部保持，回退时恢复并高亮选中字） */
 @Composable
 fun PinyinListScreen(
     db: HanziDb,
@@ -201,7 +202,8 @@ fun PinyinListScreen(
     onToggleTheme: () -> Unit,
     onBack: () -> Unit,
     onOpenChar: (String) -> Unit,
-    selected: String = ""
+    selected: String = "",
+    gridState: LazyGridState
 ) {
     var entries by remember { mutableStateOf<List<CharEntry>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -226,8 +228,7 @@ fun PinyinListScreen(
         onToggleTheme = onToggleTheme,
         onBack = onBack,
         onOpenChar = onOpenChar,
-        selectedCharacter = selected,
-        // 拼音字列表仅高亮选中字，不做定位滚动
-        autoScrollToSelected = false
+        gridState = gridState,
+        selectedCharacter = selected
     )
 }

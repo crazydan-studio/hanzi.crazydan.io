@@ -34,7 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -46,6 +48,7 @@ import org.crazydan.studio.app.hanzi.ui.components.CharCell
 import org.crazydan.studio.app.hanzi.ui.components.DarkModeIcon
 import org.crazydan.studio.app.hanzi.ui.components.InlineLinkText
 import org.crazydan.studio.app.hanzi.ui.components.LightModeIcon
+import org.crazydan.studio.app.hanzi.ui.components.MixedFontText
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
 import org.crazydan.studio.app.hanzi.ui.logoPainter
 
@@ -126,6 +129,8 @@ fun HomeScreen(
                 },
                 placeholder = { Text("示例：的 / de / lv") },
                 singleLine = true,
+                // 查询框内容（英文/拼音）用系统字体，避免楷体拉丁字形间距过大
+                textStyle = TextStyle(fontFamily = FontFamily.Default),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = {
                     onSearch(query, onOpenChar, onOpenPinyin) { error = it }
@@ -145,10 +150,12 @@ fun HomeScreen(
                 Text("查询")
             }
         }
-        Text(
+        // 提示说明（汉字用楷体，英文/拼音用系统字体，避免字符间隔过大）
+        MixedFontText(
             text = "仅可输入单个汉字或单个无声调拼音；拼音中的 ü 可用 v 代替（如 lv 等同于 lü）",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            ),
             modifier = Modifier.padding(top = 4.dp)
         )
         if (error.isNotEmpty()) {
@@ -198,7 +205,10 @@ fun HomeScreen(
                         text = "暂无常用字数据",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(vertical = 20.dp)
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp)
                     )
                     else -> Column(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
