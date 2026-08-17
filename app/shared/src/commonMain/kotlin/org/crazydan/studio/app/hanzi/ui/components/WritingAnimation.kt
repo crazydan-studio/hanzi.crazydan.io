@@ -444,9 +444,10 @@ private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer:
     if (character.isEmpty()) return
     // 与 web drawCharRef 完全一致:
     //  - 字号为画布短边（正方形）的 92%
-    //  - 以基准字「永」的字体度量（ascent/descent）固定基线，所有字共用，
-    //    字形中心对齐画布中心（字体行高若含额外留白，行盒居中会致字形偏低、
-    //    笔画相对偏上）
+    //  - 以基准字「永」的字体度量固定基线，所有字共用；
+    //    字形中心对齐画布中心 → baseline y = 画布中心 - (descent - ascent)/2
+    //    （ascent/descent 相对基线度量，与 web actualBoundingBoxAscent/Descent 一致）
+    //  - 田字格边框仅作装饰绘制于画布边缘，不参与汉字/笔画的坐标定位
     val style = TextStyle(
         fontSize = 92.sp,
         fontFamily = KaiTiFontFamily,
@@ -457,10 +458,10 @@ private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer:
     val scale = (size.width * 0.92f) / emPx
     val refLayout = textMeasurer.measure(text = "永", style = style)
     val refGlyph = refLayout.getBoundingBox(0)
-    val ascent = refGlyph.top
-    val descent = refGlyph.bottom
-    // 字形中心 = baseline + (descent - ascent)/2 → 对齐画布中心
-    val baselineY = size.height / 2f + (descent - ascent) / 2f
+    val refBaseline = refLayout.getLineBaseline(0)
+    val ascent = refBaseline - refGlyph.top
+    val descent = refGlyph.bottom - refBaseline
+    val baselineY = size.height / 2f - (descent - ascent) / 2f
 
     val layout = textMeasurer.measure(text = character, style = style)
     scale(scale, scale, pivot = Offset(size.width / 2f, size.height / 2f)) {
