@@ -19,6 +19,7 @@ import org.crazydan.studio.app.hanzi.ui.screens.CommonsScreen
 import org.crazydan.studio.app.hanzi.ui.screens.DonateScreen
 import org.crazydan.studio.app.hanzi.ui.screens.HomeScreen
 import org.crazydan.studio.app.hanzi.ui.screens.PinyinListScreen
+import org.crazydan.studio.app.hanzi.ui.screens.StrokeDataManageScreen
 
 /** 页面 */
 sealed interface Screen {
@@ -26,6 +27,7 @@ sealed interface Screen {
     data class CharDetail(val character: String) : Screen
     data object Commons : Screen
     data class PinyinList(val pinyin: String) : Screen
+    data object StrokeDataManage : Screen
     data object Donate : Screen
 }
 
@@ -111,6 +113,7 @@ fun HanziApp(
                     onOpenChar = { navigator.open(Screen.CharDetail(it)) },
                     onOpenCommons = { navigator.open(Screen.Commons) },
                     onOpenPinyin = { navigator.open(Screen.PinyinList(it)) },
+                    onOpenStrokeManage = { navigator.open(Screen.StrokeDataManage) },
                     onOpenDonate = { navigator.open(Screen.Donate) },
                     initialCommons = navigator.homeCommons,
                     onCommonsLoaded = { navigator.homeCommons = it }
@@ -121,7 +124,14 @@ fun HanziApp(
                     dark = darkTheme,
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
+                    onOpenStrokeManage = { navigator.open(Screen.StrokeDataManage) },
                     onOpenDonate = { navigator.open(Screen.Donate) }
+                )
+                is Screen.StrokeDataManage -> StrokeDataManageScreen(
+                    db = db,
+                    dark = darkTheme,
+                    onToggleTheme = toggleTheme,
+                    onBack = { navigator.back() }
                 )
                 is Screen.Commons -> CommonsScreen(
                     db = db,

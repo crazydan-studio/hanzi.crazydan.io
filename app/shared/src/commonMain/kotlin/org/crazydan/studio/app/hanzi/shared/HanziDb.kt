@@ -3,15 +3,12 @@ package org.crazydan.studio.app.hanzi.shared
 /**
  * 汉字本地数据源（sqlite）
  *
- * 数据来自 build/app-db-pack.js 打包的 hanzi.db（server/data/hanzi_stroke.db 副本），
- * 表结构与 server/services/database.js 一致:
- *   - characters: id(Unicode) / character / pinyin(读音 JSON 数组) / used_weight /
- *                 structure(0-9) / radical / total_stroke_count
- *   - strokes:    character_id / stroke_order / stroke_type / trajectory_data(zlib 压缩)
- *
- * 轨迹存储为增量编码（server/services/trajectory.js v8）: x/y 以背景汉字墨迹盒为
- * 坐标系分别归一化 ×1000（x 按盒宽、y 按盒高）、压力 ×100、时间戳 ×10、
- * 笔刷面积比 ×1000000；查询实现解压并还原为绝对坐标。
+ * 数据源拆分:
+ *   - 汉字信息库（内置）: build/app-db-pack.js 打包的 hanzi.db（仅 characters 表），
+ *     提供 常用字/拼音/汉字信息 查询
+ *   - 笔画数据库（独立下载）: build/export-stroke-db.js 导出的 hanzi-stroke-{数量}.db，
+ *     由用户下载后指定存放位置（经 [configureStrokeDb] 配置），提供笔画轨迹查询
+ * 表结构与 server/services/database.js 一致。
  */
 
 /** 列表条目（常用字 / 拼音字列表）: [字, 读音] */
@@ -42,8 +39,14 @@ data class StrokePoint(
 data class CharStroke(
     val strokeOrder: Int,
     val strokeType: Int,
-    val brush: Int,             // 笔刷面积/背景字面积 比值 ×1000000（整轨迹共享笔宽）
+    val brush: Int,             // 笔刷面积/背景字面积 比值 ×100000（整轨迹共享笔宽）
     val points: List<StrokePoint>
+)
+
+/** 笔画数据库状态（当前可访问的笔画数据规模） */
+data class StrokeDbInfo(
+    val charCount: Int,         // 可访问笔画数据的汉字数量
+    val strokeCount: Int        // 笔画总数
 )
 
 /** 汉字数据源 */
@@ -58,8 +61,20 @@ interface HanziDb : AutoCloseable {
     /** 汉字信息；不存在时返回 null */
     fun queryCharMeta(unicode: Int): CharMeta?
 
-    /** 笔画数据（按笔顺排序，绝对坐标）；该汉字无笔画时返回空列表 */
+    /** 笔画数据（按笔顺排序，盒相对坐标）；该汉字无笔画时返回空列表 */
     fun queryCharStrokes(unicode: Int): List<CharStroke>
+
+    /** 汉字总数（内置信息库; 笔画数据「全部」规模说明用） */
+    fun queryCharCount(): Int
+
+    /**
+     * 配置笔画数据库访问位置（用户下载后指定）:
+     * 路径无效/库损坏时静默清除（笔画查询返回空列表）; 传 null 清除配置
+     */
+    fun configureStrokeDb(path: String?)
+
+    /** 当前笔画数据库状态；未配置/无效时为 null */
+    fun strokeDbInfo(): StrokeDbInfo?
 
     /**
      * 创建拼音查询索引（端侧按需执行，幂等）:

@@ -30,4 +30,11 @@ expect object Platform {
 
     /** 当前是否为开发/调试构建（用于绘制墨迹盒边界等调试信息） */
     fun isDebug(): Boolean
+
+    /**
+     * 选择笔画数据库文件（系统文件选择器）:
+     * 优先解析为可直接打开的真实文件路径（避免复制大文件）；
+     * 无法解析时复制到应用私有目录。回调返回可用路径或 null（取消/无效）
+     */
+    fun pickStrokeDb(onPicked: (path: String?) -> Unit)
 }

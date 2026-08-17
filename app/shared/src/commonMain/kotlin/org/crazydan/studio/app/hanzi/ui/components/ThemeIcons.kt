@@ -208,3 +208,99 @@ val OpenInNewIcon: ImageVector by lazy {
         }
     }.build()
 }
+
+// ---- 笔画数据规模图标（数据库容器，规模越大存储柱越多/越大） ----
+
+/** 小规模（单柱小瓶）: 1500 */
+val StrokeDbSmallIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "StrokeDbSmall", defaultWidth = 24.dp, defaultHeight = 24.dp,
+        viewportWidth = 24f, viewportHeight = 24f
+    ).apply {
+        path(fill = SolidColor(Color.Black)) {
+            // 圆柱: 顶椭圆 + 侧壁 + 底弧
+            moveTo(7f, 9f)
+            arcToRelative(5f, 2.5f, 0f, false, false, 10f, 0f)
+            verticalLineToRelative(8f)
+            arcToRelative(5f, 2.5f, 0f, false, true, -10f, 0f)
+            close()
+            // 顶面弧线
+            moveTo(7f, 9f)
+            arcToRelative(5f, 2.5f, 0f, false, false, 10f, 0f)
+        }
+    }.build()
+}
+
+/** 中规模（双柱）: 3000 */
+val StrokeDbMediumIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "StrokeDbMedium", defaultWidth = 24.dp, defaultHeight = 24.dp,
+        viewportWidth = 24f, viewportHeight = 24f
+    ).apply {
+        path(fill = SolidColor(Color.Black)) {
+            // 左柱
+            moveTo(4f, 5f)
+            arcToRelative(4f, 2f, 0f, false, false, 8f, 0f)
+            verticalLineToRelative(7f)
+            arcToRelative(4f, 2f, 0f, false, true, -8f, 0f)
+            close()
+            moveTo(4f, 5f)
+            arcToRelative(4f, 2f, 0f, false, false, 8f, 0f)
+            // 右柱
+            moveTo(12f, 5f)
+            arcToRelative(4f, 2f, 0f, false, false, 8f, 0f)
+            verticalLineToRelative(7f)
+            arcToRelative(4f, 2f, 0f, false, true, -8f, 0f)
+            close()
+            moveTo(12f, 5f)
+            arcToRelative(4f, 2f, 0f, false, false, 8f, 0f)
+        }
+    }.build()
+}
+
+/** 大规模（三柱）: 5000 */
+val StrokeDbLargeIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "StrokeDbLarge", defaultWidth = 24.dp, defaultHeight = 24.dp,
+        viewportWidth = 24f, viewportHeight = 24f
+    ).apply {
+        path(fill = SolidColor(Color.Black)) {
+            for (x in listOf(3f, 9f, 15f)) {
+                moveTo(x, 4f)
+                arcToRelative(3f, 1.6f, 0f, false, false, 6f, 0f)
+                verticalLineToRelative(6f)
+                arcToRelative(3f, 1.6f, 0f, false, true, -6f, 0f)
+                close()
+                moveTo(x, 4f)
+                arcToRelative(3f, 1.6f, 0f, false, false, 6f, 0f)
+            }
+        }
+    }.build()
+}
+
+/** 全部（仓储箱）: full */
+val StrokeDbFullIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "StrokeDbFull", defaultWidth = 24.dp, defaultHeight = 24.dp,
+        viewportWidth = 24f, viewportHeight = 24f
+    ).apply {
+        path(fill = SolidColor(Color.Black)) {
+            // 箱体
+            moveTo(4f, 7f)
+            horizontalLineToRelative(16f)
+            verticalLineToRelative(12f)
+            horizontalLineTo(4f)
+            close()
+            // 箱盖（开口斜线）
+            moveTo(4f, 7f)
+            lineTo(7f, 4f)
+            horizontalLineToRelative(10f)
+            lineTo(20f, 7f)
+            // 侧壁折线
+            moveTo(12f, 7f)
+            lineTo(9f, 4f)
+            moveTo(12f, 7f)
+            lineTo(15f, 4f)
+        }
+    }.build()
+}

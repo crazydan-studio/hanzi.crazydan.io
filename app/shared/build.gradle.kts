@@ -27,8 +27,10 @@ kotlin {
             implementation(compose.ui)
         }
         androidMain.dependencies {
-            // 图片分享（FileProvider）与平台工具
+            // 图片分享（FileProvider）、文件选择（SAF）与平台工具
             implementation(libs.androidx.core.ktx)
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.documentfile)
         }
         iosMain.dependencies {
         }

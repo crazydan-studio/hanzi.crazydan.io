@@ -12,7 +12,8 @@
     "start": "node --disable-warning=ExperimentalWarning server/index.js",
     "seed": "node --disable-warning=ExperimentalWarning server/scripts/seed.js",
     "import:pinyin": "node --disable-warning=ExperimentalWarning server/scripts/import-pinyin.js",
-    "export:data": "node --disable-warning=ExperimentalWarning build/export-data.js"
+    "export:data": "node --disable-warning=ExperimentalWarning build/export-data.js",
+    "export:stroke-db": "node --disable-warning=ExperimentalWarning build/export-stroke-db.js"
   },
   "dependencies": {
     "alpinejs": "^3.13.0",

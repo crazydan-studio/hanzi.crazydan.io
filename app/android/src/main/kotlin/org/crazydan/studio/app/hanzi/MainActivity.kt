@@ -31,6 +31,7 @@ import org.crazydan.studio.app.hanzi.ui.HanziApp
 import org.crazydan.studio.app.hanzi.ui.InitNoticeScreen
 import org.crazydan.studio.app.hanzi.ui.Platform
 import org.crazydan.studio.app.hanzi.ui.SplashScreen
+import org.crazydan.studio.app.hanzi.ui.StrokeDbStore
 import org.crazydan.studio.app.hanzi.ui.ThemeStore
 import java.io.File
 import java.io.FileOutputStream
@@ -64,11 +65,13 @@ class MainActivity : ComponentActivity() {
             var initFailed by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
-                // 后台准备数据库（同源检测/覆盖复制 + 索引创建，幂等）
+                // 后台准备数据库（同源检测/覆盖复制 + 索引创建，幂等）;
+                // 笔画数据库为独立库（用户下载后指定位置），启动时按保存的路径配置
                 val prep = async(Dispatchers.IO) {
                     val file = prepareDb()
                     val hanziDb = HanziDbFactory.open(file.absolutePath)
                     hanziDb.ensurePinyinIndexes()
+                    hanziDb.configureStrokeDb(StrokeDbStore.load())
                     hanziDb
                 }
 

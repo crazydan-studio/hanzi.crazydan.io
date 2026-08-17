@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -79,6 +80,7 @@ fun CharDetailScreen(
     dark: Boolean,
     onToggleTheme: () -> Unit,
     onBack: () -> Unit,
+    onOpenStrokeManage: () -> Unit,
     onOpenDonate: () -> Unit
 ) {
     val unicode = unicodePointAt(character)
@@ -294,7 +296,8 @@ fun CharDetailScreen(
                     WritingPanel(
                         strokes = strokeList,
                         character = m.character,
-                        dark = dark
+                        dark = dark,
+                        onOpenStrokeManage = onOpenStrokeManage
                     )
                 }
 
@@ -316,6 +319,15 @@ fun CharDetailScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                        // 缺失笔画数据: 提供管理入口（下载/指定笔画数据库）
+                        Text(
+                            text = "前往管理笔画数据 →",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clickable(onClick = onOpenStrokeManage)
+                                .padding(bottom = 4.dp)
                         )
                     } else {
                         StrokeDecomposition(
@@ -358,7 +370,8 @@ fun CharDetailScreen(
 private fun WritingPanel(
     strokes: List<CharStroke>,
     character: String,
-    dark: Boolean
+    dark: Boolean,
+    onOpenStrokeManage: () -> Unit
 ) {
     val player = rememberWritingPlayer(strokes)
 
@@ -445,12 +458,23 @@ private fun WritingPanel(
                 }
             }
         } else {
-            Text(
-                text = "该汉字暂无笔画数据，不支持播放笔画书写动画",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 10.dp)
-            )
+            Column {
+                Text(
+                    text = "该汉字暂无笔画数据，不支持播放笔画书写动画",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+                // 缺失笔画数据: 提供管理入口（下载/指定笔画数据库）
+                Text(
+                    text = "前往管理笔画数据 →",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clickable(onClick = onOpenStrokeManage)
+                        .padding(top = 4.dp)
+                )
+            }
         }
     }
 }

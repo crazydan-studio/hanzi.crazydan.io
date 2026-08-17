@@ -64,6 +64,7 @@ fun HomeScreen(
     onOpenChar: (String) -> Unit,
     onOpenCommons: () -> Unit,
     onOpenPinyin: (String) -> Unit,
+    onOpenStrokeManage: () -> Unit,
     onOpenDonate: () -> Unit,
     initialCommons: List<CharEntry>? = null,
     onCommonsLoaded: (List<CharEntry>?) -> Unit = {}
@@ -74,6 +75,10 @@ fun HomeScreen(
     var commons by remember { mutableStateOf(initialCommons ?: emptyList()) }
     var commonsLoading by remember { mutableStateOf(initialCommons == null) }
     var commonsError by remember { mutableStateOf(false) }
+
+    // 笔画数据状态（进入首页时检查已配置的笔画数据库）
+    var strokeInfo by remember { mutableStateOf<org.crazydan.studio.app.hanzi.shared.StrokeDbInfo?>(null) }
+    var strokeChecked by remember { mutableStateOf(false) }
 
     // 进入首页时不自动聚焦搜索框（避免弹出键盘）；常用字速览仅首次加载（缓存复用）
     val focusManager = LocalFocusManager.current
@@ -86,6 +91,9 @@ fun HomeScreen(
             commonsError = list.isEmpty()
             onCommonsLoaded(list)
         }
+        // 笔画数据库状态（重新进入首页时刷新）
+        strokeInfo = withContext(Dispatchers.Default) { db.strokeDbInfo() }
+        strokeChecked = true
     }
 
     Column(
@@ -241,6 +249,51 @@ fun HomeScreen(
                             }
                         }
                     }
+                }
+            }
+
+            // 汉字笔画数据管理（按需下载，避免占用过多存储空间）
+            SectionCard {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("汉字笔画数据", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "笔画数据为独立数据库，可按需下载不同规模的数据集（1500/3000/5000/全部），下载后指定存放位置即可使用",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Button(
+                        // 与 web 一致: 深蓝主按钮
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Blue500,
+                            contentColor = Color.White
+                        ),
+                        onClick = onOpenStrokeManage
+                    ) {
+                        Text("管理")
+                    }
+                }
+                // 附加说明: 已配置且完整时显示可访问的汉字数量；缺失/无效时警示
+                when {
+                    !strokeChecked -> Unit
+                    strokeInfo != null -> Text(
+                        text = "当前可访问 ${strokeInfo!!.charCount} 个汉字的笔画数据（共 ${strokeInfo!!.strokeCount} 笔）。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    else -> Text(
+                        text = "尚未配置笔画数据库：汉字信息页暂无法显示笔画书写动画与笔画分解图，建议尽快管理下载。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
                 }
             }
 

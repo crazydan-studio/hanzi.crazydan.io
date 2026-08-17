@@ -7,10 +7,15 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.media.MediaPlayer
+import android.net.Uri
+import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.FileProvider
+import androidx.documentfile.provider.DocumentFile
 import java.io.File
+import java.io.FileOutputStream
 
 /**
  * Android 平台能力实现
@@ -18,6 +23,10 @@ import java.io.File
 actual object Platform {
 
     private var player: MediaPlayer? = null
+
+    /** 文件选择器（复用同一 launcher，避免重复注册） */
+    private var pickLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>? = null
+    private var pickCallback: ((String?) -> Unit)? = null
 
     actual fun playPinyin(pinyin: String): Boolean {
         stopPinyin()
@@ -109,8 +118,63 @@ actual object Platform {
             android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
 
-    /** 应用上下文注入（MainActivity 初始化时调用） */
-    fun init(context: Context) {
-        AppContextHolder.appContext = context
+    actual fun pickStrokeDb(onPicked: (String?) -> Unit) {
+        val activity = AppContextHolder.appActivity ?: run {
+            onPicked(null)
+            return
+        }
+        pickCallback = onPicked
+        val launcher = pickLauncher ?: activity.registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            val cb = pickCallback
+            pickCallback = null
+            cb?.invoke(uri?.let { resolvePickedDb(it) })
+        }.also { pickLauncher = it }
+        try {
+            launcher.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "*/*"))
+        } catch (e: Exception) {
+            pickCallback = null
+            onPicked(null)
+        }
+    }
+
+    // 解析用户选择的笔画数据库:
+    //  1) 优先解析为真实文件路径（外部存储 provider 的 primary: 前缀），避免复制大文件
+    //  2) 无法解析时复制到应用私有目录（content:// 源可稳定读取）
+    private fun resolvePickedDb(uri: Uri): String? {
+        val context = AppContextHolder.appContext ?: return null
+        // 外部存储真实路径: /document/primary:Download/hanzi-stroke-1500.db → /storage/emulated/0/...
+        val docPath = DocumentFile.fromSingleUri(context, uri)?.uri?.path
+            ?.substringAfter("primary:", missingDelimiterValue = "")
+        if (docPath != null && docPath.isNotEmpty()) {
+            val real = File("/storage/emulated/0", docPath)
+            if (real.isFile && real.canRead()) {
+                return real.absolutePath
+            }
+        }
+        // 兜底: 复制到 filesDir/db/hanzi_stroke.db（保持文件名稳定，幂等覆盖）
+        return try {
+            val dir = File(context.filesDir, "db").apply { mkdirs() }
+            val dest = File(dir, "hanzi_stroke.db")
+            val tmp = File(dir, "hanzi_stroke.db.tmp")
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(tmp).use { output -> input.copyTo(output) }
+            } ?: return null
+            dest.delete()
+            if (!tmp.renameTo(dest)) {
+                tmp.copyTo(dest, overwrite = true)
+                tmp.delete()
+            }
+            dest.absolutePath
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** 应用上下文/宿主 Activity 注入（MainActivity 初始化时调用） */
+    fun init(activity: ComponentActivity) {
+        AppContextHolder.appActivity = activity
+        AppContextHolder.appContext = activity
     }
 }

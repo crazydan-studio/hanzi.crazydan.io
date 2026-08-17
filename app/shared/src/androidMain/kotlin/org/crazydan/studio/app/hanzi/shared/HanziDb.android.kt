@@ -7,11 +7,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.zip.Inflater
-
 /**
  * Android 实现: 基于平台 sqlite（android.database.sqlite）只读查询，
  * 轨迹数据用 java.util.zip 解压（与 node 端 zlib.deflateSync 兼容），
  * 增量编码还原为绝对坐标后按 [StrokePoint] 返回。
+ * 数据源拆分: 汉字信息库（内置 hanzi.db）+ 笔画数据库（用户指定位置，见 [configureStrokeDb]）。
  * 拼音查询索引由 [ensurePinyinIndexes] 在端侧创建（见接口注释）。
  */
 actual object HanziDbFactory {
@@ -23,6 +23,60 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
     // 建索引需要写权限（仅首次/数据库更新时写入，日常为只读查询）
     private val db: SQLiteDatabase =
         SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READWRITE)
+
+    // 笔画数据库（独立下载，用户指定位置）: 未配置/无效时为 null
+    private var strokeDb: SQLiteDatabase? = null
+    private var strokeInfo: StrokeDbInfo? = null
+
+    override fun configureStrokeDb(path: String?) {
+        strokeDb?.close()
+        strokeDb = null
+        strokeInfo = null
+        val p = path
+        if (p == null || p.isEmpty()) return
+        val file = java.io.File(p)
+        if (!file.isFile || !file.canRead()) return
+        try {
+            val sdb = SQLiteDatabase.openDatabase(p, null, SQLiteDatabase.OPEN_READONLY)
+            // 校验表结构（strokes 必须存在）
+            val hasStrokes = sdb.rawQuery(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'strokes'", null
+            ).use { it.moveToFirst() }
+            if (!hasStrokes) {
+                sdb.close()
+                return
+            }
+            val charCount = sdb.rawQuery(
+                "SELECT COUNT(*) FROM (SELECT DISTINCT character_id FROM strokes)", null
+            ).use {
+                it.moveToFirst()
+                it.getInt(0)
+            }
+            val strokeCount = sdb.rawQuery("SELECT COUNT(*) FROM strokes", null).use {
+                it.moveToFirst()
+                it.getInt(0)
+            }
+            if (charCount <= 0) {
+                sdb.close()
+                return
+            }
+            strokeDb = sdb
+            strokeInfo = StrokeDbInfo(charCount, strokeCount)
+        } catch (e: Exception) {
+            // 数据库无效（损坏/格式不符）: 静默清除
+            strokeDb?.close()
+            strokeDb = null
+            strokeInfo = null
+        }
+    }
+
+    override fun strokeDbInfo(): StrokeDbInfo? = strokeInfo
+
+    override fun queryCharCount(): Int =
+        db.rawQuery("SELECT COUNT(*) FROM characters", null).use {
+            it.moveToFirst()
+            it.getInt(0)
+        }
 
     override fun queryCommons(limit: Int): List<CharEntry> {
         val out = ArrayList<CharEntry>(limit)
@@ -74,6 +128,7 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
     }
 
     override fun queryCharStrokes(unicode: Int): List<CharStroke> {
+        val sdb = strokeDb ?: return emptyList()   // 未配置笔画数据库
         val out = ArrayList<CharStroke>()
         queryAll(
             "SELECT stroke_order, stroke_type, trajectory_data FROM strokes " +
@@ -207,6 +262,8 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
     }
 
     override fun close() {
+        strokeDb?.close()
+        strokeDb = null
         db.close()
     }
 
