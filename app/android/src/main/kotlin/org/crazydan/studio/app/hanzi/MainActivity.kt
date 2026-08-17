@@ -10,7 +10,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -40,9 +40,8 @@ import java.security.MessageDigest
  * 汉字 App 主界面（Compose Multiplatform 原生 UI）
  * 启动流程:
  *   1. 立即显示开屏页（logo + 暗色背景，固定展示时间），同时后台检查/准备数据库
- *   2. 开屏淡出后淡入首页:
- *      - 内置库与端侧一致（已复制）→ 无任何初始化提示
- *      - 不一致（首次安装/App 更新）→ 提示等待数据库初始化，就绪后消失
+ *   2. 等待首页渲染完成（首帧绘制）后，开屏平滑淡出，首页不做淡入
+ *   3. 数据库异常时显示初始化失败提示（正常流程由开屏覆盖等待期）
  *  - 数据库同源检测基于构建时记录的 SHA-256（见 build/app-db-pack.js）
  */
 class MainActivity : ComponentActivity() {
@@ -60,9 +59,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var showSplash by remember { mutableStateOf(true) }
-            var showApp by remember { mutableStateOf(false) }
-            var initNotice by remember { mutableStateOf(false) }
+            var homeRendered by remember { mutableStateOf(false) }
             var db by remember { mutableStateOf<HanziDb?>(null) }
+            var initFailed by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
                 // 后台准备数据库（同源检测/覆盖复制 + 索引创建，幂等）
@@ -75,36 +74,40 @@ class MainActivity : ComponentActivity() {
 
                 // 开屏固定展示时间（短暂但稳定，保证主题已加载）
                 delay(SPLASH_MIN_MS)
-                // 数据库未就绪（原始库不一致，正在初始化）→ 提示等待
-                initNotice = !prep.isCompleted
-                // 开屏淡出与首页淡入同时进行（交叠透明渐变），
-                // 窗口背景在过渡期间保持开屏暗色，避免切换过程透出白屏
+                val prepared = try {
+                    prep.await()
+                } catch (e: Exception) {
+                    initFailed = true
+                    null
+                }
+                activeDb = prepared
+                db = prepared
+
+                // 等待首页渲染完成（首页首帧绘制后 homeRendered 置位），
+                // 随后开屏平滑淡出（首页不做淡入）；窗口背景过渡期间保持开屏暗色
+                while (!homeRendered) {
+                    withFrameNanos { }
+                }
+                withFrameNanos { }   // 再等一帧，确保首页首帧已绘制
                 showSplash = false
-                showApp = true
                 delay(SPLASH_FADE_MS)
                 // 过渡完成后应用当前主题的窗口背景/状态栏颜色
                 applyStartupTheme(savedDark)
-                // 等待数据库就绪（一致时立即返回）
-                val prepared = prep.await()
-                activeDb = prepared
-                db = prepared
-                initNotice = false
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
-                // 首页（淡入）
-                AnimatedVisibility(
-                    visible = showApp,
-                    enter = fadeIn(animationSpec = tween(SPLASH_FADE_MS.toInt()))
-                ) {
-                    val currentDb = db
-                    if (currentDb != null) {
-                        AppContent(db = currentDb)
-                    } else {
-                        InitNoticeScreen(darkTheme = savedDark, notice = initNotice)
-                    }
+                // 首页（在开屏之下直接渲染，不做淡入）
+                val currentDb = db
+                if (currentDb != null) {
+                    AppContent(db = currentDb, onRendered = { homeRendered = true })
+                } else if (initFailed) {
+                    InitNoticeScreen(
+                        darkTheme = savedDark,
+                        notice = true,
+                        message = "数据库初始化失败，请重启应用"
+                    )
                 }
-                // 开屏页（淡出）
+                // 开屏页（首页渲染完成后平滑淡出）
                 AnimatedVisibility(
                     visible = showSplash,
                     exit = fadeOut(animationSpec = tween(SPLASH_FADE_MS.toInt()))
@@ -116,7 +119,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun AppContent(db: HanziDb) {
+    private fun AppContent(db: HanziDb, onRendered: () -> Unit) {
         val navigator = remember { AppNavigator() }
         // 返回键: 页面内返回；无上一页时退出
         BackHandler {
@@ -127,7 +130,8 @@ class MainActivity : ComponentActivity() {
         HanziApp(
             db = db,
             navigator = navigator,
-            onExit = { finish() }
+            onExit = { finish() },
+            onRendered = onRendered
         )
     }
 

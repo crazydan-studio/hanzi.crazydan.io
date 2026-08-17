@@ -42,11 +42,11 @@ fun SplashScreen() {
 }
 
 /**
- * 数据库初始化等待提示（开屏淡出后、首页数据就绪前显示）
+ * 数据库初始化提示（异常兜底显示，正常流程由开屏覆盖等待期）
  * 与已保存/系统主题一致，保持居中对齐
  */
 @Composable
-fun InitNoticeScreen(darkTheme: Boolean, notice: Boolean) {
+fun InitNoticeScreen(darkTheme: Boolean, notice: Boolean, message: String = "正在初始化数据库，请稍候…") {
     HanziTheme(darkTheme = darkTheme) {
         Surface(
             modifier = Modifier.fillMaxSize(),
@@ -61,7 +61,7 @@ fun InitNoticeScreen(darkTheme: Boolean, notice: Boolean) {
                     CircularProgressIndicator()
                     Spacer(Modifier.height(14.dp))
                     Text(
-                        text = "正在初始化数据库，请稍候…",
+                        text = message,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 24.dp)

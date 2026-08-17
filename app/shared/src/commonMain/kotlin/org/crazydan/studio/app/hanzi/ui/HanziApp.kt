@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,13 +73,20 @@ class AppNavigator(initial: Screen = Screen.Home) {
 
 /**
  * 汉字 App 根组件（原生 Compose UI，替代原 WebView 方案）
+ * @param onRendered 首页完成首帧渲染后的回调（开屏据此淡出）
  */
 @Composable
 fun HanziApp(
     db: HanziDb,
     navigator: AppNavigator,
-    onExit: () -> Unit
+    onExit: () -> Unit,
+    onRendered: () -> Unit = {}
 ) {
+    // 首页首次组合后通知宿主（开屏等待此信号再淡出）
+    LaunchedEffect(Unit) {
+        onRendered()
+    }
+
     val systemDark = isSystemInDarkTheme()
     // 主题持久化: 已保存的设置为准，未设置时跟随系统
     var darkTheme by remember { mutableStateOf(ThemeStore.load() ?: systemDark) }
