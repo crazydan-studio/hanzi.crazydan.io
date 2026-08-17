@@ -25,7 +25,7 @@ const pointTuple = z.tuple([
 const BRUSH_MAX = 100 * BRUSH_SCALE
 
 export const trajectorySchema = z.object({
-  version: z.string(),
+  version: z.number().int().positive(),         // 轨迹格式版本（数字，从 1 开始）
   brush: z.number().int().min(0).max(BRUSH_MAX),    // 笔刷面积/背景字面积 ×BRUSH_SCALE
   points: z.array(pointTuple).min(1)
     .superRefine((pts, ctx) => {
