@@ -73,8 +73,15 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // 开屏固定展示时间（短暂但稳定，保证主题已加载）
-                // 开屏内已含等待动画与初始化提示，初始化期间不会误以为僵死
                 delay(SPLASH_MIN_MS)
+                // 数据库未就绪（原始库不一致，正在初始化）→ 先淡出开屏，
+                // 初始化信息在开屏淡出后于首页区域显示（不在开屏中等待初始化结束）
+                if (!prep.isCompleted) {
+                    showSplash = false
+                    delay(SPLASH_FADE_MS)
+                    applyStartupTheme(savedDark)
+                }
+
                 val prepared = try {
                     prep.await()
                 } catch (e: Exception) {
@@ -85,19 +92,21 @@ class MainActivity : ComponentActivity() {
                 db = prepared
 
                 // 等待首页渲染完成（首页首帧绘制后 homeRendered 置位），
-                // 随后开屏平滑淡出（首页不做淡入）
+                // 随后开屏平滑淡出（首页不做淡入）；若开屏已提前淡出则跳过
                 while (!homeRendered) {
                     withFrameNanos { }
                 }
                 withFrameNanos { }   // 再等一帧，确保首页首帧已绘制
-                showSplash = false
-                delay(SPLASH_FADE_MS)
+                if (showSplash) {
+                    showSplash = false
+                    delay(SPLASH_FADE_MS)
+                }
                 // 过渡完成后应用当前主题的窗口背景/状态栏颜色
                 applyStartupTheme(savedDark)
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
-                // 首页（在开屏之下直接渲染，不做淡入）
+                // 首页区域（在开屏之下直接渲染，不做淡入）
                 val currentDb = db
                 if (currentDb != null) {
                     AppContent(db = currentDb, onRendered = { homeRendered = true })
@@ -107,13 +116,16 @@ class MainActivity : ComponentActivity() {
                         notice = true,
                         message = "数据库初始化失败，请重启应用"
                     )
+                } else if (!showSplash) {
+                    // 开屏已提前淡出且数据库仍在初始化 → 在首页区域显示等待提示
+                    InitNoticeScreen(darkTheme = savedDark, notice = true)
                 }
-                // 开屏页（含等待动画与初始化提示，首页渲染完成后平滑淡出）
+                // 开屏页（仅 logo 与等待动画；首页渲染完成或初始化中提前淡出）
                 AnimatedVisibility(
                     visible = showSplash,
                     exit = fadeOut(animationSpec = tween(SPLASH_FADE_MS.toInt()))
                 ) {
-                    SplashScreen(notice = true)
+                    SplashScreen()
                 }
             }
         }

@@ -19,11 +19,11 @@ import androidx.compose.ui.unit.dp
 
 /**
  * 开屏页: 以 logo 为中心，暗黑主题色为背景（品牌开屏页），
- * 下方显示等待动画与初始化提示（避免误以为 App 僵死）;
- * 展示时间由 MainActivity 控制，首页渲染完成后平滑淡出
+ * logo 下方为等待动画（与拼音字列表加载动画同款，不显示提示文字）;
+ * 数据库初始化信息由首页区域在开屏淡出后显示
  */
 @Composable
-fun SplashScreen(notice: Boolean = true) {
+fun SplashScreen() {
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Gray900
@@ -38,27 +38,18 @@ fun SplashScreen(notice: Boolean = true) {
                 contentDescription = "汉字",
                 modifier = Modifier.width(140.dp)
             )
-            if (notice) {
-                Spacer(Modifier.height(28.dp))
-                CircularProgressIndicator(
-                    color = Gray100,
-                    strokeWidth = 3.dp,
-                    modifier = Modifier.width(28.dp)
-                )
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    text = "正在初始化数据…",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Gray400,
-                    modifier = Modifier.padding(horizontal = 24.dp)
-                )
-            }
+            Spacer(Modifier.height(28.dp))
+            // 与拼音字列表加载动画同款效果
+            CircularProgressIndicator(
+                strokeWidth = 3.dp,
+                modifier = Modifier.width(28.dp)
+            )
         }
     }
 }
 
 /**
- * 数据库初始化提示（异常兜底显示，正常流程由开屏覆盖等待期）
+ * 数据库初始化等待提示（开屏淡出后、首页数据就绪前，在首页区域显示）
  * 与已保存/系统主题一致，保持居中对齐
  */
 @Composable
