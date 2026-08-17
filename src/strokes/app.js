@@ -5,7 +5,7 @@ import Alpine from 'alpinejs'
 import { api } from '@services/api.js'
 import { createSyncClient } from '@services/syncClient.js'
 import { CHARACTER_STRUCTURES, structureLabel } from '@components/CharacterStructures.js'
-import { strokeInkColor } from '@components/StrokeBackground.js'
+import { strokeInkColor, charInkBox, ensureKaiFont } from '@components/StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { setBackUrl } from '@services/session.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
@@ -42,6 +42,8 @@ Alpine.data('characterList', () => ({
     window.addEventListener(THEME_CHANGE_EVENT, () => {
       this.themeVersion++
     })
+    // 楷体加载完成后重绘缩略图（墨迹盒坐标还原依赖字体度量）
+    ensureKaiFont().then(() => { this.themeVersion++ })
   },
 
   // ---- 多端同步: 他端写入笔画/修改信息 → 刷新列表；他端跳转 → 跟随 ----
@@ -130,8 +132,9 @@ Alpine.data('characterList', () => ({
     }
   },
 
-  // 笔画小图: 渲染该字所有笔画轨迹（归一化坐标 × 缩略图尺寸）
-  renderThumb(canvas, strokes) {
+  // 笔画小图: 以背景汉字墨迹盒为坐标系还原笔画轨迹（v8 归一化 ×1000），
+  // 等比缩放到缩略图尺寸；字体未加载/未覆盖该字时不绘制（无兜底）
+  renderThumb(canvas, strokes, character) {
     if (!canvas) return
     const size = 44
     const dpr = window.devicePixelRatio || 1
@@ -140,6 +143,8 @@ Alpine.data('characterList', () => ({
     const ctx = canvas.getContext('2d')
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, size, size)
+    const box = character ? charInkBox(ctx, size, size, character) : null
+    if (!box) return
     ctx.strokeStyle = strokeInkColor()   // 墨色适配主题
     ctx.lineWidth = 2
     ctx.lineCap = 'round'
@@ -149,8 +154,9 @@ Alpine.data('characterList', () => ({
       if (pts.length === 0) continue
       ctx.beginPath()
       pts.forEach((p, i) => {
-        const x = (p[0] / 1000) * size   // 坐标归一化 ×1000（v7 格式）
-        const y = (p[1] / 1000) * size
+        // 盒相对还原: 盒起点 + 归一化值 × 盒宽/高（x、y 分别按盒宽、盒高）
+        const x = box.x0 + (p[0] / 1000) * box.w
+        const y = box.y0 + (p[1] / 1000) * box.h
         if (i === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       })

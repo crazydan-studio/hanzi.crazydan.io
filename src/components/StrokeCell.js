@@ -4,26 +4,30 @@
 // 点击分解图即可播放该笔画的书写动画（红色笔触），自动循环播放当前笔画
 // （循环间插入短暂等待，避免视觉跳动），再次点击终止播放。
 // 田字格线宽按画布显示尺寸缩放，确保缩小显示的分解图中虚线清晰可见。
+// 背景字统一使用自带中易楷体（不做系统字体/兜底）: 字体加载完成且覆盖该字
+// 后才渲染背景字与笔画（坐标以墨迹盒为坐标系），等待期间显示加载信息。
 import Alpine from 'alpinejs'
 import { AnimationEngine } from './AnimationEngine.js'
-import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor, displayUnit } from './StrokeBackground.js'
+import { drawTianZiGe, drawCharRef, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
-import { DISPLAY_PEN_WIDTH_COEF, STROKE_HIGHLIGHT_COLOR } from './Constants.js'
+import { STROKE_HIGHLIGHT_COLOR } from './Constants.js'
 import { strokeTypesMap } from './StrokeTypes.js'
 
 Alpine.data('strokeCell', (char, index, strokes) => ({
   canvas: null,
   engine: null,
   playing: false,
+  fontReady: false,        // 楷体已加载且覆盖该字（墨迹盒可用）
   _loopTimer: null,
+  _box: null,              // 背景字墨迹盒（内部坐标系）
 
   init() {
     this.canvas = this.$refs.canvas
     this.engine = new AnimationEngine(this.canvas, {
       highlightColor: STROKE_HIGHLIGHT_COLOR,
       strokeGap: 0,
-      penWidthCoef: DISPLAY_PEN_WIDTH_COEF,
-      completedColor: () => strokeInkColor()   // 已绘笔画墨色（适配主题）
+      completedColor: () => strokeInkColor(),   // 已绘笔画墨色（适配主题）
+      charBox: () => this._box                  // 墨迹盒提供者
     })
     // 背景: 田字格 + 半透明汉字字型（颜色适配主题）
     // 换算系数由画布设备像素与实测显示宽度得出，尺寸未确定（宽度为 0）时暂不绘制，
@@ -47,8 +51,13 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
       }, 400)
     }
 
-    this.engine.loadStrokes(strokes)
-    this.renderStatic()
+    // 等待自带楷体加载（无系统字体/无兜底）: 就绪后加载笔画、测量墨迹盒并渲染
+    ensureKaiFont().then(ok => {
+      this.fontReady = ok
+      this.engine.loadStrokes(strokes)   // 引擎按墨迹盒提供者换算（未就绪则空）
+      this.remeasureBox()
+      this.renderStatic()
+    })
 
     // 主题切换时重绘（田字格/背景汉字/已绘笔画颜色适配主题色）
     window.addEventListener(THEME_CHANGE_EVENT, () => {
@@ -60,10 +69,21 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
     })
   },
 
+  // 测量背景字墨迹盒（字体就绪后）: 笔画坐标以墨迹盒为坐标系还原
+  remeasureBox() {
+    if (!this.fontReady) return
+    this._box = charInkBox(this.engine.ctx, this.engine.cssW, this.engine.cssH, char)
+    if (this._box) this.engine.refreshBox()
+  },
+
   // 静态显示: 该笔之前笔画墨色已绘，当前笔画以红色示位；
-  // 尺寸未确定时暂不绘制，待布局完成后再绘制
+  // 尺寸未确定/字体未就绪时暂不绘制，待就绪后再绘制
   renderStatic() {
     if (!this.engine || this.engine.strokes.length === 0) return
+    if (!this.fontReady || !this._box) {
+      setTimeout(() => { if (!this.playing) this.renderStatic() }, 50)
+      return
+    }
     if (!this.canvas.getBoundingClientRect().width) {
       setTimeout(() => { if (!this.playing) this.renderStatic() }, 50)
       return
@@ -87,6 +107,7 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
 
   play() {
     if (!this.engine || this.engine.strokes.length === 0) return
+    if (!this.fontReady || !this._box) return   // 字体未就绪不可播放
     // 单笔播放: 只播放当前笔画，结束后经 onComplete 循环重播
     this.engine.singleStrokePlayback = true
     this.engine.seekToStroke(index)

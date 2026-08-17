@@ -1,22 +1,28 @@
-import { BASE_WIDTH, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
-import { computeBrushWidths, drawBrushStroke } from './Brush.js'
+import { COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
+import { computeBrushWidths, drawBrushStroke, brushBaseWidth } from './Brush.js'
 
 // 单一RAF状态机。不使用 async/await + Promise 链，全部状态显式管理，
 // pause/resume/seek 均为状态切换，天然安全。
+// 轨迹坐标（v8）以【背景汉字墨迹盒】为坐标系归一化存储（x 按盒宽、y 按盒高），
+// 播放端经 charBox 提供者测量当前盒后还原为内部像素坐标。
 export class AnimationEngine {
   constructor(canvas, options = {}) {
     this.canvas = canvas
     this.ctx = canvas.getContext('2d')
     this.strokeGap = options.strokeGap ?? 300   // 笔画间停顿(墙钟毫秒)
-    this.baseWidth = options.baseWidth ?? BASE_WIDTH
+    this.baseWidth = options.baseWidth ?? 4     // 无笔刷数据时的兜底基准笔宽
     this.highlightColor = options.highlightColor ?? null   // 正在绘制笔画的动画高亮色
-    this.penWidthCoef = options.penWidthCoef ?? 1   // 前端笔触宽度系数（展示配置）
+    this.penWidthCoef = options.penWidthCoef ?? 1   // 笔宽系数（默认 1: 忠实还原录制笔宽）
+    // 背景汉字墨迹盒提供者: () => { x0, y0, w, h } | null
+    // 字体未加载/未覆盖该字时返回 null → 笔画坐标无法还原，不渲染笔画
+    this.charBox = options.charBox ?? null
     // 已完成笔画的颜色: 可为函数（每帧求值，适配主题切换）
     this.completedColor = options.completedColor ?? '#000000'
 
     this.state = 'IDLE'          // IDLE | PLAYING | PAUSED | COMPLETED
     this.speed = 1.0             // 播放速度倍率 0.25-4
-    this.strokes = []            // [{ trajectory_data, pxPoints }]
+    this.strokes = []            // [{ trajectory_data, pxPoints, pxBrushWidth }]
+    this.boxReady = false        // 墨迹盒可用（笔画坐标可还原）
     this.currentIndex = 0        // 当前笔画索引
     this.elapsed = 0             // 当前笔画已播放时间(ms, 已乘速度)
     this.gapRemaining = 0        // 笔画间剩余停顿(墙钟毫秒，不乘速度)
@@ -59,17 +65,51 @@ export class AnimationEngine {
     this.strokes = [...strokes]
       .filter(s => s && s.trajectory_data && s.trajectory_data.points?.length > 0)
       .sort((a, b) => (a.stroke_order ?? 0) - (b.stroke_order ?? 0))
-    // 元组数组 [x,y,pressure,timestamp]（x/y 归一化×1000；pressure×100；timestamp×10）
-    // → ÷还原为内部像素坐标与浮点值
+
+    // 背景汉字墨迹盒（内部坐标系）: 笔画坐标以盒为坐标系归一化存储，
+    // 还原 = 盒起点 + 归一化值 × 当前盒宽/高（x、y 分别按盒宽、盒高）
+    const box = this.charBox ? this.charBox() : null
+    this.boxReady = !!(box && box.w > 0 && box.h > 0)
     for (const s of this.strokes) {
-      s.pxPoints = s.trajectory_data.points.map(p => ({
-        x: (p[0] / COORD_SCALE) * this.cssW,
-        y: (p[1] / COORD_SCALE) * this.cssH,
-        pressure: (p[2] ?? PRESSURE_SCALE / 2) / PRESSURE_SCALE,
-        timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
-      }))
+      const traj = s.trajectory_data
+      if (this.boxReady) {
+        s.pxPoints = traj.points.map(p => ({
+          x: box.x0 + (p[0] / COORD_SCALE) * box.w,
+          y: box.y0 + (p[1] / COORD_SCALE) * box.h,
+          pressure: (p[2] ?? PRESSURE_SCALE / 2) / PRESSURE_SCALE,
+          timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
+        }))
+        // 基准笔宽 = 面积比还原（笔宽²/盒面积 比值 × 当前盒面积 开方）× 展示系数
+        s.pxBrushWidth = brushBaseWidth(traj.brush, box.w, box.h) * (this.penWidthCoef ?? 1)
+      } else {
+        s.pxPoints = []
+        s.pxBrushWidth = this.baseWidth * (this.penWidthCoef ?? 1)
+      }
     }
     this.reset()
+  }
+
+  // 墨迹盒更新后重新换算坐标（字体加载完成/字符变化后由宿主调用）
+  refreshBox() {
+    if (this.strokes.length === 0) return
+    const box = this.charBox ? this.charBox() : null
+    this.boxReady = !!(box && box.w > 0 && box.h > 0)
+    for (const s of this.strokes) {
+      const traj = s.trajectory_data
+      if (this.boxReady) {
+        s.pxPoints = traj.points.map(p => ({
+          x: box.x0 + (p[0] / COORD_SCALE) * box.w,
+          y: box.y0 + (p[1] / COORD_SCALE) * box.h,
+          pressure: (p[2] ?? PRESSURE_SCALE / 2) / PRESSURE_SCALE,
+          timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
+        }))
+        s.pxBrushWidth = brushBaseWidth(traj.brush, box.w, box.h) * (this.penWidthCoef ?? 1)
+      } else {
+        s.pxPoints = []
+        s.pxBrushWidth = this.baseWidth * (this.penWidthCoef ?? 1)
+      }
+    }
+    this.redrawCompleted()
   }
 
   reset() {
@@ -246,9 +286,11 @@ export class AnimationEngine {
   }
 
   // 单点宽度（前端基准笔宽 × 压力），展示配置
-  strokeWidthAt(p) {
+  // 基准笔宽来自该笔画轨迹的笔刷面积比（v8），忠实还原录制笔宽
+  strokeWidthAt(stroke, p) {
+    const base = stroke?.pxBrushWidth ?? this.baseWidth * (this.penWidthCoef ?? 1)
     const pressure = p?.pressure ?? 0.5
-    return (this.penWidthCoef ?? 1) * this.baseWidth * (0.4 + 0.6 * pressure)
+    return base * (0.4 + 0.6 * pressure)
   }
 
   // 部分渲染: 绘制从起点到插值位置的所有轨迹（笔触模拟）
@@ -262,7 +304,7 @@ export class AnimationEngine {
     // 单点笔画: 圆点半径随进度增长
     if (pts.length === 1) {
       const r = Math.max(
-        (this.strokeWidthAt(pts[0]) / 2) * Math.max(progress, 0.02), 0.5)
+        (this.strokeWidthAt(stroke, pts[0]) / 2) * Math.max(progress, 0.02), 0.5)
       this.ctx.beginPath()
       this.ctx.arc(pts[0].x, pts[0].y, r, 0, Math.PI * 2)
       this.ctx.fillStyle = color
@@ -290,7 +332,7 @@ export class AnimationEngine {
     if (visible.length <= 1) {
       // 刚开始: 圆点随进度
       const p = visible[0] || pts[0]
-      const r = Math.max(this.strokeWidthAt(p) / 2 * Math.max(progress, 0.02), 0.5)
+      const r = Math.max(this.strokeWidthAt(stroke, p) / 2 * Math.max(progress, 0.02), 0.5)
       this.ctx.beginPath()
       this.ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
       this.ctx.fillStyle = color
@@ -298,8 +340,8 @@ export class AnimationEngine {
       return
     }
 
-    // 笔触渲染（压力/速度/起收笔），宽度为前端配置基准
-    const widths = computeBrushWidths(visible, this.penWidthCoef ?? 1)
+    // 笔触渲染（压力/速度/起收笔），基准宽度为轨迹笔刷还原值
+    const widths = computeBrushWidths(visible, stroke.pxBrushWidth)
     drawBrushStroke(this.ctx, visible, widths, color)
   }
 
@@ -312,11 +354,11 @@ export class AnimationEngine {
     if (pts.length === 1) {
       // 单点: 画个小圆点
       this.ctx.beginPath()
-      this.ctx.arc(pts[0].x, pts[0].y, this.strokeWidthAt(pts[0]) / 2, 0, Math.PI * 2)
+      this.ctx.arc(pts[0].x, pts[0].y, this.strokeWidthAt(stroke, pts[0]) / 2, 0, Math.PI * 2)
       this.ctx.fillStyle = color
       this.ctx.fill()
     } else {
-      const widths = computeBrushWidths(pts, this.penWidthCoef ?? 1)
+      const widths = computeBrushWidths(pts, stroke.pxBrushWidth)
       drawBrushStroke(this.ctx, pts, widths, color)
     }
   }

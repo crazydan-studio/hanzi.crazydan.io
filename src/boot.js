@@ -1,11 +1,8 @@
 // 页面引导（各页面入口模块副作用导入，随共享 chunk 执行）:
-// 字体加载遮罩: 系统无 SimKai 时加载静态楷体资源，加载期间遮住页面并提示
+// 字体加载遮罩: 统一加载自带静态中易楷体（不使用系统字体），加载期间遮住页面
+// 并提示；失败时隐藏遮罩（各田字格显示自身的失败/等待状态，不做兜底）
 // （主题初始化由 vite 插件注入的内联脚本在 head 阻塞执行，避免刷新跳闪）
 (function () {
-  function hasSimKai() {
-    try { return !!document.fonts && document.fonts.check('100px "SimKai"') } catch (e) { return false }
-  }
-
   function addOverlay() {
     const el = document.createElement('div')
     el.id = 'font-loading-overlay'
@@ -22,11 +19,11 @@
   }
 
   function initFontLoading() {
-    if (!document.fonts || !document.fonts.load || hasSimKai()) { hideOverlay(); return }
-    const timer = setTimeout(hideOverlay, 6000)
+    if (!document.fonts || !document.fonts.load) { hideOverlay(); return }
+    // 页面加载期间阻塞渲染背景字/笔画；加载失败也隐藏遮罩（页面内田字格显示失败状态）
     document.fonts.load('300px "ZhongYiKaiTi"')
-      .then(() => { clearTimeout(timer); hideOverlay() })
-      .catch(() => { clearTimeout(timer); hideOverlay() })
+      .then(hideOverlay)
+      .catch(hideOverlay)
   }
 
   if (document.body) { addOverlay(); initFontLoading() }

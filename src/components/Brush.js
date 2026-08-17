@@ -1,8 +1,25 @@
-import { BASE_WIDTH } from './Constants.js'
+import { BASE_WIDTH, BRUSH_SCALE } from './Constants.js'
 
 // ============ 笔触模拟（brush stroke） ============
 // 依据 压力/速度/首尾锥形 计算每点宽度，并用轮廓法（可变宽度多边形）渲染，
 // 产生类似毛笔/钢笔的笔锋效果。编辑器与回放引擎共用。
+// 基准笔宽来自轨迹数据（v8 brush 面积比），无数据时用 BASE_WIDTH 兜底。
+
+// 笔刷归一化（录制）: 笔刷面积/背景字墨迹盒面积 的比值 ×BRUSH_SCALE 存整数
+export function normalizeBrush(width, boxW, boxH) {
+  const area = boxW * boxH
+  if (!(area > 0)) return 0
+  return Math.round(Math.max(0, Math.min(1, width * width / area)) * BRUSH_SCALE)
+}
+
+// 笔刷还原（播放）: 面积比 → 当前盒上的基准笔宽（内部坐标系像素）
+// 面积比不变 → 笔宽与背景字相对大小一致，与盒的绝对尺寸无关
+export function brushBaseWidth(brush, boxW, boxH) {
+  const area = boxW * boxH
+  if (!(area > 0)) return BASE_WIDTH
+  const ratio = (brush ?? 0) / BRUSH_SCALE
+  return ratio > 0 ? Math.sqrt(ratio * area) : BASE_WIDTH
+}
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v))
@@ -38,13 +55,14 @@ function smooth(arr) {
 }
 
 // 计算每个点的笔触宽度（像素）
+//   baseWidth: 该笔画基准笔宽（来自轨迹 brush 面积比还原，或前端展示配置）
 //   pressure: 压力越大越宽  (0.4 + 0.6 * p)
 //   speed:    速度越快越细  (0.7 + 0.5 * avgSpeed/localSpeed，平滑后)
 //   shape:    起笔顿笔(粗) → 行笔(中) → 收笔出锋(细)，模拟毛笔楷书
-export function computeBrushWidths(points, widthCoef = 1.0) {
+export function computeBrushWidths(points, baseWidth = BASE_WIDTH) {
   const n = points.length
   if (n === 0) return []
-  if (n === 1) return [BASE_WIDTH * widthCoef]
+  if (n === 1) return [baseWidth]
 
   const avgSpeed = computeAvgSpeed(points)
 
@@ -82,7 +100,7 @@ export function computeBrushWidths(points, widthCoef = 1.0) {
     else if (inHead) factor = headFactor
     else if (inTail) factor = tailFactor
 
-    widths[i] = BASE_WIDTH * widthCoef * pressureFactor[i] * speedSmoothed[i] * factor
+    widths[i] = baseWidth * pressureFactor[i] * speedSmoothed[i] * factor
   }
 
   // 输出前整体 5 点平滑：减少宽度抖动造成的毛刺

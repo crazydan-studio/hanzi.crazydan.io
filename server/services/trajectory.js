@@ -4,13 +4,22 @@
 // 格式版本:
 //   v5.0: 绝对坐标点 [x, y, pressure×100, timestamp×10]
 //   v6.0: 增量编码点（首点绝对，后续为与上一点的差值），压缩率更高
+//   v7.0: x/y 归一化 ×1000（0.5px 分辨率）
+//   v8.0: x/y 以【背景汉字墨迹盒】为坐标系分别归一化 ×1000（x 按盒宽、y 按盒高），
+//         范围放宽至 [-2000, 3000]（允许写在盒外）；新增 brush 字段:
+//         笔刷面积 / 背景字面积 的比值 ×1000000 存储（整轨迹共享一个笔宽）
 import zlib from 'node:zlib'
 
-// 轨迹存储格式（v7）: x/y 归一化 ×1000（0.5px 分辨率）、压力 ×100、时间戳 ×10
-export const TRAJECTORY_VERSION = '7.0'
+export const TRAJECTORY_VERSION = '8.0'
 export const COORD_SCALE = 1000
 export const PRESSURE_SCALE = 100
 export const TIMESTAMP_SCALE = 10
+// 笔刷归一化: 存储值 = (笔宽² / 背景字墨迹盒面积) × BRUSH_SCALE
+// 还原笔宽 = sqrt(存储值 / BRUSH_SCALE × 当前盒面积)
+export const BRUSH_SCALE = 1000000
+// 坐标归一化取值边界（盒相对坐标; 允许超出盒外 2 倍宽/高范围）
+export const COORD_MIN = -2000
+export const COORD_MAX = 3000
 
 // 增量编码: 首点绝对，后续点存储与上一点的差值（时间戳单调、坐标差值小，利于压缩）
 export function deltaEncode(points) {
@@ -44,6 +53,7 @@ export function deltaDecode(points) {
 export function compressTrajectory(trajectory) {
   const encoded = {
     version: trajectory.version ?? TRAJECTORY_VERSION,   // 保留原版本号（迁移据此判断是否已处理）
+    ...(trajectory.brush !== undefined ? { brush: trajectory.brush } : {}),
     points: deltaEncode(trajectory.points)
   }
   return zlib.deflateSync(JSON.stringify(encoded))

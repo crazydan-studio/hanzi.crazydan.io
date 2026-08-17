@@ -2,9 +2,9 @@
 // 展示: 书写动画（倍速/暂停/重置）/ 读音试听 / 复制 / 汉典链接 / 笔画分解图
 import Alpine from 'alpinejs'
 import { AnimationEngine } from '@components/AnimationEngine.js'
-import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from '@components/StrokeBackground.js'
+import { drawTianZiGe, drawCharRef, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from '@components/StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
-import { DISPLAY_PEN_WIDTH_COEF, STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
+import { STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
 import { strokeTypesMap } from '@components/StrokeTypes.js'
 import { loadCharMeta, loadCharStrokes } from '@services/data.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
@@ -21,6 +21,9 @@ Alpine.data('charApp', () => ({
   loading: true,
   error: '',
   engine: null,
+  fontReady: false,       // 楷体加载完成且覆盖该字（背景字/笔画可渲染）
+  fontError: false,       // 楷体加载失败（无兜底，显示失败提示）
+  charBoxValue: null,     // 背景字墨迹盒（内部坐标系，笔画坐标还原基准）
   SPEEDS: [0.5, 1, 1.5, 2],
   playbackSpeed: 1,
   playing: false,
@@ -60,9 +63,20 @@ Alpine.data('charApp', () => ({
     this.$nextTick(() => this.initEngine())
   },
 
-  // 楷体可用后画布才能以楷体绘制字型背景（系统 SimKai 优先）
+  // 楷体可用后画布才能以楷体绘制字型背景（仅自带静态楷体，无系统字体/无兜底）:
+  // 加载完成后测量背景字墨迹盒（笔画坐标还原基准）；失败时不做兜底（显示失败提示）
   async ensureFont() {
-    await ensureKaiFont()
+    const ok = await ensureKaiFont()
+    this.fontReady = ok
+    this.fontError = !ok
+  },
+
+  // 测量当前汉字墨迹盒（需引擎画布就绪后调用）
+  measureCharBox() {
+    const e = this.engine
+    if (!e || !this.fontReady) return
+    this.charBoxValue = charInkBox(e.ctx, e.cssW, e.cssH, this.char)
+    if (this.charBoxValue) e.refreshBox()
   },
 
   // 书写动画引擎: 田字格 + 字型背景（背景汉字半透明，颜色适配主题），
@@ -75,8 +89,8 @@ Alpine.data('charApp', () => ({
     this.engine = new AnimationEngine(this.$refs.mainCanvas, {
       highlightColor: STROKE_HIGHLIGHT_COLOR,
       strokeGap: 300,
-      penWidthCoef: DISPLAY_PEN_WIDTH_COEF,
-      completedColor: () => strokeInkColor()   // 已绘笔画墨色（适配主题）
+      completedColor: () => strokeInkColor(),   // 已绘笔画墨色（适配主题）
+      charBox: () => this.charBoxValue          // 墨迹盒提供者
     })
     this.engine.onBeforeRender = () => {
       const canvas = this.$refs.mainCanvas
@@ -94,6 +108,7 @@ Alpine.data('charApp', () => ({
       this.playing = false
       this.strokeName = ''
     }
+    this.measureCharBox()
     if (this.hasStrokes) {
       this.engine.loadStrokes(this.strokes)
     } else {
@@ -132,6 +147,7 @@ Alpine.data('charApp', () => ({
 
   play() {
     if (!this.engine || !this.hasStrokes) return
+    if (!this.fontReady || !this.charBoxValue) return   // 字体未就绪/未覆盖该字不可播放
     this.engine.singleStrokePlayback = false
     this.engine.play()
     this.playing = this.engine.state === 'PLAYING'

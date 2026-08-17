@@ -20,10 +20,10 @@
 import Alpine from 'alpinejs'
 import { StrokeRecorder } from './StrokeRecorder.js'
 import { AnimationEngine } from './AnimationEngine.js'
-import { computeBrushWidths, drawBrushStroke } from './Brush.js'
-import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
+import { computeBrushWidths, drawBrushStroke, normalizeBrush, brushBaseWidth } from './Brush.js'
+import { drawTianZiGe, drawCharRef, charInkBox, charFontCovers, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
-import { BASE_WIDTH, CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
+import { CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 
 Alpine.data('strokePad', (opts = {}) => ({
   width: opts.width || CANVAS_SIZE.width,
@@ -51,6 +51,10 @@ Alpine.data('strokePad', (opts = {}) => ({
   selectedStrokeId: null,        // 书写模式选中笔画 id（画布置顶高亮）
   currentChar: '',               // 当前汉字（书写模式半透明参考字）
   fontReady: false,              // 中易楷体加载完成（启用书写）
+  fontError: false,              // 楷体加载失败（不做兜底，禁用书写）
+  // 背景汉字墨迹盒（内部坐标系）: 笔画坐标以盒为坐标系归一化存储/还原
+  charBoxValue: null,            // { x0, y0, x1, y1, w, h } | null
+  charUnsupported: false,        // 该字不被自带楷体覆盖（无背景字/禁书写，不做兜底）
 
   // 悬停高亮色（列表行 hover 时画布中对应笔画高亮；仅颜色，不加粗）
   HIGHLIGHT_COLOR: opts.highlightColor || '#3b82f6',   // blue-500
@@ -62,6 +66,11 @@ Alpine.data('strokePad', (opts = {}) => ({
   playbackSpeed: 1.0,
   playbackIndex: 0,
   hasPlaybackData: false,
+
+  // 字体与墨迹盒就绪（可书写）: 字体加载完成且当前字被覆盖
+  get writingReady() {
+    return this.fontReady && !this.charUnsupported && !!this.charBoxValue
+  },
 
   init() {
     this.canvas = this.$refs.canvas
@@ -80,10 +89,11 @@ Alpine.data('strokePad', (opts = {}) => ({
     // 回放引擎绑定同一画布
     // - highlightColor: 正在绘制笔画的动画高亮色（蓝）
     // - 背景: 每帧清屏后重绘田字格 + 浅色完整字型（未完成笔画浅灰，作为参照）
+    // - 笔画坐标以背景汉字墨迹盒为坐标系（v8），经 charBox 还原
     this.engine = new AnimationEngine(this.canvas, {
       highlightColor: this.HIGHLIGHT_COLOR,
-      penWidthCoef: this.penWidth / BASE_WIDTH,   // 前端笔触宽度（展示配置）
-      completedColor: () => strokeInkColor()      // 已绘笔画墨色（适配主题）
+      completedColor: () => strokeInkColor(),      // 已绘笔画墨色（适配主题）
+      charBox: () => this.charBoxValue             // 墨迹盒提供者（字体/字符就绪后可用）
     })
     this.engine.onBeforeRender = () => {
       this.drawTianZiGe()
@@ -113,12 +123,14 @@ Alpine.data('strokePad', (opts = {}) => ({
     }
 
     // 预加载中易楷体（参考字渲染依赖，4.8MB woff2 加载较慢）:
-    // 加载完成前禁用书写（显示等待），完成后启用并重绘参考字
+    // 加载完成前禁用书写（显示等待），完成后测量背景字墨迹盒并重绘；
+    // 加载失败不兜底（显示失败状态）
     this.loadFontForWriting()
 
-    // 兜底: 等全部字体就绪后重绘
+    // 兜底: 等全部字体就绪后重测墨迹盒并重绘
     if (document.fonts?.ready) {
       document.fonts.ready.then(() => {
+        this.remeasureCharBox()
         if (this.mode === 'write') this.redrawCanvas()
         else if (this.mode === 'playback') this.syncPlaybackData()
       })
@@ -141,8 +153,23 @@ Alpine.data('strokePad', (opts = {}) => ({
     const ch = char || ''
     if (ch === this.currentChar) return
     this.currentChar = ch
+    this.remeasureCharBox()
     if (this.mode === 'write') this.redrawCanvas()
     else if (this.mode === 'playback') this.syncPlaybackData()
+  },
+
+  // 重测背景汉字墨迹盒（字体加载完成/字符变化后调用）
+  // 墨迹盒 = 笔画坐标系的基准: 字体未加载/未覆盖该字时置空（不做兜底）
+  remeasureCharBox() {
+    if (!this.currentChar || !this.fontReady) {
+      this.charBoxValue = null
+      this.charUnsupported = false
+      return
+    }
+    this.charUnsupported = !charFontCovers(this.currentChar)
+    this.charBoxValue = this.charUnsupported
+      ? null
+      : charInkBox(this.ctx, this.width, this.height, this.currentChar)
   },
 
   // 切换书写/回放模式
@@ -196,25 +223,24 @@ Alpine.data('strokePad', (opts = {}) => ({
     }
   },
 
-  // 等待楷体可用后启用书写（优先系统 SimKai，缺失时加载静态字体资源）
-  //  - 已就绪（SimKai 或静态字体已缓存）→ 立即启用
-  //  - 加载中 → fontReady=false，书写禁用 + 显示等待遮罩
-  //  - 失败/超时(6s) → 仍启用（回退字体也可书写，只是参考字非楷体）
+  // 等待楷体可用后启用书写（仅自带静态中易楷体，无系统字体/无兜底）:
+  //  - 加载完成 → 测量墨迹盒并启用书写
+  //  - 加载失败 → fontError=true（不做兜底，持续显示失败状态）
   loadFontForWriting() {
-    const enable = () => {
-      this.fontReady = true
-      if (this.mode === 'write') this.redrawCanvas()
-      else if (this.mode === 'playback') this.syncPlaybackData()
-    }
-
     if (!document.fonts?.load) {
-      enable()
+      this.fontReady = false
+      this.fontError = true
       return
     }
     this.fontReady = false
-    // 超时兜底: 加载异常也启用（回退字体）
-    const timeout = setTimeout(enable, 6000)
-    ensureKaiFont().then(() => { clearTimeout(timeout); enable() })
+    this.fontError = false
+    ensureKaiFont().then(ok => {
+      this.fontReady = ok
+      this.fontError = !ok
+      this.remeasureCharBox()
+      if (this.mode === 'write') this.redrawCanvas()
+      else if (this.mode === 'playback') this.syncPlaybackData()
+    })
   },
 
   // 回调输出回放进度（笔画列表联动高亮当前绘制笔画）
@@ -391,8 +417,8 @@ Alpine.data('strokePad', (opts = {}) => ({
   //       保证滑出画布仍持续接收事件；坐标 clamp 到画布内部。
   onPointerDown(event) {
     if (this.mode !== 'write') return
-    // 字体加载完成前禁用书写（等待遮罩显示中）
-    if (!this.fontReady) return
+    // 字体加载完成且当前字被自带楷体覆盖后才能书写（无兜底）
+    if (!this.writingReady) return
     // 仅跟踪主指针
     if (this.activePointerId !== null || !event.isPrimary) return
     event.preventDefault()
@@ -414,6 +440,7 @@ Alpine.data('strokePad', (opts = {}) => ({
     this.recorder.deviceType = event.pointerType  // 'mouse' | 'touch' | 'pen'
     const pressure = this.computePressure(event)
     const point = this.getPointFromEvent(event, pressure)
+    if (!point) { this.cancelStroke(); return }   // 墨迹盒缺失（防御）
     this.recorder.addPoint(point.x, point.y, point.pressure)
     // currentStroke 直接引用 recorder 的点数组
     this.currentStroke = { points: this.recorder.points }
@@ -471,17 +498,21 @@ Alpine.data('strokePad', (opts = {}) => ({
     return 0.5
   },
 
-  // 坐标归一化: 显示尺寸可能小于内部坐标系(500×500)（移动端自适应），
-  // 将事件坐标按比例映射回内部坐标系；滑出画布时 clamp 到边界，避免越界点
+  // 坐标归一化: 事件坐标 → 背景汉字墨迹盒相对坐标（x 按盒宽、y 按盒高）。
+  // 显示尺寸可能小于内部坐标系(500×500)（移动端自适应），先按比例映射回
+  // 内部坐标系，再换算为盒相对坐标（超出盒外部分 clamp 到允许范围）；
+  // 滑出画布时同样 clamp，避免越界点
   getPointFromEvent(event, pressure) {
+    const box = this.charBoxValue
+    if (!box) return null
     const rect = this.canvas.getBoundingClientRect()
     const scaleX = this.width / (rect.width || this.width)
     const scaleY = this.height / (rect.height || this.height)
     const x = (event.clientX - rect.left) * scaleX
     const y = (event.clientY - rect.top) * scaleY
     return {
-      x: Math.max(0, Math.min(this.width, x)),
-      y: Math.max(0, Math.min(this.height, y)),
+      x: (x - box.x0) / box.w,      // 盒相对: 0=盒左缘, 1=盒右缘
+      y: (y - box.y0) / box.h,
       pressure,
       timestamp: performance.now() - this.recorder.startTime   // 单调时钟，与录制一致
     }
@@ -498,7 +529,12 @@ Alpine.data('strokePad', (opts = {}) => ({
 
     // 单点笔画也支持（"点"）
     if (this.currentStroke && this.currentStroke.points.length >= 1) {
-      // 轨迹数据已归一化(0-1, 3位小数)，仅含坐标点
+      // 笔刷归一化: 笔刷面积/背景字墨迹盒面积（v8），播放时按当前盒面积还原
+      const box = this.charBoxValue
+      if (box) {
+        this.recorder.setBrush(normalizeBrush(this.penWidth, box.w, box.h))
+      }
+      // 轨迹数据已归一化（盒相对，2位小数级），仅含坐标点
       const trajectoryData = this.recorder.stopRecording()
       const stroke = {
         id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, // 本地临时ID
@@ -529,13 +565,21 @@ Alpine.data('strokePad', (opts = {}) => ({
   // ---- 渲染 ----
   // 实时书写渲染: 在离屏层上用笔触模拟（轮廓法）绘制当前笔画，再叠到主画布
   // 笔触颜色适配主题（明亮黑色，暗黑近白色）
+  // 录制点为盒相对归一化坐标，先换算为内部像素坐标再绘制
   renderCurrentSegment() {
     const pts = this.currentStroke.points
     if (pts.length === 0) return
-    const widthCoef = this.penWidth / BASE_WIDTH   // 当前笔触宽度→相对系数
-    const widths = computeBrushWidths(pts, widthCoef)
+    const box = this.charBoxValue
+    if (!box) return
+    const px = pts.map(p => ({
+      x: box.x0 + p.x * box.w,
+      y: box.y0 + p.y * box.h,
+      pressure: p.pressure,
+      timestamp: p.timestamp
+    }))
+    const widths = computeBrushWidths(px, this.penWidth)
     this.inkCtx.clearRect(0, 0, this.width, this.height)
-    drawBrushStroke(this.inkCtx, pts, widths, this.strokeColor || strokeInkColor())
+    drawBrushStroke(this.inkCtx, px, widths, this.strokeColor || strokeInkColor())
     // 离屏层按内部坐标系绘制，叠加到主画布
     this.ctx.drawImage(this.inkLayer, 0, 0, this.width, this.height)
   },
@@ -575,21 +619,24 @@ Alpine.data('strokePad', (opts = {}) => ({
   },
 
   // 与动画引擎共享的轨迹渲染函数（笔触模拟: 压力/速度/锥形轮廓）
-  // 轨迹坐标为元组数组 [x,y,pressure,timestamp]（归一化×10000），
-  // 此处 ÷10000 还原并映射到当前画布像素；颜色/宽度为前端展示配置
+  // 轨迹坐标为元组数组 [x,y,pressure,timestamp]（盒相对归一化 ×1000），
+  // 此处 ÷1000 还原到当前背景字墨迹盒并映射为画布像素；基准笔宽由轨迹
+  // brush（面积比）按当前盒面积还原（忠实显示录制笔宽）；颜色为前端展示配置
   // 高亮仅颜色区分，不改变笔宽
   drawTrajectory(trajectory, color, highlight = false) {
+    const box = this.charBoxValue
+    if (!box) return
     const pts = trajectory.points
     if (!pts || pts.length === 0) return
     const px = pts.map(p => ({
-      x: (p[0] / COORD_SCALE) * this.width,
-      y: (p[1] / COORD_SCALE) * this.height,
+      x: box.x0 + (p[0] / COORD_SCALE) * box.w,
+      y: box.y0 + (p[1] / COORD_SCALE) * box.h,
       pressure: (p[2] ?? PRESSURE_SCALE / 2) / PRESSURE_SCALE,
       timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
     }))
     const strokeColor = highlight ? this.HIGHLIGHT_COLOR : color
-    const widthCoef = this.penWidth / BASE_WIDTH
-    const widths = computeBrushWidths(px, widthCoef)
+    const baseWidth = brushBaseWidth(trajectory.brush, box.w, box.h)
+    const widths = computeBrushWidths(px, baseWidth)
     drawBrushStroke(this.ctx, px, widths, strokeColor)
   },
 

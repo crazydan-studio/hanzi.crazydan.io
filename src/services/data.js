@@ -39,13 +39,14 @@ function deltaDecode(points) {
 }
 
 // strokes.json 紧凑结构 → 完整字段
-// [{ o: 笔顺, t: 类型, d: { v: 轨迹版本, p: 点（v6 增量编码，解码为绝对坐标） } }]
+// [{ o: 笔顺, t: 类型, d: { v: 轨迹版本, b: 笔刷面积比, p: 点（增量编码，解码为绝对坐标） } }]
 export function normalizeStrokes(list) {
   return (list || []).map(s => ({
     stroke_order: s.o,
     stroke_type: s.t,
     trajectory_data: {
       version: s.d?.v,
+      brush: s.d?.b ?? 0,
       points: s.d?.v === TRAJECTORY_VERSION ? deltaDecode(s.d.p || []) : (s.d?.p || [])
     }
   }))

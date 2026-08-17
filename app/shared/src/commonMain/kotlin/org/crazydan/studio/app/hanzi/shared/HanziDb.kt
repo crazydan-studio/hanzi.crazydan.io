@@ -9,8 +9,9 @@ package org.crazydan.studio.app.hanzi.shared
  *                 structure(0-9) / radical / total_stroke_count
  *   - strokes:    character_id / stroke_order / stroke_type / trajectory_data(zlib 压缩)
  *
- * 轨迹存储为增量编码（server/services/trajectory.js v7）: x/y 归一化 ×1000、
- * 压力 ×100、时间戳 ×10；查询实现解压并还原为绝对坐标。
+ * 轨迹存储为增量编码（server/services/trajectory.js v8）: x/y 以背景汉字墨迹盒为
+ * 坐标系分别归一化 ×1000（x 按盒宽、y 按盒高）、压力 ×100、时间戳 ×10、
+ * 笔刷面积比 ×1000000；查询实现解压并还原为绝对坐标。
  */
 
 /** 列表条目（常用字 / 拼音字列表）: [字, 读音] */
@@ -29,7 +30,7 @@ data class CharMeta(
     val structure: Int          // 结构编码 0-9（展示名见 HanziLabels.structureNames）
 )
 
-/** 轨迹坐标点（绝对坐标，x/y 归一化 0..1000；pressure 0..1；timestamp 毫秒） */
+/** 轨迹坐标点（绝对坐标，x/y 盒相对归一化 0..1000；pressure 0..1；timestamp 毫秒） */
 data class StrokePoint(
     val x: Float,
     val y: Float,
@@ -41,6 +42,7 @@ data class StrokePoint(
 data class CharStroke(
     val strokeOrder: Int,
     val strokeType: Int,
+    val brush: Int,             // 笔刷面积/背景字面积 比值 ×1000000（整轨迹共享笔宽）
     val points: List<StrokePoint>
 )
 

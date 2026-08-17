@@ -102,11 +102,20 @@
                 class="touch-none select-none block mx-auto"
                 :class="mode === 'write' ? 'cursor-crosshair' : 'cursor-default'"
               ></canvas>
-              <!-- 字体加载等待遮罩（加载完成后自动消失） -->
-              <div x-show="mode === 'write' && !fontReady"
+              <!-- 字体等待/失败遮罩: 背景字与笔画须等自带楷体加载完成后再渲染（无兜底）;
+                   该字未被自带楷体覆盖时禁用书写 -->
+              <div x-show="mode === 'write' && !writingReady"
                 class="absolute inset-0 z-10 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 rounded dark:bg-gray-900/80">
-                <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></span>
-                <span class="text-sm text-gray-600 dark:text-gray-300">楷体字体加载中...</span>
+                <span x-show="fontReady && charUnsupported" class="text-sm text-gray-600 dark:text-gray-300">
+                  该汉字暂不支持楷体字体显示
+                </span>
+                <template x-if="!fontReady">
+                  <span class="inline-flex flex-col items-center gap-2">
+                    <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></span>
+                    <span class="text-sm text-gray-600 dark:text-gray-300"
+                      x-text="fontError ? '楷体字体加载失败' : '楷体字体加载中...'"></span>
+                  </span>
+                </template>
               </div>
             </div>
 

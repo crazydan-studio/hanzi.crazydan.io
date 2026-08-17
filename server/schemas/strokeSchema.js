@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { COORD_SCALE, PRESSURE_SCALE } from '../services/trajectory.js'
+import { COORD_MIN, COORD_MAX, PRESSURE_SCALE, BRUSH_SCALE } from '../services/trajectory.js'
 
 // 笔画类型数字编码 0-35（与前端 strokeTypes.js 一致）
 // 0=未指定, 1=点, 2=横, 3=竖, 4=撇, 5=捺, 6=提, 7=横折, 8=横撇, 9=横钩,
@@ -12,15 +12,21 @@ export const STROKE_TYPE_MAX = 35
 export const strokeTypeSchema = z.number().int().min(STROKE_TYPE_MIN).max(STROKE_TYPE_MAX)
 
 // 轨迹点: 元组数组 [x, y, pressure, timestamp]（均按存储比例取整数，见 trajectory.js）
+// x/y 以背景汉字墨迹盒为坐标系分别归一化: x 相对盒宽、y 相对盒高（×COORD_SCALE 存整数）；
+// 范围放宽（-2..3 倍盒尺寸），允许笔画落在盒外
 const pointTuple = z.tuple([
-  z.number().int().min(0).max(COORD_SCALE),      // x 归一化 ×1000（0.5px 分辨率）
-  z.number().int().min(0).max(COORD_SCALE),      // y
-  z.number().int().min(0).max(PRESSURE_SCALE),   // pressure ×100
-  z.number().int().min(0).finite()               // timestamp ×10
+  z.number().int().min(COORD_MIN).max(COORD_MAX),   // x 盒相对归一化 ×1000
+  z.number().int().min(COORD_MIN).max(COORD_MAX),   // y
+  z.number().int().min(0).max(PRESSURE_SCALE),      // pressure ×100
+  z.number().int().min(0).finite()                  // timestamp ×10
 ])
+
+// 笔刷归一化上限: 笔宽 500（内部坐标全画布）对最小盒面积(50×50)的比值 = 100 → ×BRUSH_SCALE
+const BRUSH_MAX = 100 * BRUSH_SCALE
 
 export const trajectorySchema = z.object({
   version: z.string(),
+  brush: z.number().int().min(0).max(BRUSH_MAX),    // 笔刷面积/背景字面积 ×BRUSH_SCALE
   points: z.array(pointTuple).min(1)
     .superRefine((pts, ctx) => {
       // 时间戳必须单调不减（回放引擎按升序扫描区间）

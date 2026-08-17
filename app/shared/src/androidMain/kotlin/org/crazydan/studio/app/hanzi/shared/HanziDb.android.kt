@@ -91,7 +91,7 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
             for (i in 0 until points.length()) {
                 val p = points.getJSONArray(i)
                 // 增量编码: 首点绝对，后续为与上一点的差值（与 server/services/trajectory.js 一致）；
-                // 时间戳 ×10 存储，还原为毫秒
+                // x/y 盒相对归一化 ×1000、时间戳 ×10 存储，还原为盒相对浮点与毫秒
                 val point = prev?.let {
                     StrokePoint(
                         x = it.x + p.getDouble(0).toFloat(),
@@ -108,7 +108,7 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
                 list.add(point)
                 prev = point
             }
-            out.add(CharStroke(cursor.getInt(0), cursor.getInt(1), list))
+            out.add(CharStroke(cursor.getInt(0), cursor.getInt(1), traj.optInt("brush", 0), list))
         }
         return out
     }
@@ -257,7 +257,7 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
     }
 
     companion object {
-        private const val PRESSURE_SCALE = 100f   // 压力 ×100 存储（trajectory.js v7）
-        private const val TIMESTAMP_SCALE = 10f   // 时间戳 ×10 存储（trajectory.js v7）
+        private const val PRESSURE_SCALE = 100f   // 压力 ×100 存储（trajectory.js v8）
+        private const val TIMESTAMP_SCALE = 10f   // 时间戳 ×10 存储（trajectory.js v8）
     }
 }

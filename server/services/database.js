@@ -54,18 +54,39 @@ export function initDatabase(dbPath = DB_PATH) {
       ON strokes(character_id);
   `)
 
-  // 迁移: 精简表结构 → 轨迹增量编码（v6）→ 坐标精度 ×1000（v7）
+  // 迁移: 精简表结构 → 轨迹增量编码（v6）→ 坐标精度 ×1000（v7）→ 盒相对归一化（v8）
   migrateSlimSchema()
   migrateStrokeV6()
   migrateStrokeV7()
+  migrateStrokeV8()
   // SQLite 页级整理: 自动收缩 + 压缩文件（删除不再留空闲页）
   db.exec('PRAGMA auto_vacuum = FULL')
   db.exec('VACUUM')
   return db
 }
 
+// 迁移: 盒相对归一化（v8）——v7 及更早轨迹以画布为坐标系归一化，与 v8
+// 「背景汉字墨迹盒为坐标系」语义不兼容（x 按盒宽、y 按盒高分别归一化），
+// 无法换算（旧数据不含录制盒信息），故删除全部旧笔画数据，由用户重新录入。
+// 有效 v8 轨迹必须带 brush 字段（笔刷面积比）；缺失/旧版本一律删除（幂等）
+function migrateStrokeV8() {
+  const rows = db.prepare('SELECT id, trajectory_data FROM strokes').all()
+  const outdated = rows.filter(r => {
+    let traj
+    try { traj = decompressTrajectory(r.trajectory_data) } catch { return true }
+    if (!traj || traj.version !== TRAJECTORY_VERSION) return true
+    return !Number.isInteger(traj.brush) || traj.brush < 0
+  })
+  if (outdated.length === 0) return
+  const del = db.prepare('DELETE FROM strokes WHERE id = ?')
+  for (const r of outdated) del.run(r.id)
+  console.log(`DB migrated: stroke coords v8 (char-box normalized, brush added) — 已删除 ${outdated.length} 条旧笔画数据`)
+}
+
 // 迁移: 坐标精度降低（v7）——x/y 由 ×10000（0.05px）降至 ×1000（0.5px），
 // 与抽稀阈值一致，整数小 10 倍、存储更省
+const V7_TARGET = '7.0'
+
 function migrateStrokeV7() {
   const rows = db.prepare('SELECT id, trajectory_data FROM strokes').all()
   let changed = false
@@ -73,8 +94,9 @@ function migrateStrokeV7() {
   for (const r of rows) {
     let traj
     try { traj = decompressTrajectory(r.trajectory_data) } catch { continue }
-    if (!traj || traj.version === TRAJECTORY_VERSION) continue
-    traj.version = TRAJECTORY_VERSION
+    // 仅迁移 v7 之前的数据；v7/v8 数据跳过（v8 数据由 v8 迁移处理/删除）
+    if (!traj || traj.version === V7_TARGET || traj.version === TRAJECTORY_VERSION) continue
+    traj.version = V7_TARGET
     traj.points = traj.points.map(pt => [
       Math.round(pt[0] / 10),
       Math.round(pt[1] / 10),
@@ -90,6 +112,8 @@ function migrateStrokeV7() {
 }
 
 // 迁移: 轨迹增量编码（v6）——存量 v5 压缩数据重压缩为增量编码格式
+const V6_TARGET = '6.0'
+
 function migrateStrokeV6() {
   const rows = db.prepare('SELECT id, trajectory_data FROM strokes').all()
   let changed = false
@@ -97,7 +121,9 @@ function migrateStrokeV6() {
   for (const r of rows) {
     let traj
     try { traj = decompressTrajectory(r.trajectory_data) } catch { continue }
-    if (!traj || traj.version === TRAJECTORY_VERSION) continue
+    // 仅迁移 v5 之前的数据；v6 及更新版本已为增量编码（v7/v8 由后续迁移处理）
+    if (!traj || traj.version === V6_TARGET || traj.version === V7_TARGET ||
+        traj.version === TRAJECTORY_VERSION) continue
     update.run(compressTrajectory(traj), r.id)
     changed = true
   }

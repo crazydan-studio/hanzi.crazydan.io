@@ -8,7 +8,7 @@
 //                                            读音为该无声调拼音对应的第一个带声调拼音）
 //   - public/assets/zi/{Unicode}/meta.json   单个汉字信息（读音/笔画数/部首/结构/Unicode）
 //   - public/assets/zi/{Unicode}/strokes.json 笔画数据（与 meta.json 同时导出；
-//     仅该汉字存在笔画数据时创建；轨迹点为增量编码 v6）
+//     仅该汉字存在笔画数据时创建；轨迹点为增量编码，含笔刷面积比）
 // 用法:
 //   pnpm export:data                                       # 默认导出 100 个常用字 + 全量拼音
 //   pnpm export:data -- --count 200                        # 指定常用字数量
@@ -210,14 +210,18 @@ function main() {
         s: w.structure
       })
       metaCount++
-      // 单字母紧凑结构: o 笔顺/t 类型/d 轨迹（v 版本/p 增量编码点）
+      // 单字母紧凑结构: o 笔顺/t 类型/d 轨迹（v 版本/b 笔刷面积比/p 增量编码点）
       const strokes = strokeMap.get(cp)
       if (strokes && strokes.length > 0) {
         writeJson(path.join(dir, 'strokes.json'),
           strokes.map(st => ({
             o: st.stroke_order,
             t: st.stroke_type,
-            d: { v: TRAJECTORY_VERSION, p: deltaEncode(st.trajectory_data.points) }
+            d: {
+              v: TRAJECTORY_VERSION,
+              b: st.trajectory_data.brush ?? 0,
+              p: deltaEncode(st.trajectory_data.points)
+            }
           })))
         strokeCount++
       }

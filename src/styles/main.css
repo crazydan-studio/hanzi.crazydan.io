@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 中易楷体: 优先系统自带 SimKai，缺失时回退到静态字体资源（加载期间由页面遮罩提示） */
+/* 中易楷体: 统一使用自带静态字体资源（不使用系统字体，保证各设备度量一致） */
 @font-face {
   font-family: 'ZhongYiKaiTi';
   src: url('/fonts/ZhongYiKaiTi_mini.woff2') format('woff2');
@@ -45,13 +45,14 @@ input, select, textarea {
   user-select: text;
 }
 
-/* 所有展示汉字默认使用中易楷体（系统 SimKai 优先） */
+/* 所有展示汉字默认使用自带中易楷体（无系统字体回退；字体未覆盖的汉字由
+   浏览器按需系统兜底显示，画布背景字不做兜底渲染） */
 body {
-  font-family: 'SimKai', 'ZhongYiKaiTi', '楷体', 'KaiTi', serif;
+  font-family: 'ZhongYiKaiTi', serif;
 }
 
 .font-kaiti {
-  font-family: 'SimKai', 'ZhongYiKaiTi', '楷体', 'KaiTi', serif;
+  font-family: 'ZhongYiKaiTi', serif;
 }
 
 @layer components {

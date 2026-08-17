@@ -49,12 +49,14 @@ import org.crazydan.studio.app.hanzi.ui.tianZiGeColor
 // 笔画间停顿（毫秒，与前端 strokeGap 一致）
 private const val STROKE_GAP_MS = 300f
 
-// 轨迹坐标归一化系数（trajectory.js v7: x/y ×1000）
+// 轨迹坐标归一化系数（trajectory.js v8: x/y 以背景字墨迹盒为坐标系 ×1000）
 private const val COORD_SCALE = 1000f
 
-// 基准笔宽（内部单位，与前端 BASE_WIDTH/penWidthCoef 组合一致）
-private const val BASE_WIDTH = 4f
-private const val PEN_WIDTH_COEF = 6f
+// 笔刷归一化系数（trajectory.js v8: 笔刷面积/背景字面积 ×BRUSH_SCALE）
+private const val BRUSH_SCALE = 1000000f
+
+/** 背景字墨迹盒（画布像素坐标）: 笔画坐标还原的基准（x 按盒宽、y 按盒高） */
+private class CharBox(val x0: Float, val y0: Float, val w: Float, val h: Float)
 
 /** 播放状态机（与 AnimationEngine.js 单一状态机对应） */
 class WritingPlayer(private val strokes: List<CharStroke>) {
@@ -184,11 +186,12 @@ private fun interpolatePoint(points: List<StrokePoint>, targetTime: Float): Stro
 }
 
 // 笔触宽度（完整移植前端 Brush.js computeBrushWidths）:
+// baseWidth 为该笔画基准笔宽（轨迹 brush 面积比按当前墨迹盒面积还原），
 // 压力因子 × 速度因子（快细慢粗，三点平滑）× 起笔顿笔/收笔出锋因子，输出前五点平滑
-private fun brushWidths(points: List<StrokePoint>): List<Float> {
+private fun brushWidths(points: List<StrokePoint>, baseWidth: Float): List<Float> {
     val n = points.size
     if (n == 0) return emptyList()
-    if (n == 1) return listOf(BASE_WIDTH * PEN_WIDTH_COEF)
+    if (n == 1) return listOf(baseWidth)
 
     // 1) 压力因子
     val pressureFactor = FloatArray(n) { 0.4f + 0.6f * points[it].pressure.coerceIn(0f, 1f) }
@@ -217,7 +220,7 @@ private fun brushWidths(points: List<StrokePoint>): List<Float> {
             else if (i < headN) headFactor
             else if (i >= n - tailN) tailFactor
             else 1f
-        out.add(BASE_WIDTH * PEN_WIDTH_COEF * pressureFactor[i] * speedSmoothed[i] * factor)
+        out.add(baseWidth * pressureFactor[i] * speedSmoothed[i] * factor)
     }
     // 输出前整体 5 点平滑（减少宽度抖动造成的毛刺）
     return smooth(out)
@@ -286,6 +289,7 @@ fun rememberWritingPlayer(strokes: List<CharStroke>): WritingPlayer {
 /**
  * 书写动画画布: 田字格 + 背景汉字 + 笔画回放
  *  - player 为 null 时静态展示（全部笔画墨色绘制，无播放）
+ *  - 笔画坐标以背景字墨迹盒为坐标系（v8）: 每次绘制测量当前墨迹盒后还原
  */
 @Composable
 fun WritingAnimationCanvas(
@@ -308,18 +312,18 @@ fun WritingAnimationCanvas(
             .background(if (dark) Gray900 else Color.White)
     ) {
         val unit = size.width / 500f   // 前端 500×500 内部坐标系缩放
-        // 与 web 一致: 田字格在下，浅色非半透明背景字在上
+        // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
         drawTianZiGe(border, unit)
-        drawCharRef(character, ref, textMeasurer)
+        val box = drawCharRef(character, ref, textMeasurer)
 
         val completed = if (player != null) player.currentIndex.coerceIn(0, strokes.size) else strokes.size
         for (i in 0 until completed) {
-            drawFullStroke(strokes[i], ink, unit)
+            drawFullStroke(strokes[i], ink, unit, box)
         }
         if (player != null && player.currentIndex < strokes.size) {
             val p = player.progress
             if (p > 0f && p < 1f) {
-                drawPartialStroke(strokes[player.currentIndex], p, highlight, unit)
+                drawPartialStroke(strokes[player.currentIndex], p, highlight, unit, box)
             }
         }
     }
@@ -353,18 +357,18 @@ fun StrokeCellCanvas(
             .background(if (dark) Gray900 else Color.White)
     ) {
         val unit = size.width / 500f
-        // 与 web 一致: 田字格在下，浅色非半透明背景字在上
+        // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
         drawTianZiGe(border, unit)
-        drawCharRef(character, ref, textMeasurer)
+        val box = drawCharRef(character, ref, textMeasurer)
         // 此前笔画墨色已绘
         for (i in 0 until index) {
-            drawFullStroke(strokes[i], ink, unit)
+            drawFullStroke(strokes[i], ink, unit, box)
         }
         // 当前笔画红色（静态满红示位 / 动画按进度绘制）
         val p = progress
         when {
-            p == null || p >= 1f -> drawFullStroke(stroke, highlight, unit)
-            p > 0f -> drawPartialStroke(stroke, p, highlight, unit)
+            p == null || p >= 1f -> drawFullStroke(stroke, highlight, unit, box)
+            p > 0f -> drawPartialStroke(stroke, p, highlight, unit, box)
         }
     }
 }
@@ -440,14 +444,17 @@ private fun DrawScope.drawDashedLine(
     }
 }
 
-private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer: TextMeasurer) {
-    if (character.isEmpty()) return
-    // 与 web drawCharRef 完全一致:
-    //  - 字号为画布短边（正方形）的 92%
-    //  - 以基准字「永」的字体度量固定基线，所有字共用；
-    //    字形中心对齐画布中心 → baseline y = 画布中心 - (descent - ascent)/2
-    //    （ascent/descent 相对基线度量，与 web actualBoundingBoxAscent/Descent 一致）
-    //  - 田字格边框仅作装饰绘制于画布边缘，不参与汉字/笔画的坐标定位
+/**
+ * 背景汉字绘制（与 web drawCharRef 完全一致）:
+ *  - 字号为画布短边（正方形）的 92%
+ *  - 以基准字「永」的字体度量固定基线，所有字共用；
+ *    字形中心对齐画布中心 → baseline y = 画布中心 - (descent - ascent)/2
+ *    （ascent/descent 相对基线度量，与 web actualBoundingBoxAscent/Descent 一致）
+ *  - 田字格边框仅作装饰绘制于画布边缘，不参与汉字/笔画的坐标定位
+ * 返回该字墨迹盒（画布像素坐标，笔画坐标还原基准）; 度量失败时返回 null
+ */
+private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer: TextMeasurer): CharBox? {
+    if (character.isEmpty()) return null
     val style = TextStyle(
         fontSize = 92.sp,
         fontFamily = KaiTiFontFamily,
@@ -464,46 +471,79 @@ private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer:
     val baselineY = size.height / 2f - (descent - ascent) / 2f
 
     val layout = textMeasurer.measure(text = character, style = style)
+    // 文本布局左上角（未缩放画布坐标）: 水平居中、垂直按固定基线
+    val textLeft = (size.width - layout.size.width) / 2f
+    val textTop = baselineY - layout.getLineBaseline(0)
+
     scale(scale, scale, pivot = Offset(size.width / 2f, size.height / 2f)) {
         drawText(
             textLayoutResult = layout,
-            topLeft = Offset(
-                (size.width - layout.size.width) / 2f,
-                baselineY - layout.getLineBaseline(0)
-            )
+            topLeft = Offset(textLeft, textTop)
         )
     }
+
+    // 墨迹盒（画布坐标）: 字形包围盒经与绘制完全相同的 缩放+平移 变换
+    val glyph = layout.getBoundingBox(0)
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    val x0 = cx + (textLeft + glyph.left - cx) * scale
+    val y0 = cy + (textTop + glyph.top - cy) * scale
+    val x1 = cx + (textLeft + glyph.right - cx) * scale
+    val y1 = cy + (textTop + glyph.bottom - cy) * scale
+    val w = x1 - x0
+    val h = y1 - y0
+    return if (w > 0f && h > 0f) CharBox(x0, y0, w, h) else null
 }
 
-/** 绝对坐标 → 画布坐标 */
-private fun DrawScope.toCanvas(p: StrokePoint): Offset {
-    val s = size.width / COORD_SCALE
-    return Offset(p.x * s, p.y * s)
+/** 盒相对归一化坐标 → 画布坐标（x 按盒宽、y 按盒高分别缩放） */
+private fun DrawScope.toCanvas(p: StrokePoint, box: CharBox): Offset {
+    return Offset(
+        x = box.x0 + p.x / COORD_SCALE * box.w,
+        y = box.y0 + p.y / COORD_SCALE * box.h
+    )
+}
+
+/** 笔刷面积比 → 当前盒上的基准笔宽（内部坐标系像素，面积比不变则与背景字相对大小一致） */
+private fun brushBaseWidth(brush: Int, box: CharBox): Float {
+    val area = box.w * box.h
+    if (area <= 0f) return 4f
+    val ratio = brush.toFloat() / BRUSH_SCALE
+    return if (ratio > 0f) kotlin.math.sqrt(ratio * area) else 4f
 }
 
 /** 完整笔画（墨色） */
-private fun DrawScope.drawFullStroke(stroke: CharStroke, color: Color, unit: Float) {
+private fun DrawScope.drawFullStroke(stroke: CharStroke, color: Color, unit: Float, box: CharBox?) {
     val pts = stroke.points
-    if (pts.isEmpty()) return
-    val widths = brushWidths(pts)
-    drawStrokePath(pts, widths, 1f, color, unit)
+    if (pts.isEmpty() || box == null) return
+    val widths = brushWidths(pts, brushBaseWidth(stroke.brush, box))
+    drawStrokePath(pts, widths, 1f, color, unit, box)
 }
 
 /** 部分笔画（进度 0..1，按时间戳插值到当前点） */
-private fun DrawScope.drawPartialStroke(stroke: CharStroke, progress: Float, color: Color, unit: Float) {
+private fun DrawScope.drawPartialStroke(
+    stroke: CharStroke,
+    progress: Float,
+    color: Color,
+    unit: Float,
+    box: CharBox?
+) {
     val pts = stroke.points
-    if (pts.isEmpty()) return
+    if (pts.isEmpty() || box == null) return
     // 当前目标时间
     val targetTime = pts.first().timestamp +
         (pts.last().timestamp - pts.first().timestamp) * progress.coerceIn(0f, 1f)
     val head = pts.takeWhile { it.timestamp <= targetTime }
     if (head.isEmpty()) return
-    val widths = brushWidths(pts)
+    val widths = brushWidths(pts, brushBaseWidth(stroke.brush, box))
     if (head.size < pts.size) {
         val interp = interpolatePoint(pts, targetTime) ?: return
-        drawStrokePath(head + interp, widths.take(head.size) + listOf(widths[head.size.coerceAtMost(widths.size - 1)]), 1f, color, unit)
+        drawStrokePath(
+            head + interp,
+            widths.take(head.size) + listOf(widths[head.size.coerceAtMost(widths.size - 1)]),
+            1f, color, unit, box
+        )
     } else {
-        drawStrokePath(pts, widths, 1f, color, unit)
+        drawStrokePath(pts, widths, 1f, color, unit, box)
     }
 }
 
@@ -513,11 +553,12 @@ private fun DrawScope.drawStrokePath(
     widths: List<Float>,
     progress: Float,
     color: Color,
-    unit: Float
+    unit: Float,
+    box: CharBox
 ) {
     if (points.size < 2) {
         if (points.size == 1) {
-            val p = toCanvas(points[0])
+            val p = toCanvas(points[0], box)
             val r = (widths[0] * unit / 2f).coerceAtLeast(0.5f) * progress.coerceAtLeast(0.1f)
             drawCircle(color, radius = r, center = p)
         }
@@ -525,8 +566,8 @@ private fun DrawScope.drawStrokePath(
     }
     val count = maxOf(2, (points.size * progress).toInt().coerceAtLeast(1))
     for (i in 1 until count) {
-        val a = toCanvas(points[i - 1])
-        val b = toCanvas(points[i])
+        val a = toCanvas(points[i - 1], box)
+        val b = toCanvas(points[i], box)
         val wa = widths[i - 1] * unit
         val wb = widths[i] * unit
         drawLine(

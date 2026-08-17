@@ -83,6 +83,13 @@
           <div class="flex justify-center w-full">
             <div class="relative border rounded bg-white p-2 w-full max-w-[500px] dark:bg-gray-900 dark:border-gray-700">
               <canvas x-ref="mainCanvas" class="block w-full" style="aspect-ratio:1"></canvas>
+              <!-- 字体等待/失败遮罩（背景字与笔画须等自带楷体加载完成后渲染，无兜底） -->
+              <div x-show="!fontReady || fontError" x-cloak
+                class="absolute inset-0 z-10 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 rounded dark:bg-gray-900/80">
+                <span x-show="!fontError" class="inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></span>
+                <span class="text-sm text-gray-600 dark:text-gray-300"
+                  x-text="fontError ? '楷体字体加载失败' : '楷体字体加载中...'"></span>
+              </div>
               <!-- 当前笔画名提示（悬浮于田字格上方，不占布局，不引起位置/尺寸变化） -->
               <div x-show="strokeName" x-cloak
                 class="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2">
@@ -127,6 +134,12 @@
                     class="relative border border-gray-200 rounded bg-white p-1 w-full cursor-pointer select-none dark:border-gray-700 dark:bg-gray-900"
                     :title="playing ? '点击终止播放' : '点击播放该笔画动画'">
                     <canvas x-ref="canvas" class="block w-full pointer-events-none" style="aspect-ratio:1"></canvas>
+                    <!-- 字体加载遮罩（背景字与笔画等待自带楷体，无兜底） -->
+                    <div x-show="!fontReady" x-cloak
+                      class="absolute inset-0 z-10 bg-white/80 flex flex-col items-center justify-center gap-1.5 rounded dark:bg-gray-900/80">
+                      <span class="inline-block w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></span>
+                      <span class="text-[10px] text-gray-500 dark:text-gray-400">字体加载中...</span>
+                    </div>
                   </div>
                   <span class="text-sm font-kaiti" x-text="name"></span>
                   <span class="text-xs text-gray-400 dark:text-gray-500" x-text="'第 ' + (i + 1) + ' 笔'"></span>
