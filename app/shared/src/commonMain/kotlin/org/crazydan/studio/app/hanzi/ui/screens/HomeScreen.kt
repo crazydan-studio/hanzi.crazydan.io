@@ -64,23 +64,28 @@ fun HomeScreen(
     onOpenChar: (String) -> Unit,
     onOpenCommons: () -> Unit,
     onOpenPinyin: (String) -> Unit,
-    onOpenDonate: () -> Unit
+    onOpenDonate: () -> Unit,
+    initialCommons: List<CharEntry>? = null,
+    onCommonsLoaded: (List<CharEntry>?) -> Unit = {}
 ) {
     var query by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
 
-    var commons by remember { mutableStateOf<List<CharEntry>>(emptyList()) }
-    var commonsLoading by remember { mutableStateOf(true) }
+    var commons by remember { mutableStateOf(initialCommons ?: emptyList()) }
+    var commonsLoading by remember { mutableStateOf(initialCommons == null) }
     var commonsError by remember { mutableStateOf(false) }
 
-    // 进入首页时不自动聚焦搜索框（避免弹出键盘）
+    // 进入首页时不自动聚焦搜索框（避免弹出键盘）；常用字速览仅首次加载（缓存复用）
     val focusManager = LocalFocusManager.current
     LaunchedEffect(Unit) {
         focusManager.clearFocus()
-        val list = withContext(Dispatchers.Default) { db.queryCommons(20) }
-        commons = list
-        commonsLoading = false
-        commonsError = list.isEmpty()
+        if (initialCommons == null) {
+            val list = withContext(Dispatchers.Default) { db.queryCommons(20) }
+            commons = list
+            commonsLoading = false
+            commonsError = list.isEmpty()
+            onCommonsLoaded(list)
+        }
     }
 
     Column(

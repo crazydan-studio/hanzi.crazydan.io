@@ -52,6 +52,9 @@ class AppNavigator(initial: Screen = Screen.Home) {
     var commonsEntries: List<CharEntry>? = null
     val pinyinEntries = mutableMapOf<String, List<CharEntry>?>()
 
+    /** 首页常用字速览缓存（仅首次加载一次） */
+    var homeCommons: List<CharEntry>? = null
+
     fun open(screen: Screen) {
         stack.addLast(this.screen)
         this.screen = screen
@@ -108,7 +111,9 @@ fun HanziApp(
                     onOpenChar = { navigator.open(Screen.CharDetail(it)) },
                     onOpenCommons = { navigator.open(Screen.Commons) },
                     onOpenPinyin = { navigator.open(Screen.PinyinList(it)) },
-                    onOpenDonate = { navigator.open(Screen.Donate) }
+                    onOpenDonate = { navigator.open(Screen.Donate) },
+                    initialCommons = navigator.homeCommons,
+                    onCommonsLoaded = { navigator.homeCommons = it }
                 )
                 is Screen.CharDetail -> CharDetailScreen(
                     db = db,
