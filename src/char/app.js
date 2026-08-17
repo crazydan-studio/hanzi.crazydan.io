@@ -5,6 +5,7 @@ import { AnimationEngine } from '@components/AnimationEngine.js'
 import { drawTianZiGe, drawCharRef, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from '@components/StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { DISPLAY_PEN_WIDTH_COEF, STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
+import { strokeTypesMap } from '@components/StrokeTypes.js'
 import { loadCharMeta, loadCharStrokes } from '@services/data.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { copyText } from '@services/clipboard.js'
@@ -23,6 +24,8 @@ Alpine.data('charApp', () => ({
   SPEEDS: [0.5, 1, 1.5, 2],
   playbackSpeed: 1,
   playing: false,
+  // 播放中当前笔画名（田字格上方悬浮提示；未命名提示笔画类型未知）
+  strokeName: '',
   audio: null,
   audioHint: '',
   copiedValue: null,
@@ -83,8 +86,13 @@ Alpine.data('charApp', () => ({
       drawTianZiGe(this.engine.ctx, this.engine.cssW, this.engine.cssH, displayUnit(canvas, rect), rect.width)
       drawCharRef(this.engine.ctx, this.engine.cssW, this.engine.cssH, this.char, charRefColor())
     }
+    // 笔画开始: 实时显示当前笔画名（未命名提示笔画类型未知）
+    this.engine.onStrokeStart = (index) => {
+      this.strokeName = this.strokeNameAt(index)
+    }
     this.engine.onComplete = () => {
       this.playing = false
+      this.strokeName = ''
     }
     if (this.hasStrokes) {
       this.engine.loadStrokes(this.strokes)
@@ -139,6 +147,14 @@ Alpine.data('charApp', () => ({
     if (!this.engine) return
     this.engine.reset()
     this.playing = false
+    this.strokeName = ''
+  },
+
+  // 当前笔画名（类型 0 未命名 → 笔画类型未知）
+  strokeNameAt(index) {
+    const s = (this.strokes || [])[index]
+    if (!s) return ''
+    return s.stroke_type ? (strokeTypesMap[s.stroke_type]?.name || '笔画类型未知') : '笔画类型未知'
   },
 
   // 播放倍速（0.25-4 之间实时生效）

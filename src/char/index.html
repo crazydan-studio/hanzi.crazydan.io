@@ -81,8 +81,14 @@
           <!-- 书写动画: 田字格 + 字型背景；无笔画数据时同样显示背景，仅无播放功能
                画布自适应父容器（w-full + 正方形比例，最大 500px），移动端不溢出 -->
           <div class="flex justify-center w-full">
-            <div class="border rounded bg-white p-2 w-full max-w-[500px] dark:bg-gray-900 dark:border-gray-700">
+            <div class="relative border rounded bg-white p-2 w-full max-w-[500px] dark:bg-gray-900 dark:border-gray-700">
               <canvas x-ref="mainCanvas" class="block w-full" style="aspect-ratio:1"></canvas>
+              <!-- 当前笔画名提示（悬浮于田字格上方，不占布局，不引起位置/尺寸变化） -->
+              <div x-show="strokeName" x-cloak
+                class="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2">
+                <span class="inline-flex items-center rounded-full bg-gray-900/70 px-3 py-1 text-sm font-medium text-white shadow dark:bg-gray-100/80 dark:text-gray-900"
+                  x-text="strokeName"></span>
+              </div>
             </div>
           </div>
           <!-- 播放控制: 播放 / 暂停 / 重置 + 倍速 -->

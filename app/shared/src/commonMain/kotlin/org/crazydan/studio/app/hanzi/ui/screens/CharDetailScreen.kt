@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -40,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
@@ -136,17 +138,26 @@ fun CharDetailScreen(
             loading -> Text(
                 text = "加载中...",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 32.dp)
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp)
             )
             error != null -> Text(
                 text = error ?: "",
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(vertical = 32.dp)
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp)
             )
             meta == null -> Text(
                 text = "未找到汉字「$character」的信息",
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(vertical = 32.dp)
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp)
             )
             else -> {
                 val m = meta!!
@@ -213,21 +224,23 @@ fun CharDetailScreen(
                             m.pinyin.forEach { p ->
                                 val display = Pinyin.numberToSymbolTone(p)
                                 Surface(
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = RoundedCornerShape(14.dp),
                                     color = MaterialTheme.colorScheme.surface,
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(start = 8.dp, end = 2.dp)
+                                        modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 5.dp, bottom = 5.dp)
                                     ) {
                                         Text(
                                             text = display,
-                                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Default),
+                                            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Default),
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
+                                        Spacer(Modifier.width(4.dp))
                                         SmallTextButton(
                                             text = "试听",
+                                            highlighted = true,
                                             onClick = {
                                                 val ok = Platform.playPinyin(p)
                                                 audioHint = if (ok) null else "音频 ${p}.mp3 不存在"
@@ -349,19 +362,52 @@ private fun WritingPanel(
 ) {
     val player = rememberWritingPlayer(strokes)
 
+    // 播放（含暂停）期间实时显示当前笔画名；未命名（类型 0）提示笔画类型未知
+    val strokeName = if (player.state == WritingPlayer.State.PLAYING ||
+        player.state == WritingPlayer.State.PAUSED
+    ) {
+        strokes.getOrNull(player.currentIndex)?.let { s ->
+            if (s.strokeType == 0) "笔画类型未知"
+            else HanziLabels.strokeTypeName(s.strokeType).ifEmpty { "笔画类型未知" }
+        }
+    } else {
+        null
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        WritingAnimationCanvas(
-            strokes = strokes,
-            character = character,
-            dark = dark,
-            player = player,
+        // 田字格容器: 笔画名提示以悬浮层置于田字格上方（不占布局，不引起位置/尺寸抖动）
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 500.dp)
-        )
+        ) {
+            WritingAnimationCanvas(
+                strokes = strokes,
+                character = character,
+                dark = dark,
+                player = player,
+                modifier = Modifier.fillMaxWidth()
+            )
+            strokeName?.let { name ->
+                Text(
+                    text = name,
+                    color = if (dark) Color(0xFF111827) else Color.White,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 8.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(
+                            if (dark) Color(0xCCF3F4F6) else Color(0xB3111827)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
+        }
 
         if (strokes.isNotEmpty()) {
             Row(
@@ -533,7 +579,9 @@ private fun SmallTextButton(
             text = text,
             color = if (highlighted) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Normal
+            )
         )
     }
 }
