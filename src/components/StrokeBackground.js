@@ -27,17 +27,10 @@ export function displayUnit(canvas, rect) {
 // 背景字统一字体族（自带静态中易楷体，无系统字体回退）
 export const KAI_FONT_FAMILY = '"ZhongYiKaiTi"'
 
-// 该汉字是否被自带楷体覆盖（字体未加载或未覆盖 → false，不做兜底）
-export function charFontCovers(char) {
-  if (!char || !document.fonts?.check) return false
-  try {
-    return document.fonts.check('100px "ZhongYiKaiTi"', char)
-  } catch {
-    return false
-  }
-}
-
 // 等待自带楷体可用（加载失败返回 false，由调用方显示加载/失败状态）
+// 注意: 不依赖 document.fonts.check 的覆盖检测（各浏览器对 check(font, text)
+// 的覆盖语义实现不一致，可能导致误判），墨迹盒测量直接以该字体进行，
+// 缺字时浏览器按字形回退，测量与绘制使用同一生效字体，笔画仍与所绘字型对齐
 export async function ensureKaiFont() {
   if (!document.fonts?.load) return false
   try {
@@ -54,11 +47,10 @@ export async function ensureKaiFont() {
 //   - 字号: 画布尺寸的固定比例（同一字体 em 框一致 → 所有字一样大）
 //   - 基线: 用基准字符(永)测量字体级 ascent/descent，对所有字用同一条基线
 //   - 垂直: 字形中心对齐画布中心（基于字体级度量，与具体字无关）
-// 该字不被自带楷体覆盖时不渲染（无兜底字体）
 export function drawCharRef(ctx, width, height, char, color = charRefColor()) {
   if (!char) return
   const m = charMetrics(ctx, width, height, char)
-  if (!m) return   // 字体未覆盖该字: 不绘制背景字（无兜底）
+  if (!m) return   // 度量异常时不绘制（异常场景，正常流程必成功）
 
   ctx.save()
   ctx.font = m.font
@@ -71,8 +63,8 @@ export function drawCharRef(ctx, width, height, char, color = charRefColor()) {
 
 // 字体级度量（统一字号 + 固定基线）: 测量值与绘制共用同一套计算，保证
 // charInkBox 返回的墨迹盒与 drawCharRef 实际绘制的字型严格一致
+// 度量失败时回退字体级近似值，保证测量函数始终返回结果
 function charMetrics(ctx, width, height, char) {
-  if (!charFontCovers(char)) return null
   // 统一字号: 画布短边的 92%（留边距防溢出），所有字相同
   const fontSize = Math.round(Math.min(width, height) * 0.92)
   const font = `${fontSize}px ${KAI_FONT_FAMILY}`
@@ -106,12 +98,12 @@ function charMetrics(ctx, width, height, char) {
 
 // 背景汉字墨迹盒（内部坐标系像素）: { x0, y0, x1, y1, w, h }
 // 以墨迹盒为笔画数据的坐标系（x 归一化按盒宽、y 按盒高）;
-// 字体未覆盖/未加载完成时返回 null（不做兜底）
 // 注意: actualBoundingBox* 相对 textAlign/textBaseline 的对齐点度量，
-// 须与 drawCharRef 的绘制设置（center/alphabetic）保持一致
+// 须与 drawCharRef 的绘制设置（center/alphabetic）保持一致。
+// 缺字（字体未覆盖）时浏览器按字形回退，度量与绘制使用同一生效字体，
+// 墨迹盒仍与所绘字型一致；度量异常/退化时回退统一 em 盒，保证书写可用
 export function charInkBox(ctx, width, height, char) {
   const m = charMetrics(ctx, width, height, char)
-  if (!m) return null
   let left = 0, right = 0, ascent = 0, descent = 0
   try {
     ctx.save()
@@ -124,8 +116,7 @@ export function charInkBox(ctx, width, height, char) {
     ascent = tm.actualBoundingBoxAscent ?? 0
     descent = tm.actualBoundingBoxDescent ?? 0
     ctx.restore()
-  } catch { /* 度量失败返回 null */ }
-  // 基准字度量与具体字度量不一致（字体异常）时退回整字 em 盒近似
+  } catch { /* 度量异常，走统一 em 盒回退 */ }
   if (!ascent && !descent) {
     ascent = m.ascent
     descent = m.descent
@@ -136,8 +127,21 @@ export function charInkBox(ctx, width, height, char) {
   const y1 = m.baselineY + descent
   const w = x1 - x0
   const h = y1 - y0
-  if (!(w > 0 && h > 0)) return null
-  return { x0, y0, x1, y1, w, h }
+  if (w > 0 && h > 0) {
+    return { x0, y0, x1, y1, w, h }
+  }
+  // 回退: 统一 em 盒（基准字「永」的字体级度量 + 全字身宽），
+  // 保证墨迹盒始终可用（书写/回放坐标换算不依赖具体字形度量）
+  const ew = m.fontSize
+  const eh = m.ascent + m.descent
+  return {
+    x0: width / 2 - ew / 2,
+    y0: m.baselineY - m.ascent,
+    x1: width / 2 + ew / 2,
+    y1: m.baselineY + m.descent,
+    w: ew,
+    h: eh
+  }
 }
 
 // 田字格: 外框 + 米字格中央十字虚线（颜色适配主题色，虚线低透明度）

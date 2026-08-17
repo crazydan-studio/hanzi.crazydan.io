@@ -21,7 +21,7 @@ import Alpine from 'alpinejs'
 import { StrokeRecorder } from './StrokeRecorder.js'
 import { AnimationEngine } from './AnimationEngine.js'
 import { computeBrushWidths, drawBrushStroke, normalizeBrush, brushBaseWidth } from './Brush.js'
-import { drawTianZiGe, drawCharRef, charInkBox, charFontCovers, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
+import { drawTianZiGe, drawCharRef, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 
@@ -51,10 +51,9 @@ Alpine.data('strokePad', (opts = {}) => ({
   selectedStrokeId: null,        // 书写模式选中笔画 id（画布置顶高亮）
   currentChar: '',               // 当前汉字（书写模式半透明参考字）
   fontReady: false,              // 中易楷体加载完成（启用书写）
-  fontError: false,              // 楷体加载失败（不做兜底，禁用书写）
+  fontError: false,              // 楷体加载失败（禁用书写）
   // 背景汉字墨迹盒（内部坐标系）: 笔画坐标以盒为坐标系归一化存储/还原
   charBoxValue: null,            // { x0, y0, x1, y1, w, h } | null
-  charUnsupported: false,        // 该字不被自带楷体覆盖（无背景字/禁书写，不做兜底）
 
   // 悬停高亮色（列表行 hover 时画布中对应笔画高亮；仅颜色，不加粗）
   HIGHLIGHT_COLOR: opts.highlightColor || '#3b82f6',   // blue-500
@@ -67,9 +66,9 @@ Alpine.data('strokePad', (opts = {}) => ({
   playbackIndex: 0,
   hasPlaybackData: false,
 
-  // 字体与墨迹盒就绪（可书写）: 字体加载完成且当前字被覆盖
+  // 字体与墨迹盒就绪（可书写）: 字体加载完成且墨迹盒可用
   get writingReady() {
-    return this.fontReady && !this.charUnsupported && !!this.charBoxValue
+    return this.fontReady && !!this.charBoxValue
   },
 
   init() {
@@ -159,17 +158,14 @@ Alpine.data('strokePad', (opts = {}) => ({
   },
 
   // 重测背景汉字墨迹盒（字体加载完成/字符变化后调用）
-  // 墨迹盒 = 笔画坐标系的基准: 字体未加载/未覆盖该字时置空（不做兜底）
+  // 墨迹盒 = 笔画坐标系的基准; 字体未加载时置空，加载完成后必可测得
+  // （缺字按浏览器字形回退度量，与绘制同一生效字体，笔画仍与字型对齐）
   remeasureCharBox() {
     if (!this.currentChar || !this.fontReady) {
       this.charBoxValue = null
-      this.charUnsupported = false
       return
     }
-    this.charUnsupported = !charFontCovers(this.currentChar)
-    this.charBoxValue = this.charUnsupported
-      ? null
-      : charInkBox(this.ctx, this.width, this.height, this.currentChar)
+    this.charBoxValue = charInkBox(this.ctx, this.width, this.height, this.currentChar)
   },
 
   // 切换书写/回放模式

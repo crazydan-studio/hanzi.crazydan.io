@@ -1,10 +1,30 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="boot-loading">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>汉字 | 汉字书写</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <style>
+    /* 整页加载遮罩（与 boot.js 配合）: html 恒带 boot-loading，从渲染开始即遮挡，
+       消除字体加载延迟导致的页面抖动；就绪后（boot-done）内容淡入、遮罩淡出 */
+    html.boot-loading body > *:not(#boot-overlay) { opacity: 0; }
+    html.boot-done body > *:not(#boot-overlay) { opacity: 1; transition: opacity .5s ease-in; }
+    html.boot-done #boot-overlay { opacity: 0; transition: opacity .5s ease-out .2s; }
+    #boot-overlay {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+      background: #f9fafb;
+    }
+    html.dark #boot-overlay { background: #111827; }
+    #boot-overlay .boot-spinner {
+      width: 1.5rem; height: 1.5rem;
+      border: 2px solid #d1d5db; border-top-color: #3b82f6;
+      border-radius: 9999px;
+      animation: boot-spin 1s linear infinite;
+    }
+    @keyframes boot-spin { to { transform: rotate(360deg); } }
+  </style>
   <link rel="stylesheet" href="/src/styles/main.css">
 </head>
 <body class="bg-gray-50 min-h-screen dark:bg-gray-900">
@@ -102,12 +122,13 @@
                 class="touch-none select-none block mx-auto"
                 :class="mode === 'write' ? 'cursor-crosshair' : 'cursor-default'"
               ></canvas>
-              <!-- 字体失败/未覆盖提示（非阻塞，不遮挡田字格）:
-                   字体加载等待由全局页面遮罩负责；此处仅失败/不支持时给出提示 -->
-              <div x-show="mode === 'write' && (fontError || charUnsupported)" x-cloak
+              <!-- 字体失败提示（非阻塞，不遮挡田字格）:
+                   字体加载等待由全局页面遮罩负责；此处仅失败时给出提示 -->
+              <div x-show="mode === 'write' && fontError" x-cloak
                 class="pointer-events-none absolute inset-x-0 top-1 z-10 flex justify-center">
-                <span class="rounded-full bg-gray-900/70 px-3 py-0.5 text-xs text-white shadow dark:bg-gray-100/80 dark:text-gray-900"
-                  x-text="fontError ? '楷体字体加载失败，无法书写' : '该汉字暂不支持楷体字体显示，无法书写'"></span>
+                <span class="rounded-full bg-gray-900/70 px-3 py-0.5 text-xs text-white shadow dark:bg-gray-100/80 dark:text-gray-900">
+                  楷体字体加载失败，无法书写
+                </span>
               </div>
             </div>
 

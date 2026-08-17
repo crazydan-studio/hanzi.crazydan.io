@@ -16,20 +16,6 @@ html.dark {
   color-scheme: dark;
 }
 
-/* 整页加载遮罩（boot.js）: 加载期间页面内容隐藏（opacity 0），
-   就绪后（html.boot-done）内容淡入、遮罩淡出，消除页面闪现/跳变 */
-html.boot-loading body > *:not(#font-loading-overlay) {
-  opacity: 0;
-}
-html.boot-done body > *:not(#font-loading-overlay) {
-  opacity: 1;
-  transition: opacity 0.5s ease-in;
-}
-html.boot-done #font-loading-overlay {
-  opacity: 0;
-  transition: opacity 0.5s ease-out 0.2s;
-}
-
 /* Alpine 初始化前隐藏 x-cloak 元素（防止弹窗等初始隐藏内容闪现） */
 [x-cloak] {
   display: none !important;
