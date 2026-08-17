@@ -77,12 +77,13 @@ class MainActivity : ComponentActivity() {
                 delay(SPLASH_MIN_MS)
                 // 数据库未就绪（原始库不一致，正在初始化）→ 提示等待
                 initNotice = !prep.isCompleted
-                // 淡出开屏页
+                // 开屏淡出与首页淡入同时进行（交叠透明渐变），
+                // 窗口背景在过渡期间保持开屏暗色，避免切换过程透出白屏
                 showSplash = false
-                delay(SPLASH_FADE_MS)
-                // 开屏淡出前确保当前主题已加载并应用到首页
-                applyStartupTheme(savedDark)
                 showApp = true
+                delay(SPLASH_FADE_MS)
+                // 过渡完成后应用当前主题的窗口背景/状态栏颜色
+                applyStartupTheme(savedDark)
                 // 等待数据库就绪（一致时立即返回）
                 val prepared = prep.await()
                 activeDb = prepared
