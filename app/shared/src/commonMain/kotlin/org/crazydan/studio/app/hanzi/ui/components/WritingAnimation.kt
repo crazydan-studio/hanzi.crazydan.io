@@ -183,17 +183,32 @@ private fun interpolatePoint(points: List<StrokePoint>, targetTime: Float): Stro
     return last
 }
 
-// 笔触宽度: 压力因子 × 起笔顿笔/收笔出锋因子（简化版，与前端 computeBrushWidths 一致）
+// 笔触宽度（完整移植前端 Brush.js computeBrushWidths）:
+// 压力因子 × 速度因子（快细慢粗，三点平滑）× 起笔顿笔/收笔出锋因子，输出前五点平滑
 private fun brushWidths(points: List<StrokePoint>): List<Float> {
     val n = points.size
     if (n == 0) return emptyList()
     if (n == 1) return listOf(BASE_WIDTH * PEN_WIDTH_COEF)
+
+    // 1) 压力因子
+    val pressureFactor = FloatArray(n) { 0.4f + 0.6f * points[it].pressure.coerceIn(0f, 1f) }
+
+    // 2) 速度因子（局部速度 vs 平均速度）: 慢（顿笔）→宽，快→细
+    val avgSpeed = averageSpeed(points)
+    val speedFactor = FloatArray(n) { 1f }
+    for (i in 1 until n - 1) {
+        val dt = points[i].timestamp - points[i - 1].timestamp
+        val dist = segmentDistance(points[i - 1], points[i])
+        val local = if (dt > 0f) dist / dt else avgSpeed
+        speedFactor[i] = (0.7f + 0.5f * (avgSpeed / (local + 1e-6f))).coerceIn(0.6f, 1.4f)
+    }
+    val speedSmoothed = smooth3(speedFactor.toList())
+
+    // 3) 起笔顿笔 + 收笔出锋（各占 12% 长度）
     val headN = maxOf(2, (n * 0.12f).toInt())
     val tailN = maxOf(2, (n * 0.12f).toInt())
     val out = ArrayList<Float>(n)
     for (i in 0 until n) {
-        val pressure = points[i].pressure.coerceIn(0f, 1f)
-        val pressureFactor = 0.4f + 0.6f * pressure
         val headPos = (i.toFloat() / headN).coerceAtMost(1f)
         val headFactor = 1.35f - 0.35f * headPos
         val tailPos = ((n - 1 - i).toFloat() / tailN).coerceAtMost(1f)
@@ -202,12 +217,38 @@ private fun brushWidths(points: List<StrokePoint>): List<Float> {
             else if (i < headN) headFactor
             else if (i >= n - tailN) tailFactor
             else 1f
-        out.add(BASE_WIDTH * PEN_WIDTH_COEF * pressureFactor * factor)
+        out.add(BASE_WIDTH * PEN_WIDTH_COEF * pressureFactor[i] * speedSmoothed[i] * factor)
     }
-    // 5 点平滑（减少宽度抖动）
+    // 输出前整体 5 点平滑（减少宽度抖动造成的毛刺）
     return smooth(out)
 }
 
+// 平均速度（内部坐标/毫秒；与 web 比例一致，速度因子为比值不受坐标系影响），兜底 1
+private fun averageSpeed(points: List<StrokePoint>): Float {
+    var dist = 0f
+    for (i in 1 until points.size) dist += segmentDistance(points[i - 1], points[i])
+    val dur = points.last().timestamp - points.first().timestamp
+    return if (dur > 0f) dist / dur else 1f
+}
+
+private fun segmentDistance(a: StrokePoint, b: StrokePoint): Float =
+    kotlin.math.hypot(b.x - a.x, b.y - a.y)
+
+// 三点移动平均
+private fun smooth3(values: List<Float>): List<Float> {
+    val n = values.size
+    if (n < 3) return values
+    val out = ArrayList<Float>(n)
+    for (i in 0 until n) {
+        val a = values[maxOf(0, i - 1)]
+        val b = values[i]
+        val c = values[minOf(n - 1, i + 1)]
+        out.add((a + b + c) / 3f)
+    }
+    return out
+}
+
+// 五点平滑
 private fun smooth(values: List<Float>): List<Float> {
     if (values.size < 3) return values
     val out = ArrayList<Float>(values.size)
@@ -402,26 +443,21 @@ private fun DrawScope.drawDashedLine(
 private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer: TextMeasurer) {
     if (character.isEmpty()) return
     // 以固定字号测量后按目标尺寸缩放绘制，确保与密度/字体缩放无关（精确像素尺寸）
-    // lineHeight = fontSize: 布局框与字形 em 框一致，居中布局即居中字形
-    // （否则字体行高含额外留白，字形视觉中心偏低，笔画相对显得偏上）
     val layout = textMeasurer.measure(
         text = character,
-        style = TextStyle(
-            fontSize = 92.sp,
-            lineHeight = 92.sp,
-            fontFamily = KaiTiFontFamily,
-            color = color,
-            textAlign = TextAlign.Center
-        )
+        style = TextStyle(fontSize = 92.sp, fontFamily = KaiTiFontFamily, color = color, textAlign = TextAlign.Center)
     )
-    val target = size.width * 0.92f
-    val scale = target / layout.size.width
+    // 按字形实际边界（而非行盒）居中，与 web 按字体度量（ascent/descent）居中一致；
+    // 字体行高若含额外留白，行盒居中会导致字形偏低、笔画相对显得偏上
+    val glyph = layout.getBoundingBox(0)
+    val glyphH = (glyph.bottom - glyph.top).coerceAtLeast(1f)
+    val scale = (size.width * 0.92f) / glyphH
     scale(scale, scale, pivot = Offset(size.width / 2f, size.height / 2f)) {
         drawText(
             textLayoutResult = layout,
             topLeft = Offset(
                 (size.width - layout.size.width) / 2f,
-                (size.height - layout.size.height) / 2f
+                size.height / 2f - glyph.center.y
             )
         )
     }
