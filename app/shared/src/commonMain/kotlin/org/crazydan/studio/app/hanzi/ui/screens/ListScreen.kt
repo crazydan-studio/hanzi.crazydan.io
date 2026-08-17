@@ -154,7 +154,7 @@ fun CharListScreen(
     }
 }
 
-/** 常用字列表页（滚动位置由外部保持，回退时恢复并高亮选中字） */
+/** 常用字列表页（数据缓存与滚动位置由外部保持，回退时原样恢复并高亮选中字） */
 @Composable
 fun CommonsScreen(
     db: HanziDb,
@@ -163,17 +163,22 @@ fun CommonsScreen(
     onBack: () -> Unit,
     onOpenChar: (String) -> Unit,
     selected: String = "",
-    gridState: LazyGridState
+    gridState: LazyGridState,
+    initialEntries: List<CharEntry>? = null,
+    onEntriesLoaded: (List<CharEntry>?) -> Unit = {}
 ) {
-    var entries by remember { mutableStateOf<List<CharEntry>?>(null) }
+    var entries by remember { mutableStateOf(initialEntries) }
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        entries = try {
-            withContext(Dispatchers.Default) { db.queryCommons(1500) }
-        } catch (e: Exception) {
-            error = "常用字数据加载失败"
-            null
+        if (entries == null) {
+            entries = try {
+                withContext(Dispatchers.Default) { db.queryCommons(1500) }
+            } catch (e: Exception) {
+                error = "常用字数据加载失败"
+                null
+            }
+            onEntriesLoaded(entries)
         }
     }
 
@@ -193,7 +198,7 @@ fun CommonsScreen(
     )
 }
 
-/** 拼音字列表页（滚动位置由外部保持，回退时恢复并高亮选中字） */
+/** 拼音字列表页（数据缓存与滚动位置由外部保持，回退时原样恢复并高亮选中字） */
 @Composable
 fun PinyinListScreen(
     db: HanziDb,
@@ -203,17 +208,22 @@ fun PinyinListScreen(
     onBack: () -> Unit,
     onOpenChar: (String) -> Unit,
     selected: String = "",
-    gridState: LazyGridState
+    gridState: LazyGridState,
+    initialEntries: List<CharEntry>? = null,
+    onEntriesLoaded: (List<CharEntry>?) -> Unit = {}
 ) {
-    var entries by remember { mutableStateOf<List<CharEntry>?>(null) }
+    var entries by remember { mutableStateOf(initialEntries) }
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(pinyin) {
-        entries = try {
-            withContext(Dispatchers.Default) { db.queryPinyinList(pinyin) }
-        } catch (e: Exception) {
-            error = "拼音「$pinyin」数据加载失败"
-            null
+        if (entries == null) {
+            entries = try {
+                withContext(Dispatchers.Default) { db.queryPinyinList(pinyin) }
+            } catch (e: Exception) {
+                error = "拼音「$pinyin」数据加载失败"
+                null
+            }
+            onEntriesLoaded(entries)
         }
     }
 

@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import org.crazydan.studio.app.hanzi.shared.CharEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.ui.screens.CharDetailScreen
 import org.crazydan.studio.app.hanzi.ui.screens.CommonsScreen
@@ -42,6 +43,13 @@ class AppNavigator(initial: Screen = Screen.Home) {
     /** 常用字/拼音字列表滚动位置（跨页面切换保持，回退后恢复） */
     val commonsGridState = LazyGridState()
     val pinyinGridState = LazyGridState()
+
+    /**
+     * 列表数据缓存（跨页面切换保持）: 回退时列表立即以缓存数据渲染，
+     * 网格内容不经历"加载中"收缩，滚动位置得以原样恢复（否则会被钳制归零）
+     */
+    var commonsEntries: List<CharEntry>? = null
+    val pinyinEntries = mutableMapOf<String, List<CharEntry>?>()
 
     fun open(screen: Screen) {
         stack.addLast(this.screen)
@@ -113,7 +121,9 @@ fun HanziApp(
                         navigator.open(Screen.CharDetail(char))
                     },
                     selected = navigator.commonsSelected,
-                    gridState = navigator.commonsGridState
+                    gridState = navigator.commonsGridState,
+                    initialEntries = navigator.commonsEntries,
+                    onEntriesLoaded = { navigator.commonsEntries = it }
                 )
                 is Screen.PinyinList -> PinyinListScreen(
                     db = db,
@@ -127,7 +137,9 @@ fun HanziApp(
                         navigator.open(Screen.CharDetail(char))
                     },
                     selected = navigator.pinyinSelected,
-                    gridState = navigator.pinyinGridState
+                    gridState = navigator.pinyinGridState,
+                    initialEntries = navigator.pinyinEntries[s.pinyin],
+                    onEntriesLoaded = { navigator.pinyinEntries[s.pinyin] = it }
                 )
                 is Screen.Donate -> DonateScreen(
                     dark = darkTheme,
