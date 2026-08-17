@@ -151,14 +151,14 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
                     StrokePoint(
                         x = it.x + p.getDouble(0).toFloat(),
                         y = it.y + p.getDouble(1).toFloat(),
-                        pressure = p.getDouble(2).toFloat() / PRESSURE_SCALE,
-                        timestamp = it.timestamp + p.getDouble(3).toFloat() / TIMESTAMP_SCALE
+                        pressure = p.getDouble(2).toFloat() / StrokeFormat.PRESSURE_SCALE,
+                        timestamp = it.timestamp + p.getDouble(3).toFloat() / StrokeFormat.TIMESTAMP_SCALE
                     )
                 } ?: StrokePoint(
                     x = p.getDouble(0).toFloat(),
                     y = p.getDouble(1).toFloat(),
-                    pressure = p.getDouble(2).toFloat() / PRESSURE_SCALE,
-                    timestamp = p.getDouble(3).toFloat() / TIMESTAMP_SCALE
+                    pressure = p.getDouble(2).toFloat() / StrokeFormat.PRESSURE_SCALE,
+                    timestamp = p.getDouble(3).toFloat() / StrokeFormat.TIMESTAMP_SCALE
                 )
                 list.add(point)
                 prev = point
@@ -311,10 +311,5 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
             if (cursor.moveToFirst()) return block(cursor)
         }
         return null
-    }
-
-    companion object {
-        private const val PRESSURE_SCALE = 100f   // 压力 ×100 存储（trajectory.js v8）
-        private const val TIMESTAMP_SCALE = 10f   // 时间戳 ×10 存储（trajectory.js v8）
     }
 }

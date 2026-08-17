@@ -54,10 +54,7 @@ export function initDatabase(dbPath = DB_PATH) {
       ON strokes(character_id);
   `)
 
-  // 迁移: 精简表结构 → 轨迹增量编码（v6）→ 坐标精度 ×1000（v7）→ 版本号重置为数字 1
-  migrateSlimSchema()
-  migrateStrokeV6()
-  migrateStrokeV7()
+  // 数据格式守卫: 轨迹格式版本不一致（旧格式数据）时删除，由用户重新录入
   migrateStrokeV1()
   // SQLite 页级整理: 自动收缩 + 压缩文件（删除不再留空闲页）
   db.exec('PRAGMA auto_vacuum = FULL')
@@ -65,10 +62,8 @@ export function initDatabase(dbPath = DB_PATH) {
   return db
 }
 
-// 迁移: 轨迹版本号重置为数字 1 —— 旧版本（字符串版本号，画布/墨迹盒语义混杂）
-// 与新格式不兼容（新格式以背景字墨迹盒为坐标系 + 笔刷面积比 + 数字版本号），
-// 旧数据无法换算，故删除，由用户重新录入。
-// 有效数据判定: 版本号为数字 1 且带合法 brush 字段（幂等）
+// 格式守卫: 轨迹版本号须为当前版本（数字 1）且带合法 brush 字段，
+// 否则视为旧格式/损坏数据删除（幂等）
 function migrateStrokeV1() {
   const rows = db.prepare('SELECT id, trajectory_data FROM strokes').all()
   const outdated = rows.filter(r => {
@@ -81,120 +76,6 @@ function migrateStrokeV1() {
   const del = db.prepare('DELETE FROM strokes WHERE id = ?')
   for (const r of outdated) del.run(r.id)
   console.log(`DB migrated: stroke format v${TRAJECTORY_VERSION} — 已删除 ${outdated.length} 条旧格式/损坏笔画数据`)
-}
-
-
-// 迁移: 坐标精度降低（v7）——x/y 由 ×10000（0.05px）降至 ×1000（0.5px），
-// 与抽稀阈值一致，整数小 10 倍、存储更省
-const V7_TARGET = '7.0'
-
-function migrateStrokeV7() {
-  const rows = db.prepare('SELECT id, trajectory_data FROM strokes').all()
-  let changed = false
-  const update = db.prepare('UPDATE strokes SET trajectory_data = ? WHERE id = ?')
-  for (const r of rows) {
-    let traj
-    try { traj = decompressTrajectory(r.trajectory_data) } catch { continue }
-    // 仅迁移 v7 之前的数据；v7/v8 数据跳过（v8 数据由 v8 迁移处理/删除）
-    if (!traj || traj.version === V7_TARGET || traj.version === TRAJECTORY_VERSION) continue
-    traj.version = V7_TARGET
-    traj.points = traj.points.map(pt => [
-      Math.round(pt[0] / 10),
-      Math.round(pt[1] / 10),
-      pt[2],
-      pt[3]
-    ])
-    update.run(compressTrajectory(traj), r.id)
-    changed = true
-  }
-  if (changed) {
-    console.log('DB migrated: stroke coords v7 (x/y ×1000)')
-  }
-}
-
-// 迁移: 轨迹增量编码（v6）——存量 v5 压缩数据重压缩为增量编码格式
-const V6_TARGET = '6.0'
-
-function migrateStrokeV6() {
-  const rows = db.prepare('SELECT id, trajectory_data FROM strokes').all()
-  let changed = false
-  const update = db.prepare('UPDATE strokes SET trajectory_data = ? WHERE id = ?')
-  for (const r of rows) {
-    let traj
-    try { traj = decompressTrajectory(r.trajectory_data) } catch { continue }
-    // 仅迁移 v5 之前的数据；v6 及更新版本已为增量编码（v7/v8 由后续迁移处理）
-    if (!traj || traj.version === V6_TARGET || traj.version === V7_TARGET ||
-        traj.version === TRAJECTORY_VERSION) continue
-    update.run(compressTrajectory(traj), r.id)
-    changed = true
-  }
-  if (changed) {
-    console.log('DB migrated: stroke coords v6 (delta encoding)')
-  }
-}
-
-// 迁移: 精简表结构（删除 created_at/updated_at/deleted_at，characters 另删 pinyin_plain），
-// 轨迹压缩为 BLOB；以重建表方式迁移
-function migrateSlimSchema() {
-  const cols = db.prepare('PRAGMA table_info(characters)').all()
-  if (!cols.some(c => c.name === 'created_at')) return   // 已精简
-
-  db.exec('PRAGMA foreign_keys = OFF')
-  db.exec('BEGIN')
-  try {
-    const chars = db.prepare('SELECT * FROM characters').all()
-    const strokes = db.prepare('SELECT * FROM strokes').all()
-
-    db.exec('DROP TABLE IF EXISTS strokes')
-    db.exec('DROP TABLE IF EXISTS characters')
-    db.exec(`
-      CREATE TABLE characters (
-        id INTEGER PRIMARY KEY,
-        character TEXT NOT NULL UNIQUE,
-        pinyin TEXT NOT NULL DEFAULT '[]',
-        used_weight INTEGER NOT NULL DEFAULT 0,
-        structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 9),
-        radical TEXT NOT NULL DEFAULT '',
-        total_stroke_count INTEGER NOT NULL DEFAULT 0
-      );
-      CREATE UNIQUE INDEX idx_characters_character_unique ON characters(character);
-      CREATE TABLE strokes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        character_id INTEGER NOT NULL,
-        stroke_order INTEGER NOT NULL CHECK(stroke_order >= 1),
-        stroke_type INTEGER NOT NULL DEFAULT 0 CHECK(stroke_type BETWEEN 0 AND 35),
-        trajectory_data BLOB NOT NULL,
-        FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
-      );
-      CREATE UNIQUE INDEX idx_strokes_order_unique ON strokes(character_id, stroke_order);
-      CREATE INDEX idx_strokes_character_id ON strokes(character_id);
-    `)
-    const insertChar = db.prepare(`
-      INSERT INTO characters (id, character, pinyin, used_weight, structure, radical, total_stroke_count)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `)
-    for (const r of chars) {
-      insertChar.run(r.id, r.character, r.pinyin, r.used_weight,
-        r.structure, r.radical ?? '', r.total_stroke_count)
-    }
-    const insertStroke = db.prepare(`
-      INSERT INTO strokes (id, character_id, stroke_order, stroke_type, trajectory_data)
-      VALUES (?, ?, ?, ?, ?)
-    `)
-    for (const r of strokes) {
-      let traj
-      try { traj = decompressTrajectory(r.trajectory_data) } catch { continue }
-      insertStroke.run(r.id, r.character_id, r.stroke_order, r.stroke_type,
-        compressTrajectory(traj))
-    }
-    db.exec('COMMIT')
-    console.log('DB migrated: slim schema (no timestamps/deleted_at/pinyin_plain, trajectory compressed)')
-  } catch (err) {
-    db.exec('ROLLBACK')
-    throw err
-  } finally {
-    db.exec('PRAGMA foreign_keys = ON')
-  }
 }
 
 export function getDb() {

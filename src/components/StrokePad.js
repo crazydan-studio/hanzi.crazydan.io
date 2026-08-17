@@ -88,7 +88,7 @@ Alpine.data('strokePad', (opts = {}) => ({
     // 回放引擎绑定同一画布
     // - highlightColor: 正在绘制笔画的动画高亮色（蓝）
     // - 背景: 每帧清屏后重绘田字格 + 浅色完整字型（未完成笔画浅灰，作为参照）
-    // - 笔画坐标以背景汉字墨迹盒为坐标系（v8），经 charBox 还原
+    // - 笔画坐标以背景汉字墨迹盒为坐标系，经 charBox 还原
     this.engine = new AnimationEngine(this.canvas, {
       highlightColor: this.HIGHLIGHT_COLOR,
       completedColor: () => strokeInkColor(),      // 已绘笔画墨色（适配主题）
@@ -529,7 +529,7 @@ Alpine.data('strokePad', (opts = {}) => ({
 
     // 单点笔画也支持（"点"）
     if (this.currentStroke && this.currentStroke.points.length >= 1) {
-      // 笔刷归一化: 笔刷面积/背景字墨迹盒面积（v8），播放时按当前盒面积还原
+      // 笔刷归一化: 笔刷面积/背景字墨迹盒面积，播放时按当前盒面积还原
       const box = this.charBoxValue
       if (box) {
         this.recorder.setBrush(normalizeBrush(this.penWidth, box.w, box.h))

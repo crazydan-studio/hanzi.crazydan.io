@@ -1,7 +1,6 @@
 // ============ 静态数据加载（public/assets，由 build/export-data.js 导出生成） ============
 // 静态文件采用单字母紧凑结构（降低存储开销），在此归一化为完整字段供页面使用
 import { structureDisplayName } from '@components/CharacterStructures.js'
-import { TRAJECTORY_VERSION } from '@components/Constants.js'
 
 async function loadJson(url) {
   const res = await fetch(url)
@@ -24,7 +23,7 @@ export function normalizeMeta(raw) {
   }
 }
 
-// 轨迹增量编码点 → 绝对坐标点（strokes.json 存储 v6 增量格式以降低体积）
+// 轨迹增量编码点 → 绝对坐标点（strokes.json 存储增量格式以降低体积）
 function deltaDecode(points) {
   const out = []
   let prev = null
@@ -47,7 +46,7 @@ export function normalizeStrokes(list) {
     trajectory_data: {
       version: s.d?.v,
       brush: s.d?.b ?? 0,
-      points: s.d?.v === TRAJECTORY_VERSION ? deltaDecode(s.d.p || []) : (s.d?.p || [])
+      points: deltaDecode(s.d?.p || [])
     }
   }))
 }

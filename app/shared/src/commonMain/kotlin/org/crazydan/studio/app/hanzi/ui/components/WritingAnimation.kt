@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.crazydan.studio.app.hanzi.shared.CharStroke
+import org.crazydan.studio.app.hanzi.shared.StrokeFormat
 import org.crazydan.studio.app.hanzi.shared.StrokePoint
 import org.crazydan.studio.app.hanzi.ui.Gray900
 import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
@@ -48,13 +49,7 @@ import org.crazydan.studio.app.hanzi.ui.tianZiGeColor
  */
 
 // 笔画间停顿（毫秒，与前端 strokeGap 一致）
-private const val STROKE_GAP_MS = 300f
-
-// 轨迹坐标归一化系数（trajectory.js v8: x/y 以背景字墨迹盒为坐标系 ×1000）
-private const val COORD_SCALE = 1000f
-
-// 笔刷归一化系数（trajectory.js v8: 笔刷面积/背景字面积 ×BRUSH_SCALE）
-private const val BRUSH_SCALE = 1000000f
+private const val STROKE_GAP_MS = StrokeFormat.STROKE_GAP_MS
 
 /** 背景字墨迹盒（画布像素坐标）: 笔画坐标还原的基准（x 按盒宽、y 按盒高） */
 private class CharBox(val x0: Float, val y0: Float, val w: Float, val h: Float)
@@ -145,7 +140,7 @@ class WritingPlayer(private val strokes: List<CharStroke>) {
                 onComplete()
             } else {
                 elapsedMs = 0f
-                gapRemainingMs = STROKE_GAP_MS
+                gapRemainingMs = StrokeFormat.STROKE_GAP_MS
                 progress = 0f
             }
         } else {
@@ -312,7 +307,7 @@ fun WritingAnimationCanvas(
             .clip(RectangleShape)
             .background(if (dark) Gray900 else Color.White)
     ) {
-        val unit = size.width / 500f   // 前端 500×500 内部坐标系缩放
+        val unit = size.width / StrokeFormat.INTERNAL_SIZE   // 前端 500×500 内部坐标系缩放
         // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
         drawTianZiGe(border, unit)
         val box = drawCharRef(character, ref, textMeasurer)
@@ -358,7 +353,7 @@ fun StrokeCellCanvas(
             .clip(RectangleShape)
             .background(if (dark) Gray900 else Color.White)
     ) {
-        val unit = size.width / 500f
+        val unit = size.width / StrokeFormat.INTERNAL_SIZE
         // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
         drawTianZiGe(border, unit)
         val box = drawCharRef(character, ref, textMeasurer)
@@ -501,17 +496,17 @@ private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer:
 /** 盒相对归一化坐标 → 画布坐标（x 按盒宽、y 按盒高分别缩放） */
 private fun DrawScope.toCanvas(p: StrokePoint, box: CharBox): Offset {
     return Offset(
-        x = box.x0 + p.x / COORD_SCALE * box.w,
-        y = box.y0 + p.y / COORD_SCALE * box.h
+        x = box.x0 + p.x / StrokeFormat.COORD_SCALE * box.w,
+        y = box.y0 + p.y / StrokeFormat.COORD_SCALE * box.h
     )
 }
 
 /** 笔刷面积比 → 当前盒上的基准笔宽（内部坐标系像素，面积比不变则与背景字相对大小一致） */
 private fun brushBaseWidth(brush: Int, box: CharBox): Float {
     val area = box.w * box.h
-    if (area <= 0f) return 4f
-    val ratio = brush.toFloat() / BRUSH_SCALE
-    return if (ratio > 0f) kotlin.math.sqrt(ratio * area) else 4f
+    if (area <= 0f) return StrokeFormat.BASE_WIDTH
+    val ratio = brush.toFloat() / StrokeFormat.BRUSH_SCALE
+    return if (ratio > 0f) kotlin.math.sqrt(ratio * area) else StrokeFormat.BASE_WIDTH
 }
 
 /** 调试用（仅 debug 构建）: 以半透明实线绘制背景字墨迹盒边界 */

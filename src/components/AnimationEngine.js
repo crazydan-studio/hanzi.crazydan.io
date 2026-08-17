@@ -1,16 +1,16 @@
-import { COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
+import { BASE_WIDTH, CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 import { computeBrushWidths, drawBrushStroke, brushBaseWidth } from './Brush.js'
 
 // 单一RAF状态机。不使用 async/await + Promise 链，全部状态显式管理，
 // pause/resume/seek 均为状态切换，天然安全。
-// 轨迹坐标（v8）以【背景汉字墨迹盒】为坐标系归一化存储（x 按盒宽、y 按盒高），
+// 轨迹坐标以【背景汉字墨迹盒】为坐标系归一化存储（x 按盒宽、y 按盒高），
 // 播放端经 charBox 提供者测量当前盒后还原为内部像素坐标。
 export class AnimationEngine {
   constructor(canvas, options = {}) {
     this.canvas = canvas
     this.ctx = canvas.getContext('2d')
     this.strokeGap = options.strokeGap ?? 300   // 笔画间停顿(墙钟毫秒)
-    this.baseWidth = options.baseWidth ?? 4     // 无笔刷数据时的兜底基准笔宽
+    this.baseWidth = options.baseWidth ?? BASE_WIDTH   // 无笔刷数据时的兜底基准笔宽
     this.highlightColor = options.highlightColor ?? null   // 正在绘制笔画的动画高亮色
     this.penWidthCoef = options.penWidthCoef ?? 1   // 笔宽系数（默认 1: 忠实还原录制笔宽）
     // 背景汉字墨迹盒提供者: () => { x0, y0, w, h } | null
@@ -50,11 +50,11 @@ export class AnimationEngine {
   setupCanvas() {
     const dpr = window.devicePixelRatio || 1
     this.dpr = dpr
-    // 内部坐标系固定 500×500（与编辑器一致）；
+    // 内部坐标系固定为 CANVAS_SIZE（与编辑器一致）；
     // 物理分辨率按 DPR 缩放；CSS 显示尺寸由宿主（strokePad.applyCssSize）控制，
     // 支持移动端竖屏自适应，此处不覆盖 style
-    this.cssW = 500
-    this.cssH = 500
+    this.cssW = CANVAS_SIZE.width
+    this.cssH = CANVAS_SIZE.height
     this.canvas.width = this.cssW * dpr
     this.canvas.height = this.cssH * dpr
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -286,7 +286,7 @@ export class AnimationEngine {
   }
 
   // 单点宽度（前端基准笔宽 × 压力），展示配置
-  // 基准笔宽来自该笔画轨迹的笔刷面积比（v8），忠实还原录制笔宽
+  // 基准笔宽来自该笔画轨迹的笔刷面积比，忠实还原录制笔宽
   strokeWidthAt(stroke, p) {
     const base = stroke?.pxBrushWidth ?? this.baseWidth * (this.penWidthCoef ?? 1)
     const pressure = p?.pressure ?? 0.5

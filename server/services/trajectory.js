@@ -50,22 +50,19 @@ export function deltaDecode(points) {
 
 export function compressTrajectory(trajectory) {
   const encoded = {
-    version: trajectory.version ?? TRAJECTORY_VERSION,   // 保留原版本号（迁移据此判断是否已处理）
-    ...(trajectory.brush !== undefined ? { brush: trajectory.brush } : {}),
+    version: trajectory.version,
+    brush: trajectory.brush,
     points: deltaEncode(trajectory.points)
   }
   return zlib.deflateSync(JSON.stringify(encoded))
 }
 
 export function decompressTrajectory(data) {
-  // node:sqlite 读取 BLOB 返回 Uint8Array；Buffer/Uint8Array 均为压缩数据
-  if (Buffer.isBuffer(data) || data instanceof Uint8Array) {
-    const parsed = JSON.parse(zlib.inflateSync(Buffer.from(data)).toString('utf8'))
-    // 压缩存储的轨迹均由 compressTrajectory 增量编码，统一解码为绝对坐标点
-    // （版本号为信息性标识，不决定是否解码）
-    parsed.points = deltaDecode(parsed.points)
-    return parsed
+  // 存储轨迹均为 compressTrajectory 产物（BLOB 压缩 + 增量编码），统一解码为绝对坐标点
+  if (!Buffer.isBuffer(data) && !(data instanceof Uint8Array)) {
+    throw new Error('轨迹数据须为压缩 BLOB')
   }
-  // 兼容未压缩的文本存储（迁移前的数据）
-  return JSON.parse(data)
+  const parsed = JSON.parse(zlib.inflateSync(Buffer.from(data)).toString('utf8'))
+  parsed.points = deltaDecode(parsed.points)
+  return parsed
 }

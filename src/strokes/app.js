@@ -6,6 +6,7 @@ import { api } from '@services/api.js'
 import { createSyncClient } from '@services/syncClient.js'
 import { CHARACTER_STRUCTURES, structureLabel } from '@components/CharacterStructures.js'
 import { strokeInkColor, charInkBox, ensureKaiFont } from '@components/StrokeBackground.js'
+import { COORD_SCALE } from '@components/Constants.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { setBackUrl } from '@services/session.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
@@ -132,8 +133,8 @@ Alpine.data('characterList', () => ({
     }
   },
 
-  // 笔画小图: 以背景汉字墨迹盒为坐标系还原笔画轨迹（v8 归一化 ×1000），
-  // 等比缩放到缩略图尺寸；字体未加载/未覆盖该字时不绘制（无兜底）
+  // 笔画小图: 以背景汉字墨迹盒为坐标系还原笔画轨迹（归一化 ×1000），
+  // 等比缩放到缩略图尺寸；字体未加载/未覆盖该字时不绘制
   renderThumb(canvas, strokes, character) {
     if (!canvas) return
     const size = 44
@@ -155,8 +156,8 @@ Alpine.data('characterList', () => ({
       ctx.beginPath()
       pts.forEach((p, i) => {
         // 盒相对还原: 盒起点 + 归一化值 × 盒宽/高（x、y 分别按盒宽、盒高）
-        const x = box.x0 + (p[0] / 1000) * box.w
-        const y = box.y0 + (p[1] / 1000) * box.h
+        const x = box.x0 + (p[0] / COORD_SCALE) * box.w
+        const y = box.y0 + (p[1] / COORD_SCALE) * box.h
         if (i === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       })

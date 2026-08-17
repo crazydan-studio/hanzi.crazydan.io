@@ -3,7 +3,7 @@ import { BASE_WIDTH, BRUSH_SCALE } from './Constants.js'
 // ============ 笔触模拟（brush stroke） ============
 // 依据 压力/速度/首尾锥形 计算每点宽度，并用轮廓法（可变宽度多边形）渲染，
 // 产生类似毛笔/钢笔的笔锋效果。编辑器与回放引擎共用。
-// 基准笔宽来自轨迹数据（v8 brush 面积比），无数据时用 BASE_WIDTH 兜底。
+// 基准笔宽来自轨迹数据（brush 面积比），无数据时用 BASE_WIDTH 兜底。
 
 // 笔刷归一化（录制）: 笔刷面积/背景字墨迹盒面积 的比值 ×BRUSH_SCALE 存整数
 export function normalizeBrush(width, boxW, boxH) {

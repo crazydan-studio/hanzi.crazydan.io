@@ -34,7 +34,7 @@ export function syncCharacterMeta(character) {
 }
 
 // 同步笔画数据到 strokes.json（该汉字须已导出 meta.json）:
-// 有笔画时创建/更新（轨迹为增量编码 v8，含笔刷面积比 b）；无笔画时删除文件
+// 有笔画时创建/更新（轨迹为增量编码，含笔刷面积比 b）；无笔画时删除文件
 export function syncCharacterStrokes(characterId, strokes) {
   const file = strokesPath(characterId)
   if (!fs.existsSync(metaPath(characterId))) return false
