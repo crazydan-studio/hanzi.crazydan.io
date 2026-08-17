@@ -1,30 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="boot-loading">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>汉字 | 汉字信息</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
-  <style>
-    /* 整页加载遮罩（与 boot.js 配合）: html 恒带 boot-loading，从渲染开始即遮挡，
-       消除字体加载延迟导致的页面抖动；就绪后（boot-done）内容淡入、遮罩淡出 */
-    html.boot-loading body > *:not(#boot-overlay) { opacity: 0; }
-    html.boot-done body > *:not(#boot-overlay) { opacity: 1; transition: opacity .5s ease-in; }
-    html.boot-done #boot-overlay { opacity: 0; transition: opacity .5s ease-out .2s; }
-    #boot-overlay {
-      position: fixed; inset: 0; z-index: 50;
-      display: flex; align-items: center; justify-content: center;
-      background: #f9fafb;
-    }
-    html.dark #boot-overlay { background: #111827; }
-    #boot-overlay .boot-spinner {
-      width: 1.5rem; height: 1.5rem;
-      border: 2px solid #d1d5db; border-top-color: #3b82f6;
-      border-radius: 9999px;
-      animation: boot-spin 1s linear infinite;
-    }
-    @keyframes boot-spin { to { transform: rotate(360deg); } }
-  </style>
   <link rel="stylesheet" href="/src/styles/main.css">
 </head>
 <body class="bg-gray-50 min-h-screen dark:bg-gray-900" x-data="charApp()">

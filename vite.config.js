@@ -79,9 +79,58 @@ function injectThemeScript() {
   }
 }
 
+// 整页加载遮罩公共逻辑（统一经 HTML 模板注入，各页面源码不重复内联）:
+//  - html 标签恒带 boot-loading 类（从页面渲染开始即由遮罩遮挡，消除字体加载抖动）
+//  - 遮罩样式内嵌于 head（仅加载动画，无文字; 就绪后 boot-done 内容淡入/遮罩淡出，
+//    配合 boot.js 注入的 #boot-overlay 遮罩节点）
+const BOOT_LOADING_CSS = `
+  html.boot-loading body > *:not(#boot-overlay) { opacity: 0; }
+  html.boot-done body > *:not(#boot-overlay) { opacity: 1; transition: opacity .5s ease-in; }
+  html.boot-done #boot-overlay { opacity: 0; transition: opacity .5s ease-out .2s; }
+  #boot-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    background: #f9fafb;
+  }
+  html.dark #boot-overlay { background: #111827; }
+  #boot-overlay .boot-spinner {
+    width: 1.5rem; height: 1.5rem;
+    border: 2px solid #d1d5db; border-top-color: #3b82f6;
+    border-radius: 9999px;
+    animation: boot-spin 1s linear infinite;
+  }
+  @keyframes boot-spin { to { transform: rotate(360deg); } }
+`
+
+function injectBootLoading() {
+  return {
+    name: 'hanzi-inject-boot-loading',
+    transformIndexHtml(html) {
+      // html 标签恒带 boot-loading 类（与既有 class 合并）
+      const htmlTag = /<html([^>]*)>/
+      const withClass = htmlTag.test(html)
+        ? html.replace(htmlTag, (m, attrs) =>
+            attrs.includes('class=')
+              ? m.replace(/class="([^"]*)"/, (_, c) => `class="${c} boot-loading"`)
+              : `<html class="boot-loading"${attrs}>`)
+        : html
+      // 遮罩样式内嵌 head（与主题脚本同置 head 首部，顺序: 主题脚本 → 加载样式）
+      return {
+        html: withClass,
+        tags: [{
+          tag: 'style',
+          children: BOOT_LOADING_CSS.trim(),
+          injectTo: 'head-prepend'
+        }]
+      }
+    }
+  }
+}
+
 export default defineConfig({
   plugins: [
     flattenPages(),
+    injectBootLoading(),
     injectThemeScript(),
     {
       name: 'hanzi-dir-index-rewrite',
