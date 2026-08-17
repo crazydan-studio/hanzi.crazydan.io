@@ -2,7 +2,6 @@ package org.crazydan.studio.app.hanzi.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,17 +18,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * 开屏页: 以 logo 为中心，暗黑主题色为背景（品牌开屏页）
- * 展示时间由 MainActivity 固定控制，淡出后进入首页
+ * 开屏页: 以 logo 为中心，暗黑主题色为背景（品牌开屏页），
+ * 下方显示等待动画与初始化提示（避免误以为 App 僵死）;
+ * 展示时间由 MainActivity 控制，首页渲染完成后平滑淡出
  */
 @Composable
-fun SplashScreen() {
+fun SplashScreen(notice: Boolean = true) {
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Gray900
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxSize()
         ) {
             Image(
@@ -37,6 +38,21 @@ fun SplashScreen() {
                 contentDescription = "汉字",
                 modifier = Modifier.width(140.dp)
             )
+            if (notice) {
+                Spacer(Modifier.height(28.dp))
+                CircularProgressIndicator(
+                    color = Gray100,
+                    strokeWidth = 3.dp,
+                    modifier = Modifier.width(28.dp)
+                )
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    text = "正在初始化数据…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Gray400,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+            }
         }
     }
 }
