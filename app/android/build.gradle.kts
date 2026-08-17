@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.compose.multiplatform)
 }
 
 // 版本号单一来源（app/version.txt）: 与前端 vite 构建（vite.config.js）读取同一文件
@@ -83,4 +84,9 @@ kotlin {
 dependencies {
     implementation(project(":shared"))
     implementation(libs.androidx.activity.compose)
+    // 宿主界面所需 Compose 依赖（开屏/淡入淡出动画、布局等）
+    implementation(compose.animation)
+    implementation(compose.foundation)
+    implementation(compose.runtime)
+    implementation(compose.ui)
 }
