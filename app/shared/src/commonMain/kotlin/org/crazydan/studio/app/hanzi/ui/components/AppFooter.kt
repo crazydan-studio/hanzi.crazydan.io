@@ -11,7 +11,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import org.crazydan.studio.app.hanzi.ui.Platform
 
@@ -46,7 +45,8 @@ fun AppFooter(modifier: Modifier = Modifier) {
 private fun FooterLink(text: String, url: String, color: androidx.compose.ui.graphics.Color) {
     Text(
         text = text,
-        style = TextStyle(color = color),
+        // 继承主题文字样式（默认中易楷体），仅替换颜色
+        style = MaterialTheme.typography.bodySmall.copy(color = color),
         modifier = Modifier
             .clickable { Platform.openUrl(url) }
             .padding(horizontal = 4.dp)
