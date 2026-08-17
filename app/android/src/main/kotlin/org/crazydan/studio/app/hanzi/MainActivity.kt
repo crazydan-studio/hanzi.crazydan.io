@@ -94,7 +94,7 @@ class MainActivity : ComponentActivity() {
                 // 首页（淡入）
                 AnimatedVisibility(
                     visible = showApp,
-                    enter = fadeIn(animationSpec = tween(SPLASH_FADE_MS))
+                    enter = fadeIn(animationSpec = tween(SPLASH_FADE_MS.toInt()))
                 ) {
                     val currentDb = db
                     if (currentDb != null) {
@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
                 // 开屏页（淡出）
                 AnimatedVisibility(
                     visible = showSplash,
-                    exit = fadeOut(animationSpec = tween(SPLASH_FADE_MS))
+                    exit = fadeOut(animationSpec = tween(SPLASH_FADE_MS.toInt()))
                 ) {
                     SplashScreen()
                 }
@@ -214,6 +214,6 @@ class MainActivity : ComponentActivity() {
         private const val SPLASH_MIN_MS = 900L
 
         /** 开屏淡出/首页淡入时长（毫秒） */
-        private const val SPLASH_FADE_MS = 300
+        private const val SPLASH_FADE_MS = 300L
     }
 }
