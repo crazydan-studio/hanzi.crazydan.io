@@ -102,20 +102,12 @@
                 class="touch-none select-none block mx-auto"
                 :class="mode === 'write' ? 'cursor-crosshair' : 'cursor-default'"
               ></canvas>
-              <!-- 字体等待/失败遮罩: 背景字与笔画须等自带楷体加载完成后再渲染（无兜底）;
-                   该字未被自带楷体覆盖时禁用书写 -->
-              <div x-show="mode === 'write' && !writingReady"
-                class="absolute inset-0 z-10 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 rounded dark:bg-gray-900/80">
-                <span x-show="fontReady && charUnsupported" class="text-sm text-gray-600 dark:text-gray-300">
-                  该汉字暂不支持楷体字体显示
-                </span>
-                <template x-if="!fontReady">
-                  <span class="inline-flex flex-col items-center gap-2">
-                    <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></span>
-                    <span class="text-sm text-gray-600 dark:text-gray-300"
-                      x-text="fontError ? '楷体字体加载失败' : '楷体字体加载中...'"></span>
-                  </span>
-                </template>
+              <!-- 字体失败/未覆盖提示（非阻塞，不遮挡田字格）:
+                   字体加载等待由全局页面遮罩负责；此处仅失败/不支持时给出提示 -->
+              <div x-show="mode === 'write' && (fontError || charUnsupported)" x-cloak
+                class="pointer-events-none absolute inset-x-0 top-1 z-10 flex justify-center">
+                <span class="rounded-full bg-gray-900/70 px-3 py-0.5 text-xs text-white shadow dark:bg-gray-100/80 dark:text-gray-900"
+                  x-text="fontError ? '楷体字体加载失败，无法书写' : '该汉字暂不支持楷体字体显示，无法书写'"></span>
               </div>
             </div>
 
