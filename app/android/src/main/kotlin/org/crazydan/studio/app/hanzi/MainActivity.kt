@@ -74,6 +74,14 @@ class MainActivity : ComponentActivity() {
 
                 // 开屏固定展示时间（短暂但稳定，保证主题已加载）
                 delay(SPLASH_MIN_MS)
+                // 数据库未就绪（原始库不一致，正在初始化）→ 先淡出开屏，
+                // 显示初始化等待提示（避免开屏遮挡提示而误以为 App 僵死）
+                if (!prep.isCompleted) {
+                    showSplash = false
+                    delay(SPLASH_FADE_MS)
+                    applyStartupTheme(savedDark)
+                }
+
                 val prepared = try {
                     prep.await()
                 } catch (e: Exception) {
@@ -84,13 +92,15 @@ class MainActivity : ComponentActivity() {
                 db = prepared
 
                 // 等待首页渲染完成（首页首帧绘制后 homeRendered 置位），
-                // 随后开屏平滑淡出（首页不做淡入）；窗口背景过渡期间保持开屏暗色
+                // 随后开屏平滑淡出（首页不做淡入）；若开屏已提前淡出则跳过
                 while (!homeRendered) {
                     withFrameNanos { }
                 }
                 withFrameNanos { }   // 再等一帧，确保首页首帧已绘制
-                showSplash = false
-                delay(SPLASH_FADE_MS)
+                if (showSplash) {
+                    showSplash = false
+                    delay(SPLASH_FADE_MS)
+                }
                 // 过渡完成后应用当前主题的窗口背景/状态栏颜色
                 applyStartupTheme(savedDark)
             }
@@ -106,6 +116,9 @@ class MainActivity : ComponentActivity() {
                         notice = true,
                         message = "数据库初始化失败，请重启应用"
                     )
+                } else if (!showSplash) {
+                    // 开屏已提前淡出且数据库仍在初始化 → 显示等待提示
+                    InitNoticeScreen(darkTheme = savedDark, notice = true)
                 }
                 // 开屏页（首页渲染完成后平滑淡出）
                 AnimatedVisibility(
