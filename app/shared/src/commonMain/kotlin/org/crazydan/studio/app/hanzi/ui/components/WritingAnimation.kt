@@ -402,9 +402,17 @@ private fun DrawScope.drawDashedLine(
 private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer: TextMeasurer) {
     if (character.isEmpty()) return
     // 以固定字号测量后按目标尺寸缩放绘制，确保与密度/字体缩放无关（精确像素尺寸）
+    // lineHeight = fontSize: 布局框与字形 em 框一致，居中布局即居中字形
+    // （否则字体行高含额外留白，字形视觉中心偏低，笔画相对显得偏上）
     val layout = textMeasurer.measure(
         text = character,
-        style = TextStyle(fontSize = 92.sp, fontFamily = KaiTiFontFamily, color = color, textAlign = TextAlign.Center)
+        style = TextStyle(
+            fontSize = 92.sp,
+            lineHeight = 92.sp,
+            fontFamily = KaiTiFontFamily,
+            color = color,
+            textAlign = TextAlign.Center
+        )
     )
     val target = size.width * 0.92f
     val scale = target / layout.size.width
