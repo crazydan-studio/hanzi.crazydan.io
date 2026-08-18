@@ -9,14 +9,12 @@
 import fontverter from 'fontverter'
 import path from 'path'
 import fs from 'fs'
-import { fileURLToPath } from 'url'
+import { ROOT, KAI_FONT_TTF_PATH, KAI_FONT_WOFF2_PATH } from '../paths.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = path.join(__dirname, '..')
-const SRC_FONT = path.join(ROOT, 'build', 'fonts', 'ZhongYiKaiTi.ttf')
+const SRC_FONT = KAI_FONT_TTF_PATH
 const DSTS = [
   path.join(ROOT, 'app', 'android', 'src', 'main', 'assets', 'fonts', 'ZhongYiKaiTi.ttf'),
-  path.join(ROOT, 'public', 'fonts', 'ZhongYiKaiTi.woff2')
+  KAI_FONT_WOFF2_PATH
 ]
 
 async function main() {

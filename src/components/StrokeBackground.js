@@ -25,14 +25,16 @@ export function displayUnit(canvas, rect) {
 }
 
 // 背景字统一字体族（自带静态中易楷体，无系统字体回退）
-export const KAI_FONT_FAMILY = '"ZhongYiKaiTi"'
+import { KAI_FONT_FAMILY, KAI_FONT_SIZE } from '../config.js'
+
+export { KAI_FONT_FAMILY }
 
 // 楷体是否已加载可用（仅检查字体加载状态，不做覆盖检测——各浏览器对
 // check(font, text) 的覆盖语义实现不一致）; 未加载时不做任何渲染/测量（无兜底，
 // 避免回退字体导致的字形尺寸异常）
 export function kaiFontReady() {
   try {
-    return !!document.fonts?.check('100px "ZhongYiKaiTi"')
+    return !!document.fonts?.check(`${KAI_FONT_SIZE}px ${KAI_FONT_FAMILY}`)
   } catch {
     return false
   }
@@ -46,7 +48,7 @@ const ziBoxCache = new Map()
 export async function ensureKaiFont() {
   if (!document.fonts?.load) return false
   try {
-    await document.fonts.load('300px "ZhongYiKaiTi"')
+    await document.fonts.load(`${KAI_FONT_SIZE}px ${KAI_FONT_FAMILY}`)
     ziBoxCache.clear()
     return true
   } catch {

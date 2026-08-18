@@ -1,7 +1,7 @@
 // ============ 暗黑/明亮主题（class 策略，存储优先，否则跟随系统） ============
 import Alpine from 'alpinejs'
+import { THEME_KEY } from '../config.js'
 
-export const THEME_KEY = 'hanzi:theme'
 export const THEME_CHANGE_EVENT = 'hanzi:theme-change'
 
 // 主题图标（图标形式切换按钮，避免各页面重复内联 SVG）

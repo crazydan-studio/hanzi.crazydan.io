@@ -17,12 +17,11 @@ import { decompressTrajectory, deltaEncode, TRAJECTORY_VERSION } from '../server
 import { stripTone } from '../server/services/pinyinDict.js'
 import path from 'path'
 import fs from 'fs'
-import { fileURLToPath } from 'url'
+import { PUBLIC_DIR, STROKE_DB_PATH } from '../paths.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = path.join(__dirname, '..')
-const DEFAULT_DB = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
-const DEFAULT_OUT = path.join(ROOT, 'public')
+const DEFAULT_OUT = PUBLIC_DIR
+
+// 常用字默认导出数量
 const DEFAULT_COUNT = 1500
 
 function parseArgs() {
@@ -40,7 +39,7 @@ function parseArgs() {
   }
   return {
     count: opt.count,
-    db: opt.db || DEFAULT_DB,
+    db: opt.db || STROKE_DB_PATH,
     out: opt.out || DEFAULT_OUT
   }
 }
@@ -119,6 +118,7 @@ function main() {
   //  - 常用字: 字 + 第一个读音
   const commons = byWeight.slice(0, count).map(w => [w.zi, w.readings[0] || ''])
 
+  // 输出目录结构固定为 {out}/assets/{zi,pinyin}（out 默认 public/，可经 --out 指定）
   const ziDir = path.join(out, 'assets', 'zi')
   const pinyinDir = path.join(out, 'assets', 'pinyin')
 

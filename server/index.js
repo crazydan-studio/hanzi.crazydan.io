@@ -1,14 +1,13 @@
 import express from 'express'
 import path from 'path'
 import fs from 'fs'
-import { fileURLToPath } from 'url'
 import { initDatabase } from './services/database.js'
 import ziRouter from './routes/zi.js'
 import strokesRouter from './routes/strokes.js'
 import syncRouter from './routes/sync.js'
 import { errorHandler } from './middleware/errorHandler.js'
+import { DIST_DIR, PAGES } from '../paths.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 
 // 端口解析优先级: 命令行 --port <n> > 环境变量 PORT > 默认 3001
@@ -32,23 +31,19 @@ app.use('/api/zi/:ziId/strokes', strokesRouter)
 app.use('/api/sync', syncRouter)
 
 // 生产模式: 托管前端构建产物
-const distDir = path.join(__dirname, '..', 'dist')
-if (fs.existsSync(distDir)) {
-  app.use(express.static(distDir))
-  // SPA fallback: 目录式多页结构，未知路径按前缀回到对应页面的 index.html
+if (fs.existsSync(DIST_DIR)) {
+  app.use(express.static(DIST_DIR))
+  // SPA fallback: 目录式多页结构，未知路径按页面前缀回到对应 index.html
+  // （最长前缀优先，如 /strokes/write 先于 /strokes）
+  const pageRoutes = [...PAGES].sort((a, b) => b.length - a.length)
   app.get('*', (req, res) => {
     const p = req.path
-    if (/^\/zi(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'zi', 'index.html'))
-    if (/^\/pinyin(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'pinyin', 'index.html'))
-    if (/^\/commons(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'commons', 'index.html'))
-    if (/^\/donate(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'donate', 'index.html'))
-    if (/^\/strokes\/write(\/|$)/.test(p)) {
-      return res.sendFile(path.join(distDir, 'strokes', 'write', 'index.html'))
+    for (const page of pageRoutes) {
+      if (p === '/' + page || p.startsWith('/' + page + '/')) {
+        return res.sendFile(path.join(DIST_DIR, page, 'index.html'))
+      }
     }
-    if (/^\/strokes(\/|$)/.test(p)) {
-      return res.sendFile(path.join(distDir, 'strokes', 'index.html'))
-    }
-    res.sendFile(path.join(distDir, 'index.html'))
+    res.sendFile(path.join(DIST_DIR, 'index.html'))
   })
 }
 

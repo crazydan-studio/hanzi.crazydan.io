@@ -6,6 +6,10 @@
 //     （内容淡入、遮罩淡出，CSS transition 见页面内联样式），动画结束移除遮罩
 //   - 字体加载失败也放行（页面内田字格显示各自的失败提示，不做字体兜底）
 // （主题初始化由 vite 插件注入的内联脚本在 head 阻塞执行，避免刷新跳闪）
+import { KAI_FONT_FAMILY, KAI_FONT_SIZE } from './config.js'
+
+const FONT_LOAD_SPEC = `${KAI_FONT_SIZE}px ${KAI_FONT_FAMILY}`
+
 (function () {
   function addOverlay() {
     const el = document.createElement('div')
@@ -25,7 +29,7 @@
 
   function initFontLoading(el) {
     if (!document.fonts || !document.fonts.load) { finishLoading(el); return }
-    document.fonts.load('300px "ZhongYiKaiTi"')
+    document.fonts.load(FONT_LOAD_SPEC)
       .then(() => finishLoading(el))
       .catch(() => finishLoading(el))
   }

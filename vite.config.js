@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
+import { DIST_DIR, PAGES } from './paths.js'
+import { THEME_KEY } from './src/config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -28,9 +30,8 @@ function apiPort() {
 }
 
 // 目录式页面: 跳转只指定目录，自动定位到目录下的 index.html
-// dev/preview 下将 /zi /pinyin /strokes(/write) 重定向到带尾斜杠路径
-// （与生产 express.static 行为一致）
-const DIR_PAGES = ['/strokes/write', '/strokes', '/commons', '/donate', '/zi', '/pinyin']
+// dev/preview 下将 /zi /pinyin 等重定向到带尾斜杠路径（与生产 express.static 行为一致）
+const DIR_PAGES = PAGES.map(p => '/' + p)
 
 function dirIndexRewrite(req, res, next) {
   const pathname = req.url.split('?')[0]
@@ -48,8 +49,8 @@ function flattenPages() {
     name: 'hanzi-flatten-pages',
     closeBundle() {
       const srcDist = path.join(__dirname, 'dist', 'src')
-      for (const name of ['index.html', 'zi/index.html', 'pinyin/index.html',
-        'commons/index.html', 'donate/index.html', 'strokes/index.html', 'strokes/write/index.html']) {
+      const pages = ['index.html', ...PAGES.map(p => `${p}/index.html`)]
+      for (const name of pages) {
         const from = path.join(srcDist, name)
         const to = path.join(__dirname, 'dist', name)
         if (fs.existsSync(from)) {
@@ -65,7 +66,7 @@ function flattenPages() {
 // 注入内联主题脚本（head 阻塞执行，于首次绘制前应用主题类）
 // 避免刷新时因设置的主题与默认主题不一致而造成的页面跳闪
 function injectThemeScript() {
-  const snippet = "try{var t=localStorage.getItem('hanzi:theme');" +
+  const snippet = `try{var t=localStorage.getItem('${THEME_KEY}');` +
     "if(t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches)" +
     "document.documentElement.classList.add('dark')}catch(e){}"
   return {
@@ -127,25 +128,46 @@ function injectBootLoading() {
   }
 }
 
+// 注入各页面公共 head 标签（charset / 站点图标 / 样式表），
+// 各页面 HTML 仅保留 <title> 与 <meta viewport>
+// 注意: 须以 order:'pre' 注入 —— Vite 在 HTML 模块 transform 阶段收集
+// <link>/<script> 资源引用，仅 pre 钩子在该阶段之前执行；
+// 否则样式表引用无法被构建期提取打包
+function injectPageHead() {
+  const PAGE_HEAD = `  <meta charset="UTF-8">
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="stylesheet" href="/src/styles/main.css">
+`
+  return {
+    name: 'hanzi-inject-page-head',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        return {
+          html: html.replace('<head>', `<head>\n${PAGE_HEAD}`),
+          tags: []
+        }
+      }
+    }
+  }
+}
+
+// 功能页入口: URL 路径 → 源码 HTML（dev 下将页面 URL 映射到对应文件）
+const SRC_PAGES = {
+  '/': 'src/index.html',
+  ...Object.fromEntries(PAGES.map(p => [`/${p}/`, `src/${p}/index.html`]))
+}
+
 export default defineConfig({
   plugins: [
     flattenPages(),
     injectBootLoading(),
     injectThemeScript(),
+    injectPageHead(),
     {
       name: 'hanzi-dir-index-rewrite',
       configureServer(server) {
         server.middlewares.use(dirIndexRewrite)
-        // 功能页入口位于 src/ 源码目录，dev 下将页面 URL 映射到对应 HTML 文件
-        const SRC_PAGES = {
-          '/': 'src/index.html',
-          '/zi/': 'src/zi/index.html',
-          '/pinyin/': 'src/pinyin/index.html',
-          '/commons/': 'src/commons/index.html',
-          '/donate/': 'src/donate/index.html',
-          '/strokes/': 'src/strokes/index.html',
-          '/strokes/write/': 'src/strokes/write/index.html'
-        }
         server.middlewares.use(async (req, res, next) => {
           const file = SRC_PAGES[req.url.split('?')[0]]
           if (!file) return next()
@@ -188,16 +210,11 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: 'dist',
+    outDir: DIST_DIR,
     rollupOptions: {
       input: {
         index: path.resolve(__dirname, 'src/index.html'),
-        zi: path.resolve(__dirname, 'src/zi/index.html'),
-        pinyin: path.resolve(__dirname, 'src/pinyin/index.html'),
-        commons: path.resolve(__dirname, 'src/commons/index.html'),
-        donate: path.resolve(__dirname, 'src/donate/index.html'),
-        'strokes/index': path.resolve(__dirname, 'src/strokes/index.html'),
-        'strokes/write': path.resolve(__dirname, 'src/strokes/write/index.html')
+        ...Object.fromEntries(PAGES.map(p => [p, path.resolve(__dirname, `src/${p}/index.html`)]))
       }
     }
   }

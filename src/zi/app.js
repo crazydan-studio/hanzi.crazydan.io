@@ -10,6 +10,7 @@ import { loadZiMeta, loadZiStrokes } from '@services/data.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { copyText } from '@services/clipboard.js'
 import { setBackUrl } from '@services/session.js'
+import { GITHUB_ISSUES, PINYIN_AUDIO_DIR, ZDIC_URL } from '../config.js'
 
 Alpine.data('ziApp', () => ({
   zi: '',
@@ -46,7 +47,7 @@ Alpine.data('ziApp', () => ({
       return
     }
     this.unicode = this.zi.codePointAt(0)
-    this.zdicUrl = `https://zdic.net/hans/${encodeURIComponent(this.zi)}`
+    this.zdicUrl = `${ZDIC_URL}hans/${encodeURIComponent(this.zi)}`
     this.writeUrl = `/strokes/write/?zi=${encodeURIComponent(this.zi)}`
     try {
       this.meta = await loadZiMeta(this.unicode)
@@ -176,11 +177,11 @@ Alpine.data('ziApp', () => ({
     this.strokeName = ''
   },
 
-  // 当前笔画名（类型 0 未命名 → 笔画类型未知）
+  // 当前笔画名（类型 0 未指定 → 显示未指定）
   strokeNameAt(index) {
     const s = (this.strokes || [])[index]
     if (!s) return ''
-    return s.stroke_type ? (strokeTypesMap[s.stroke_type]?.name || '笔画类型未知') : '笔画类型未知'
+    return strokeTypesMap[s.stroke_type]?.name || '未指定'
   },
 
   // 播放倍速（0.25-4 之间实时生效）
@@ -189,10 +190,10 @@ Alpine.data('ziApp', () => ({
     this.engine?.setSpeed(s)
   },
 
-  // 读音试听: 音频 url 为 /assets/audio/pinyin/{数字声调拼音}.mp3（如 di4.mp3）
+  // 读音试听: 音频 url 为 {PINYIN_AUDIO_DIR}/{数字声调拼音}.mp3（如 di4.mp3）
   playPinyin(p) {
     this.stopAudio()
-    const url = `/assets/audio/pinyin/${encodeURIComponent(p)}.mp3`
+    const url = `${PINYIN_AUDIO_DIR}/${encodeURIComponent(p)}.mp3`
     const audio = new Audio(url)
     this.audio = audio
     audio.onerror = () => {
@@ -219,7 +220,7 @@ Alpine.data('ziApp', () => ({
   get issueUrl() {
     const title = `【问题字】【${this.zi}】`
     const body = `【${this.zi}】字存在以下问题或需做以下改进：\n\n`
-    return `https://github.com/crazydan-studio/hanzi.crazydan.io/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`
+    return `${GITHUB_ISSUES}/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`
   },
 
   // 数字声调拼音 → 符号声调拼音（展示用）

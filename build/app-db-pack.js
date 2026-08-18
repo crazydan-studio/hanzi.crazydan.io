@@ -15,11 +15,9 @@ import { createHash } from 'node:crypto'
 import os from 'node:os'
 import path from 'path'
 import fs from 'fs'
-import { fileURLToPath } from 'url'
+import { ROOT, STROKE_DB_PATH } from '../paths.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = path.join(__dirname, '..')
-const SRC_DB = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
+const SRC_DB = STROKE_DB_PATH
 const DST_DIR = path.join(ROOT, 'app', 'android', 'src', 'main', 'assets', 'db')
 const DST_DB = path.join(DST_DIR, 'hanzi.db')
 

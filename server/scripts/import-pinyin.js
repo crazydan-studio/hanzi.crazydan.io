@@ -19,13 +19,13 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { STRUCTURE_MAP, numberTonePinyin } from '../services/pinyinDict.js'
+import { STROKE_DB_PATH, KAI_FONT_WOFF2_PATH, ZI_ASSETS_DIR } from '../../paths.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = path.join(__dirname, '..', '..')
-const DEFAULT_SRC = path.join(ROOT, 'data', 'pinyin-dict.sqlite')
-const DEFAULT_DST = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
+const DEFAULT_SRC = path.join(__dirname, '..', '..', 'data', 'pinyin-dict.sqlite')
+const DEFAULT_DST = STROKE_DB_PATH
 // 自带中易楷体（web 端显示字体）: 不在其中的汉字不做导入
-const KAI_FONT_PATH = path.join(ROOT, 'public', 'fonts', 'ZhongYiKaiTi.woff2')
+const KAI_FONT_PATH = KAI_FONT_WOFF2_PATH
 
 // 解析命令行参数: --source/--db 选项 + 位置参数（相对 CWD 解析）
 function parseArgs() {
@@ -165,7 +165,7 @@ async function main() {
   // 告警: 字体未覆盖的汉字（不导入），并从静态数据（public/assets/zi/{unicode}/）
   // 中删除（web 端无法以楷体显示该字，且光栅实测盒需字体真实渲染）
   if (missing.length > 0) {
-    const ziDir = path.join(ROOT, 'public', 'assets', 'zi')
+    const ziDir = ZI_ASSETS_DIR
     let removed = 0
     for (const word of missing) {
       const dir = path.join(ziDir, String(word.codePointAt(0)))

@@ -2,18 +2,15 @@
 // 书写页对 部首/结构/笔画 的修改与调整，同步落盘到该汉字对应的静态数据文件
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import { deltaEncode, TRAJECTORY_VERSION } from './trajectory.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ZI_DIR = path.join(__dirname, '..', '..', 'public', 'assets', 'zi')
+import { ZI_ASSETS_DIR } from '../../paths.js'
 
 function metaPath(ziId) {
-  return path.join(ZI_DIR, String(ziId), 'meta.json')
+  return path.join(ZI_ASSETS_DIR, String(ziId), 'meta.json')
 }
 
 function strokesPath(ziId) {
-  return path.join(ZI_DIR, String(ziId), 'strokes.json')
+  return path.join(ZI_ASSETS_DIR, String(ziId), 'strokes.json')
 }
 
 // 同步部首/结构到 meta.json（仅文件存在时）

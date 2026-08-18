@@ -1,17 +1,13 @@
 import { DatabaseSync } from 'node:sqlite'
 import path from 'path'
 import fs from 'fs'
-import { fileURLToPath } from 'url'
 import { compressTrajectory, decompressTrajectory, TRAJECTORY_VERSION } from './trajectory.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DB_DIR = path.join(__dirname, '..', 'data')
-const DB_PATH = path.join(DB_DIR, 'hanzi_stroke.db')
+import { STROKE_DB_PATH } from '../../paths.js'
 
 let db
 
 // 支持指定数据库路径（导入脚本等场景）；缺省用默认路径
-export function initDatabase(dbPath = DB_PATH) {
+export function initDatabase(dbPath = STROKE_DB_PATH) {
   const dir = path.dirname(dbPath)
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 
@@ -59,9 +55,6 @@ export function initDatabase(dbPath = DB_PATH) {
 
   // 数据格式守卫: 轨迹格式版本不一致（旧格式数据）时删除，由用户重新录入
   migrateStrokeV1()
-  // SQLite 页级整理: 自动收缩 + 压缩文件（删除不再留空闲页）
-  db.exec('PRAGMA auto_vacuum = FULL')
-  db.exec('VACUUM')
   return db
 }
 

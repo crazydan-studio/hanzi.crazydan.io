@@ -12,12 +12,10 @@ import { DatabaseSync } from 'node:sqlite'
 import os from 'node:os'
 import path from 'path'
 import fs from 'fs'
-import { fileURLToPath } from 'url'
+import { STROKE_DB_PATH, DIST_DIR } from '../paths.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = path.join(__dirname, '..')
-const SRC_DB = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
-const DEFAULT_OUT = path.join(ROOT, 'dist', 'assets')
+const SRC_DB = STROKE_DB_PATH
+const DEFAULT_OUT = path.join(DIST_DIR, 'assets')
 
 function parseArgs() {
   const args = process.argv.slice(2)
