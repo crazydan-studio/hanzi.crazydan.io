@@ -40,22 +40,22 @@ Alpine.data('pinyinApp', () => ({
   },
 
   // 点击汉字: 就地更新 url 参数记录选中字（返回本页时据此高亮），并跳转汉字信息页
-  openChar(c) {
+  openZi(c) {
     history.replaceState(null, '', `/pinyin/?v=${encodeURIComponent(this.p)}&c=${encodeURIComponent(c[0])}`)
-    location.href = `/char/?v=${encodeURIComponent(c[0])}`
+    location.href = `/zi/?v=${encodeURIComponent(c[0])}`
   },
 
   // 格子点击事件（事件委托）
   onCellClick(event) {
-    const cell = event.target.closest('[data-char]')
+    const cell = event.target.closest('[data-zi]')
     if (!cell) return
-    this.openChar({ 0: cell.dataset.char })
+    this.openZi({ 0: cell.dataset.zi })
   },
 
   // 返回本页时高亮已选中字（仅高亮，不做定位滚动）
   highlightSelected() {
     if (!this.selected) return
-    const cell = this.$root.querySelector(`[data-char="${CSS.escape(this.selected)}"]`)
+    const cell = this.$root.querySelector(`[data-zi="${CSS.escape(this.selected)}"]`)
     if (cell) cell.classList.add('ring-2', 'ring-blue-400', 'bg-blue-50', 'dark:bg-gray-700')
   }
 }))

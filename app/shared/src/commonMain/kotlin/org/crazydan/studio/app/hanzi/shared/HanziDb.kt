@@ -4,7 +4,7 @@ package org.crazydan.studio.app.hanzi.shared
  * 汉字本地数据源（sqlite）
  *
  * 数据源拆分:
- *   - 汉字信息库（内置）: build/app-db-pack.js 打包的 hanzi.db（仅 characters 表），
+ *   - 汉字信息库（内置）: build/app-db-pack.js 打包的 hanzi.db（仅 zi 表），
  *     提供 常用字/拼音/汉字信息 查询
  *   - 笔画数据库（独立下载）: build/export-stroke-db.js 导出的 hanzi-stroke-{数量}.db，
  *     仅包含 strokes 表，由用户下载后指定存放位置（经 [configureStrokeDb] 配置），
@@ -12,14 +12,14 @@ package org.crazydan.studio.app.hanzi.shared
  */
 
 /** 列表条目（常用字 / 拼音字列表）: [字, 读音] */
-data class CharEntry(
-    val character: String,
+data class ZiEntry(
+    val zi: String,
     val pinyin: String
 )
 
 /** 汉字信息（对应前端 meta.json） */
-data class CharMeta(
-    val character: String,
+data class ZiMeta(
+    val zi: String,
     val unicode: Int,
     val pinyin: List<String>,
     val totalStrokeCount: Int,
@@ -36,7 +36,7 @@ data class StrokePoint(
 )
 
 /** 单个笔画（对应前端 strokes.json 条目） */
-data class CharStroke(
+data class ZiStroke(
     val strokeOrder: Int,
     val strokeType: Int,
     val brush: Int,             // 笔刷面积/背景字面积 比值 ×100000（整轨迹共享笔宽）
@@ -45,7 +45,7 @@ data class CharStroke(
 
 /** 笔画数据库状态（当前可访问的笔画数据规模） */
 data class StrokeDbInfo(
-    val charCount: Int,         // 可访问笔画数据的汉字数量
+    val ziCount: Int,         // 可访问笔画数据的汉字数量
     val strokeCount: Int        // 笔画总数
 )
 
@@ -53,19 +53,19 @@ data class StrokeDbInfo(
 interface HanziDb : AutoCloseable {
 
     /** 常用字列表 [字, 读音]，按使用权重降序，取前 limit 个 */
-    fun queryCommons(limit: Int): List<CharEntry>
+    fun queryCommons(limit: Int): List<ZiEntry>
 
     /** 拼音字列表 [字, 读音]，按使用权重降序；读音为无声调匹配到的第一个带声调读音 */
-    fun queryPinyinList(plainPinyin: String): List<CharEntry>
+    fun queryPinyinList(plainPinyin: String): List<ZiEntry>
 
     /** 汉字信息；不存在时返回 null */
-    fun queryCharMeta(unicode: Int): CharMeta?
+    fun queryZiMeta(unicode: Int): ZiMeta?
 
     /** 笔画数据（按笔顺排序，盒相对坐标）；该汉字无笔画时返回空列表 */
-    fun queryCharStrokes(unicode: Int): List<CharStroke>
+    fun queryZiStrokes(unicode: Int): List<ZiStroke>
 
     /** 汉字总数（内置信息库; 笔画数据「全部」规模说明用） */
-    fun queryCharCount(): Int
+    fun queryZiCount(): Int
 
     /**
      * 配置笔画数据库访问位置（用户下载后指定）:
@@ -83,8 +83,8 @@ interface HanziDb : AutoCloseable {
      *   - pinyin:        带声调拼音 id → 读音（如 di4）
      *   - pinyin_plain:  无声调拼音 id → 无声调拼音（如 di）
      *   - pinyin_map:    带声调拼音 id → 无声调拼音 id
-     *   - char_pinyin:   汉字 id + 带声调拼音 id + 权重（按字去重，每字每无声调拼音仅首条读音）
-     * 另建 characters 权重索引（idx_characters_weight）。
+     *   - zi_pinyin:   汉字 id + 带声调拼音 id + 权重（按字去重，每字每无声调拼音仅首条读音）
+     * 另建 zi 权重索引（idx_zi_weight）。
      */
     fun ensurePinyinIndexes()
 }

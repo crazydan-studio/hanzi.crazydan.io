@@ -1,4 +1,4 @@
-// ============ 汉字信息页入口（char/index.html） ============
+// ============ 汉字信息页入口（zi/index.html） ============
 import '/src/boot.js'
 import Alpine from 'alpinejs'
 import './app.js'

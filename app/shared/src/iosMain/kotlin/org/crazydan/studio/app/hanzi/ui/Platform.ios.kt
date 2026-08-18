@@ -11,6 +11,6 @@ actual object Platform {
     actual fun loadAssetImage(assetPath: String): ImageBitmap? = error("Platform: iOS 暂未实现")
     actual fun shareImage(assetPath: String, title: String) {}
     actual fun isDebug(): Boolean = false
-    actual fun rasterCharBox(character: String, fontSizePx: Float): FloatArray? = null
+    actual fun rasterZiBox(zi: String, fontSizePx: Float): FloatArray? = null
     actual fun pickStrokeDb(onPicked: (String?) -> Unit) = onPicked(null)
 }

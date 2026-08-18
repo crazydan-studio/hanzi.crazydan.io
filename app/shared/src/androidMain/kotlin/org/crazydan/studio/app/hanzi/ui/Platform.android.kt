@@ -118,8 +118,8 @@ actual object Platform {
             android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
 
-    actual fun rasterCharBox(character: String, fontSizePx: Float): FloatArray? {
-        if (character.isEmpty()) return null
+    actual fun rasterZiBox(zi: String, fontSizePx: Float): FloatArray? {
+        if (zi.isEmpty()) return null
         val context = AppContextHolder.appContext ?: return null
         return try {
             val typeface = android.graphics.Typeface.createFromAsset(
@@ -138,7 +138,7 @@ actual object Platform {
             // 字形垂直居中: 基线 = 顶部留白 + ascent 高度（fm.ascent 为负值）
             val glyphHeight = fm.descent - fm.ascent
             val baseline = (size - glyphHeight) / 2f - fm.ascent
-            canvas.drawText(character, size / 2f, baseline, paint)
+            canvas.drawText(zi, size / 2f, baseline, paint)
 
             // 扫描阈值: 丢弃 AA 淡边（alpha ≤ 8 视为透明），使盒贴合可见墨迹
             val px = IntArray(size * size)
@@ -163,7 +163,7 @@ actual object Platform {
             if (w > fontSizePx * 1.3f || h > fontSizePx * 1.3f) return null
 
             // 相对文本对齐点（水平左缘 + 基线）: 布局左缘 = 中心 - 文字宽/2
-            val textLeft = size / 2f - paint.measureText(character) / 2f
+            val textLeft = size / 2f - paint.measureText(zi) / 2f
             return floatArrayOf(
                 minX - textLeft,
                 minY - baseline,

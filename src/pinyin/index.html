@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
+  <meta ziset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>汉字 | 拼音字</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
@@ -30,8 +30,8 @@
         </p>
         <!-- 汉字展示形式与首页常用字速览一致，点击跳转汉字信息页 -->
         <div x-show="!loading && !error && !empty"
-          x-data="charGrid()" x-effect="setChars(list)" @click="onCellClick($event)" x-html="gridHtml"
-          class="char-grid"></div>
+          x-data="ziGrid()" x-effect="setZis(list)" @click="onCellClick($event)" x-html="gridHtml"
+          class="zi-grid"></div>
         <!-- 加载中: 悬浮于列表区域上层 -->
         <div x-show="loading" class="loading-overlay">
           <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">

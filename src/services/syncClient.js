@@ -1,15 +1,15 @@
 // ============ 多端同步客户端（页面层专用；基于 SSE + REST 广播） ============
 // 事件（服务端广播）:
 //   ready            连接确认
-//   strokes-changed  某字笔画数据变化 { characterId }（写操作后端自动广播）
-//   character-updated 某字信息变化 { id }
+//   strokes-changed  某字笔画数据变化 { ziId }（写操作后端自动广播）
+//   zi-updated 某字信息变化 { id }
 //   navigate         页面跳转 { url }（其他端跟随跳转）
 //   pen-width        笔触宽度变化 { width }
 // 防回环: 每个页面持有会话级唯一 clientId，emit 时携带，服务端广播排除发起者
 import { api } from './api.js'
 
 const CLIENT_KEY = 'hanzi:syncClientId'
-const LISTEN_EVENTS = ['navigate', 'strokes-changed', 'character-updated', 'pen-width']
+const LISTEN_EVENTS = ['navigate', 'strokes-changed', 'zi-updated', 'pen-width']
 
 export function createSyncClient() {
   let clientId = sessionStorage.getItem(CLIENT_KEY)

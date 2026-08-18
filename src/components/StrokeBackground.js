@@ -9,7 +9,7 @@ export function isDark() {
 }
 
 // 背景汉字颜色（浅色实色，非半透明；适配主题: 明亮浅灰，暗黑中浅灰）
-export function charRefColor() {
+export function ziRefColor() {
   return isDark() ? '#4b5563' : '#d1d5db'   // gray-600 / gray-300
 }
 
@@ -39,7 +39,7 @@ export function kaiFontReady() {
 }
 
 // 光栅实测墨迹盒缓存（按 字号+字 缓存; 字体加载完成后清空，防回退字体度量残留）
-const charBoxCache = new Map()
+const ziBoxCache = new Map()
 
 // 等待自带楷体可用（加载失败返回 false，由调用方显示加载/失败状态）;
 // 加载完成后清空墨迹盒缓存（此前可能以回退字体测得）
@@ -47,7 +47,7 @@ export async function ensureKaiFont() {
   if (!document.fonts?.load) return false
   try {
     await document.fonts.load('300px "ZhongYiKaiTi"')
-    charBoxCache.clear()
+    ziBoxCache.clear()
     return true
   } catch {
     return false
@@ -63,10 +63,10 @@ export async function ensureKaiFont() {
 //     （假定字体始终包含该字，不提供回退; 仅笔画轨迹坐标允许超出盒边界）
 //   - 布局: 以实测墨迹盒为基准做 x/y 双向平移，使墨迹中心对齐田字格中心
 //     （留出四周边距、收紧中宫中心、顺应结构重心）
-export function drawCharRef(ctx, width, height, char, color = charRefColor()) {
-  if (!char) return
+export function drawZiRef(ctx, width, height, zi, color = ziRefColor()) {
+  if (!zi) return
   if (!kaiFontReady()) return   // 楷体未加载: 不做回退渲染（无兜底）
-  const lay = charBoxLayout(width, height, char)
+  const lay = ziBoxLayout(width, height, zi)
   if (!lay) return
 
   ctx.save()
@@ -74,7 +74,7 @@ export function drawCharRef(ctx, width, height, char, color = charRefColor()) {
   ctx.fillStyle = color
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText(char, lay.drawX, lay.drawY)
+  ctx.fillText(zi, lay.drawX, lay.drawY)
   ctx.restore()
 }
 
@@ -82,7 +82,7 @@ export function drawCharRef(ctx, width, height, char, color = charRefColor()) {
 // 测量（离屏实际渲染扫描）与绘制共用同一几何，返回的墨迹盒
 // 即为实际绘制像素的精确边界（汉字笔画书写坐标系）
 // 返回 { font, drawX, drawY, box }（drawX/drawY 为绘制对齐点，box 为墨迹盒）
-function charBoxLayout(width, height, char) {
+function ziBoxLayout(width, height, zi) {
   if (!kaiFontReady()) return null   // 楷体未加载: 不做测量（无兜底）
   // 画布尺寸无效（未布局/异常）时不做测量
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null
@@ -92,7 +92,7 @@ function charBoxLayout(width, height, char) {
   const font = `${baseSize}px ${KAI_FONT_FAMILY}`
 
   // 光栅实测: 该字实际渲染像素的墨迹盒（相对对齐点; 无渲染像素时 null）
-  const baseRel = rasterCharBoxRel(font, baseSize, char)
+  const baseRel = rasterZiBoxRel(font, baseSize, zi)
   if (!baseRel) return null
 
   // 墨迹盒不得超出田字格且四周留白: 必要时按比例缩小字号
@@ -104,7 +104,7 @@ function charBoxLayout(width, height, char) {
   const fit = Math.min(1, Number.isFinite(fitW) ? fitW : 1, Number.isFinite(fitH) ? fitH : 1)
   const fontSize = Math.max(1, Math.round(baseSize * fit))
   const rel = fit < 1
-    ? rasterCharBoxRel(`${fontSize}px ${KAI_FONT_FAMILY}`, fontSize, char) ?? baseRel
+    ? rasterZiBoxRel(`${fontSize}px ${KAI_FONT_FAMILY}`, fontSize, zi) ?? baseRel
     : baseRel
 
   // 布局: 墨迹中心对齐田字格中心（x/y 双向平移）
@@ -122,13 +122,13 @@ function charBoxLayout(width, height, char) {
 }
 
 // 光栅实测墨迹盒（相对对齐点）: 离屏实际渲染（textAlign center + textBaseline middle，
-// 与 drawCharRef 一致），按像素扫描; 结果与字号无关地缓存
+// 与 drawZiRef 一致），按像素扫描; 结果与字号无关地缓存
 // 扫描阈值: 丢弃 AA 淡边（alpha ≤ 8 视为透明），使盒贴合可见墨迹
 const ALPHA_THRESHOLD = 8
 
-function rasterCharBoxRel(font, fontSize, char) {
-  const key = `${fontSize}@${char}`
-  const cached = charBoxCache.get(key)
+function rasterZiBoxRel(font, fontSize, zi) {
+  const key = `${fontSize}@${zi}`
+  const cached = ziBoxCache.get(key)
   if (cached) return cached
 
   const dpr = window.devicePixelRatio || 1
@@ -144,7 +144,7 @@ function rasterCharBoxRel(font, fontSize, char) {
   octx.textBaseline = 'middle'
   const cx = size / 2
   const cy = size / 2
-  octx.fillText(char, cx, cy)
+  octx.fillText(zi, cx, cy)
 
   const data = octx.getImageData(0, 0, off.width, off.height).data
   let minX = off.width, minY = off.height, maxX = -1, maxY = -1
@@ -169,22 +169,22 @@ function rasterCharBoxRel(font, fontSize, char) {
   }
   // 合理性上限: 墨迹盒超出字身 1.3 倍（回退字体/异常渲染的特征）→ 视为无效，不缓存
   if (rel.w > fontSize * 1.3 || rel.h > fontSize * 1.3) return null
-  charBoxCache.set(key, rel)
+  ziBoxCache.set(key, rel)
   return rel
 }
 
 // 背景汉字墨迹盒（内部坐标系像素，汉字笔画书写坐标系）: { x0, y0, x1, y1, w, h }
-// 基于光栅实测（实际渲染像素），与 drawCharRef 所绘字型严格一致;
+// 基于光栅实测（实际渲染像素），与 drawZiRef 所绘字型严格一致;
 // 保证盒不超出田字格且四周留有空白（必要时缩小字号）;
 // 假定字体始终包含该字，不提供回退; 仅笔画轨迹坐标允许超出盒边界
-export function charInkBox(width, height, char) {
-  if (!char) return null
-  return charBoxLayout(width, height, char)?.box ?? null
+export function ziInkBox(width, height, zi) {
+  if (!zi) return null
+  return ziBoxLayout(width, height, zi)?.box ?? null
 }
 
 // 调试用（仅开发模式）: 绘制背景字墨迹盒边界（光栅实测盒，即笔画坐标系的基准）
-export function drawCharBoxDebug(ctx, width, height, char) {
-  const box = charInkBox(width, height, char)
+export function drawZiBoxDebug(ctx, width, height, zi) {
+  const box = ziInkBox(width, height, zi)
   if (!box) return
   ctx.save()
   ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)'   // blue-500 半透明

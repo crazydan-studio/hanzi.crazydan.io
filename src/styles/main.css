@@ -92,7 +92,7 @@ body {
     @apply inline-block h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500;
   }
   /* 汉字格子网格（常用字速览 / 拼音字列表） */
-  .char-grid {
+  .zi-grid {
     @apply grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-2 md:gap-3;
   }
 }

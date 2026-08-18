@@ -1,7 +1,7 @@
 // ============ 多端实时同步（SSE 广播，零依赖） ============
 // 机制:
 //   - 所有页面通过 EventSource 订阅全局频道 /api/sync?client=<id>
-//   - 后端在笔画/汉字写操作后自动广播 strokes-changed/character-updated
+//   - 后端在笔画/汉字写操作后自动广播 strokes-changed/zi-updated
 //   - 前端主动广播 页面跳转(navigate)/模式(mode-changed)/笔宽(pen-width)
 //   - 广播按 client 排除发起者，防止回环
 const CHANNEL = 'hanzi-sync'

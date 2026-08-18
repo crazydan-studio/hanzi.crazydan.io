@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { initDatabase } from './services/database.js'
-import charactersRouter from './routes/characters.js'
+import ziRouter from './routes/zi.js'
 import strokesRouter from './routes/strokes.js'
 import syncRouter from './routes/sync.js'
 import { errorHandler } from './middleware/errorHandler.js'
@@ -27,8 +27,8 @@ const PORT = resolvePort()
 
 app.use(express.json({ limit: '10mb' }))
 
-app.use('/api/characters', charactersRouter)
-app.use('/api/characters/:characterId/strokes', strokesRouter)
+app.use('/api/zi', ziRouter)
+app.use('/api/zi/:ziId/strokes', strokesRouter)
 app.use('/api/sync', syncRouter)
 
 // 生产模式: 托管前端构建产物
@@ -38,7 +38,7 @@ if (fs.existsSync(distDir)) {
   // SPA fallback: 目录式多页结构，未知路径按前缀回到对应页面的 index.html
   app.get('*', (req, res) => {
     const p = req.path
-    if (/^\/char(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'char', 'index.html'))
+    if (/^\/zi(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'zi', 'index.html'))
     if (/^\/pinyin(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'pinyin', 'index.html'))
     if (/^\/commons(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'commons', 'index.html'))
     if (/^\/donate(\/|$)/.test(p)) return res.sendFile(path.join(distDir, 'donate', 'index.html'))

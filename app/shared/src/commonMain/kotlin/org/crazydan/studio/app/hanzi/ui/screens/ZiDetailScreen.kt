@@ -50,8 +50,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.crazydan.studio.app.hanzi.shared.CharMeta
-import org.crazydan.studio.app.hanzi.shared.CharStroke
+import org.crazydan.studio.app.hanzi.shared.ZiMeta
+import org.crazydan.studio.app.hanzi.shared.ZiStroke
 import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.shared.HanziLabels
 import org.crazydan.studio.app.hanzi.shared.Pinyin
@@ -74,18 +74,18 @@ import org.crazydan.studio.app.hanzi.ui.components.strokeDuration
  * 布局与交互与 web 页一致: 信息行内联展示、分解图点击在格子内播放该笔动画
  */
 @Composable
-fun CharDetailScreen(
+fun ZiDetailScreen(
     db: HanziDb,
-    character: String,
+    zi: String,
     dark: Boolean,
     onToggleTheme: () -> Unit,
     onBack: () -> Unit,
     onOpenStrokeManage: () -> Unit,
     onOpenDonate: () -> Unit
 ) {
-    val unicode = unicodePointAt(character)
-    var meta by remember { mutableStateOf<CharMeta?>(null) }
-    var strokes by remember { mutableStateOf<List<CharStroke>?>(null) }
+    val unicode = unicodePointAt(zi)
+    var meta by remember { mutableStateOf<ZiMeta?>(null) }
+    var strokes by remember { mutableStateOf<List<ZiStroke>?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var audioHint by remember { mutableStateOf<String?>(null) }
@@ -95,12 +95,12 @@ fun CharDetailScreen(
     var cellProgress by remember { mutableFloatStateOf(0f) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(character) {
+    LaunchedEffect(zi) {
         loading = true
         error = null
         try {
-            val m = withContext(Dispatchers.Default) { db.queryCharMeta(unicode) }
-            val s = withContext(Dispatchers.Default) { db.queryCharStrokes(unicode) }
+            val m = withContext(Dispatchers.Default) { db.queryZiMeta(unicode) }
+            val s = withContext(Dispatchers.Default) { db.queryZiStrokes(unicode) }
             meta = m
             strokes = s
         } catch (e: Exception) {
@@ -154,7 +154,7 @@ fun CharDetailScreen(
                     .padding(vertical = 32.dp)
             )
             meta == null -> Text(
-                text = "未找到汉字「$character」的信息",
+                text = "未找到汉字「$zi」的信息",
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
@@ -178,8 +178,8 @@ fun CharDetailScreen(
                             text = "问题反馈",
                             icon = BugReportIcon,
                             onClick = {
-                                val title = "【问题字】【${m.character}】"
-                                val body = "【${m.character}】字存在以下问题或需做以下改进：\n\n"
+                                val title = "【问题字】【${m.zi}】"
+                                val body = "【${m.zi}】字存在以下问题或需做以下改进：\n\n"
                                 Platform.openUrl(
                                     "https://github.com/crazydan-studio/hanzi.crazydan.io/issues/new" +
                                         "?title=${encodeUrl(title)}&body=${encodeUrl(body)}"
@@ -190,7 +190,7 @@ fun CharDetailScreen(
                             text = "汉典网详情",
                             icon = OpenInNewIcon,
                             onClick = {
-                                Platform.openUrl("https://zdic.net/hans/${encodeUrl(m.character)}")
+                                Platform.openUrl("https://zdic.net/hans/${encodeUrl(m.zi)}")
                             }
                         )
                     }
@@ -203,16 +203,16 @@ fun CharDetailScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = m.character,
+                                text = m.zi,
                                 style = MaterialTheme.typography.displayMedium,
                                 fontFamily = KaiTiFontFamily,
                                 modifier = Modifier.padding(end = 10.dp)
                             )
                             SmallButton(
-                                text = if (copied == "char") "已复制" else "复制",
+                                text = if (copied == "zi") "已复制" else "复制",
                                 onClick = {
-                                    Platform.copyToClipboard(m.character)
-                                    flashCopied(scope, "char") { copied = it }
+                                    Platform.copyToClipboard(m.zi)
+                                    flashCopied(scope, "zi") { copied = it }
                                 }
                             )
                         }
@@ -295,7 +295,7 @@ fun CharDetailScreen(
                     // 书写动画
                     WritingPanel(
                         strokes = strokeList,
-                        character = m.character,
+                        zi = m.zi,
                         dark = dark,
                         onOpenStrokeManage = onOpenStrokeManage
                     )
@@ -332,7 +332,7 @@ fun CharDetailScreen(
                     } else {
                         StrokeDecomposition(
                             strokes = strokeList,
-                            character = m.character,
+                            zi = m.zi,
                             dark = dark,
                             playingIndex = cellPlayIndex,
                             playingProgress = cellProgress,
@@ -368,8 +368,8 @@ fun CharDetailScreen(
 /** 书写动画面板: 动画 + 播放控制（播放/暂停/重置/倍速，与 web 一致） */
 @Composable
 private fun WritingPanel(
-    strokes: List<CharStroke>,
-    character: String,
+    strokes: List<ZiStroke>,
+    zi: String,
     dark: Boolean,
     onOpenStrokeManage: () -> Unit
 ) {
@@ -399,7 +399,7 @@ private fun WritingPanel(
         ) {
             WritingAnimationCanvas(
                 strokes = strokes,
-                character = character,
+                zi = zi,
                 dark = dark,
                 player = player,
                 modifier = Modifier.fillMaxWidth()
@@ -485,8 +485,8 @@ private fun WritingPanel(
  */
 @Composable
 private fun StrokeDecomposition(
-    strokes: List<CharStroke>,
-    character: String,
+    strokes: List<ZiStroke>,
+    zi: String,
     dark: Boolean,
     playingIndex: Int,
     playingProgress: Float,
@@ -513,7 +513,7 @@ private fun StrokeDecomposition(
                         StrokeCellCanvas(
                             strokes = strokes,
                             index = index,
-                            character = character,
+                            zi = zi,
                             dark = dark,
                             progress = if (index == playingIndex) playingProgress else null,
                             modifier = Modifier.fillMaxWidth()

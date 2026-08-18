@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
+  <meta ziset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>汉字 | 汉字书写</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
@@ -24,30 +24,30 @@
     <section>
       <p x-show="error" class="text-red-600 text-sm mb-2" x-text="error"></p>
 
-      <!-- character-info（内联于编辑器作用域）: 只读信息 + 结构可编辑 + 笔顺参考 -->
+      <!-- zi-info（内联于编辑器作用域）: 只读信息 + 结构可编辑 + 笔顺参考 -->
       <div class="panel p-4 md:p-5 mb-4">
-        <template x-if="character">
+        <template x-if="zi">
           <div>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <span class="text-4xl font-bold font-kaiti" x-text="character.character"></span>
-              <span class="text-gray-700 dark:text-gray-200" x-text="`读音: ${character.pinyin.map(p => symbolPinyin(p)).join('、')}`"></span>
-              <span class="text-gray-500 text-sm dark:text-gray-400" x-text="`笔画数: ${character.total_stroke_count}`"></span>
+              <span class="text-4xl font-bold font-kaiti" x-text="zi.zi"></span>
+              <span class="text-gray-700 dark:text-gray-200" x-text="`读音: ${zi.pinyin.map(p => symbolPinyin(p)).join('、')}`"></span>
+              <span class="text-gray-500 text-sm dark:text-gray-400" x-text="`笔画数: ${zi.total_stroke_count}`"></span>
               <!-- 部首/结构/笔顺参考: 靠右侧布局 -->
               <div class="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
                 <!-- 部首: 可编辑（同步后端） -->
                 <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                   部首
                   <input type="text" maxlength="10" class="input !w-16 !py-1"
-                    :value="character.radical || ''"
-                    @change="updateRadical(character, $event.target.value)">
+                    :value="zi.radical || ''"
+                    @change="updateRadical(zi, $event.target.value)">
                 </label>
                 <!-- 结构: 唯一可编辑字段 -->
                 <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                   结构
                   <select class="input !w-auto !py-1"
-                    @change="updateCharacterStructure(character, $event.target.value)">
-                    <template x-for="st in CHARACTER_STRUCTURES" :key="st.code">
-                      <option :value="st.code" :selected="character.structure === st.code"
+                    @change="updateZiStructure(zi, $event.target.value)">
+                    <template x-for="st in ZI_STRUCTURES" :key="st.code">
+                      <option :value="st.code" :selected="zi.structure === st.code"
                         x-text="st.examples.length ? st.name + '（' + st.examples.join('·') + '）' : st.name"></option>
                     </template>
                   </select>
@@ -73,7 +73,7 @@
             </div>
           </div>
         </template>
-        <p x-show="!character" class="text-gray-500 dark:text-gray-400">加载中...</p>
+        <p x-show="!zi" class="text-gray-500 dark:text-gray-400">加载中...</p>
       </div>
 
       <!-- 响应式: 移动端竖屏上下堆叠，桌面左右分栏 -->
@@ -191,7 +191,7 @@
                 :class="padMode === 'playback' ? 'text-blue-600' : 'text-gray-400'"
                 x-text="padMode === 'playback' ? '回放模式 · 点击笔画行即可播放' : '书写模式'"></span>
             </div>
-            <div x-show="strokes.length === 0 && character" class="p-3 text-sm text-gray-500 dark:text-gray-400">尚无笔画，请在左侧画布书写</div>
+            <div x-show="strokes.length === 0 && zi" class="p-3 text-sm text-gray-500 dark:text-gray-400">尚无笔画，请在左侧画布书写</div>
             <template x-for="s in strokes" :key="s.id">
               <div class="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 text-sm select-none dark:border-gray-700"
                 :draggable="padMode === 'write' && !isTouch"

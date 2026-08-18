@@ -13,10 +13,10 @@ export const listQuerySchema = z.object({
 })
 
 // 汉字仅创建用（脚本直插DB，API保留用于测试；前端不再提供新增）
-export const createCharacterSchema = z.object({
-  character: z.string()
-    .length(1, 'Must be a single character')
-    .regex(/^[\u4e00-\u9fff]$/, 'Must be a valid Chinese character'),
+export const createZiSchema = z.object({
+  zi: z.string()
+    .length(1, 'Must be a single zi')
+    .regex(/^[\u4e00-\u9fff]$/, 'Must be a valid Chinese zi'),
   pinyin: z.array(z.string()).default([]),            // 读音（数字声调，可多音）
   used_weight: z.number().int().min(0).default(0),
   structure: z.number().int().min(0).max(9).default(0),
@@ -24,7 +24,7 @@ export const createCharacterSchema = z.object({
 })
 
 // 更新: 仅 structure / radical 可编辑（其余数据只读，来自字典导入）
-export const updateCharacterSchema = z.object({
+export const updateZiSchema = z.object({
   structure: z.number().int().min(0).max(9).optional(),
   radical: z.string().max(10).optional()
 })

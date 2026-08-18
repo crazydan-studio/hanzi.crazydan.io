@@ -1,6 +1,6 @@
 // ============ 静态数据加载（public/assets，由 build/export-data.js 导出生成） ============
 // 静态文件采用单字母紧凑结构（降低存储开销），在此归一化为完整字段供页面使用
-import { structureDisplayName } from '@components/CharacterStructures.js'
+import { structureDisplayName } from '@components/ZiStructures.js'
 
 async function loadJson(url) {
   const res = await fetch(url)
@@ -14,7 +14,7 @@ async function loadJson(url) {
 export function normalizeMeta(raw) {
   if (!raw) return raw
   return {
-    character: raw.c,
+    zi: raw.c,
     unicode: `U+${raw.c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`,
     pinyin: raw.p,
     total_stroke_count: raw.n,
@@ -62,12 +62,12 @@ export function loadPinyinList(plain) {
 }
 
 // 单个汉字信息（public/assets/zi/{Unicode}/meta.json）
-export async function loadCharMeta(unicode) {
+export async function loadZiMeta(unicode) {
   return normalizeMeta(await loadJson(`/assets/zi/${unicode}/meta.json`))
 }
 
 // 笔画数据（仅常用字存在；无则返回 null）
-export async function loadCharStrokes(unicode) {
+export async function loadZiStrokes(unicode) {
   const res = await fetch(`/assets/zi/${unicode}/strokes.json`)
   if (!res.ok) return null
   return normalizeStrokes(await res.json())

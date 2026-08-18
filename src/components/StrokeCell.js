@@ -8,12 +8,12 @@
 // 后才渲染背景字与笔画（坐标以墨迹盒为坐标系），等待期间显示加载信息。
 import Alpine from 'alpinejs'
 import { AnimationEngine } from './AnimationEngine.js'
-import { drawTianZiGe, drawCharRef, drawCharBoxDebug, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
+import { drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { STROKE_HIGHLIGHT_COLOR } from './Constants.js'
 import { strokeTypesMap } from './StrokeTypes.js'
 
-Alpine.data('strokeCell', (char, index, strokes) => ({
+Alpine.data('strokeCell', (zi, index, strokes) => ({
   canvas: null,
   engine: null,
   playing: false,
@@ -27,7 +27,7 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
       highlightColor: STROKE_HIGHLIGHT_COLOR,
       strokeGap: 0,
       completedColor: () => strokeInkColor(),   // 已绘笔画墨色（适配主题）
-      charBox: () => this._box                  // 墨迹盒提供者
+      ziBox: () => this._box                  // 墨迹盒提供者
     })
     // 背景: 田字格 + 半透明汉字字型（颜色适配主题）
     // 换算系数由画布设备像素与实测显示宽度得出，尺寸未确定（宽度为 0）时暂不绘制，
@@ -36,10 +36,10 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
       const rect = this.canvas.getBoundingClientRect()
       if (!rect.width) return
       drawTianZiGe(this.engine.ctx, this.engine.cssW, this.engine.cssH, displayUnit(this.canvas, rect), rect.width)
-      drawCharRef(this.engine.ctx, this.engine.cssW, this.engine.cssH, char, charRefColor())
+      drawZiRef(this.engine.ctx, this.engine.cssW, this.engine.cssH, zi, ziRefColor())
       // 调试: 绘制背景字墨迹盒边界（仅开发模式）
       if (import.meta.env.DEV) {
-        drawCharBoxDebug(this.engine.ctx, this.engine.cssW, this.engine.cssH, char)
+        drawZiBoxDebug(this.engine.ctx, this.engine.cssW, this.engine.cssH, zi)
       }
     }
     this.engine.onStrokeStart = () => { this.playing = true }
@@ -76,7 +76,7 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
   // 测量背景字墨迹盒（字体就绪后）: 笔画坐标以墨迹盒为坐标系还原
   remeasureBox() {
     if (!this.fontReady) return
-    this._box = charInkBox(this.engine.cssW, this.engine.cssH, char)
+    this._box = ziInkBox(this.engine.cssW, this.engine.cssH, zi)
     if (this._box) this.engine.refreshBox()
   },
 

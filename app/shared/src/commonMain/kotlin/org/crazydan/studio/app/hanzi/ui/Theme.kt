@@ -105,7 +105,7 @@ val KaiTiFontFamily: FontFamily
 fun tianZiGeColor(dark: Boolean) = if (dark) Red400 else Red600
 
 /** 背景汉字颜色（浅色实色，明亮浅灰 / 暗黑中浅灰） */
-fun charRefColor(dark: Boolean) = if (dark) Gray600 else Gray300
+fun ziRefColor(dark: Boolean) = if (dark) Gray600 else Gray300
 
 /** 已绘制笔画墨色（明亮黑 / 暗黑近白） */
 fun strokeInkColor(dark: Boolean) = if (dark) Gray50 else Color.Black

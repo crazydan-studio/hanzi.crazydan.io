@@ -6,7 +6,7 @@
 //           宿主页面决定数据去向（保存到后端/其他处理）
 // 宿主用法:
 //   <div x-data="strokePad({
-//     referenceChar: '',
+//     referenceZi: '',
 //     onStrokeRecorded: (stroke) => { ... },      // 笔画录入完成
 //     onStrokeRemoveRequest: ({ strokeId }) => { ... }, // 撤销/清空请求
 //     onStrokeHover: (strokeId) => { ... },       // 列表悬停联动
@@ -14,14 +14,14 @@
 //     onPlaybackProgress: ({ index, strokeId, state }) => { ... }
 //   })">
 //   宿主再通过实例方法注入数据:
-//     Alpine.$data($refs.padEl).setCharacter('永')
+//     Alpine.$data($refs.padEl).setZi('永')
 //     .loadStrokes([...]) / .confirmStrokeSaved(localId, saved) / .removeStroke(id)
 //     .setMode('playback') / .seekToStroke(strokeId)
 import Alpine from 'alpinejs'
 import { StrokeRecorder } from './StrokeRecorder.js'
 import { AnimationEngine } from './AnimationEngine.js'
 import { computeBrushWidths, drawBrushStroke, normalizeBrush, brushBaseWidth } from './Brush.js'
-import { drawTianZiGe, drawCharRef, drawCharBoxDebug, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
+import { drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 
@@ -49,11 +49,11 @@ Alpine.data('strokePad', (opts = {}) => ({
   activePointerId: null,
   hoveredStrokeId: null,         // 列表悬停高亮的笔画 id
   selectedStrokeId: null,        // 书写模式选中笔画 id（画布置顶高亮）
-  currentChar: '',               // 当前汉字（书写模式半透明参考字）
+  currentZi: '',               // 当前汉字（书写模式半透明参考字）
   fontReady: false,              // 中易楷体加载完成（启用书写）
   fontError: false,              // 楷体加载失败（禁用书写）
   // 背景汉字墨迹盒（内部坐标系）: 笔画坐标以盒为坐标系归一化存储/还原
-  charBoxValue: null,            // { x0, y0, x1, y1, w, h } | null
+  ziBoxValue: null,            // { x0, y0, x1, y1, w, h } | null
 
   // 悬停高亮色（列表行 hover 时画布中对应笔画高亮；仅颜色，不加粗）
   HIGHLIGHT_COLOR: opts.highlightColor || '#3b82f6',   // blue-500
@@ -68,7 +68,7 @@ Alpine.data('strokePad', (opts = {}) => ({
 
   // 字体与墨迹盒就绪（可书写）: 字体加载完成且墨迹盒可用
   get writingReady() {
-    return this.fontReady && !!this.charBoxValue
+    return this.fontReady && !!this.ziBoxValue
   },
 
   init() {
@@ -88,11 +88,11 @@ Alpine.data('strokePad', (opts = {}) => ({
     // 回放引擎绑定同一画布
     // - highlightColor: 正在绘制笔画的动画高亮色（蓝）
     // - 背景: 每帧清屏后重绘田字格 + 浅色完整字型（未完成笔画浅灰，作为参照）
-    // - 笔画坐标以背景汉字墨迹盒为坐标系，经 charBox 还原
+    // - 笔画坐标以背景汉字墨迹盒为坐标系，经 ziBox 还原
     this.engine = new AnimationEngine(this.canvas, {
       highlightColor: this.HIGHLIGHT_COLOR,
       completedColor: () => strokeInkColor(),      // 已绘笔画墨色（适配主题）
-      charBox: () => this.charBoxValue             // 墨迹盒提供者（字体/字符就绪后可用）
+      ziBox: () => this.ziBoxValue             // 墨迹盒提供者（字体/字符就绪后可用）
     })
     this.engine.onBeforeRender = () => {
       this.drawTianZiGe()
@@ -129,7 +129,7 @@ Alpine.data('strokePad', (opts = {}) => ({
     // 兜底: 等全部字体就绪后重测墨迹盒并重绘
     if (document.fonts?.ready) {
       document.fonts.ready.then(() => {
-        this.remeasureCharBox()
+        this.remeasureZiBox()
         if (this.mode === 'write') this.redrawCanvas()
         else if (this.mode === 'playback') this.syncPlaybackData()
       })
@@ -148,11 +148,11 @@ Alpine.data('strokePad', (opts = {}) => ({
   // ---- 宿主数据注入接口 ----
 
   // 设置当前汉字（书写模式半透明参考字 / 回放背景字型）
-  setCharacter(char) {
-    const ch = char || ''
-    if (ch === this.currentChar) return
-    this.currentChar = ch
-    this.remeasureCharBox()
+  setZi(zi) {
+    const ch = zi || ''
+    if (ch === this.currentZi) return
+    this.currentZi = ch
+    this.remeasureZiBox()
     if (this.mode === 'write') this.redrawCanvas()
     else if (this.mode === 'playback') this.syncPlaybackData()
   },
@@ -160,12 +160,12 @@ Alpine.data('strokePad', (opts = {}) => ({
   // 重测背景汉字墨迹盒（字体加载完成/字符变化后调用）
   // 墨迹盒 = 笔画坐标系的基准; 字体未加载时置空，加载完成后必可测得
   // （缺字按浏览器字形回退度量，与绘制同一生效字体，笔画仍与字型对齐）
-  remeasureCharBox() {
-    if (!this.currentChar || !this.fontReady) {
-      this.charBoxValue = null
+  remeasureZiBox() {
+    if (!this.currentZi || !this.fontReady) {
+      this.ziBoxValue = null
       return
     }
-    this.charBoxValue = charInkBox(this.width, this.height, this.currentChar)
+    this.ziBoxValue = ziInkBox(this.width, this.height, this.currentZi)
   },
 
   // 切换书写/回放模式
@@ -233,7 +233,7 @@ Alpine.data('strokePad', (opts = {}) => ({
     ensureKaiFont().then(ok => {
       this.fontReady = ok
       this.fontError = !ok
-      this.remeasureCharBox()
+      this.remeasureZiBox()
       if (this.mode === 'write') this.redrawCanvas()
       else if (this.mode === 'playback') this.syncPlaybackData()
     })
@@ -293,17 +293,17 @@ Alpine.data('strokePad', (opts = {}) => ({
   // - 水平方向: 字形(em框)严格居中（textAlign=center, 绘制x=画布中心）
   // - 垂直方向: 按字体度量(baseline/ascent/descent)精确居中
   // - 缩放: 依据墨迹边界使字形填满田字格内部，四周留均匀空隙
-  drawReferenceChar() {
-    if (this.mode !== 'write' || !this.currentChar) return
-    this.drawCharRef(charRefColor())
+  drawReferenceZi() {
+    if (this.mode !== 'write' || !this.currentZi) return
+    this.drawZiRef(ziRefColor())
   },
 
   // 楷体半透明参考字核心绘制（书写模式与回放背景共用）— 逻辑在共享模块 strokeBackground.js
-  drawCharRef(color) {
-    drawCharRef(this.ctx, this.width, this.height, this.currentChar, color)
+  drawZiRef(color) {
+    drawZiRef(this.ctx, this.width, this.height, this.currentZi, color)
     // 调试: 绘制背景字墨迹盒边界（仅开发模式）
     if (import.meta.env.DEV) {
-      drawCharBoxDebug(this.ctx, this.width, this.height, this.currentChar)
+      drawZiBoxDebug(this.ctx, this.width, this.height, this.currentZi)
     }
   },
 
@@ -312,7 +312,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   redrawCanvas() {
     this.ctx.clearRect(0, 0, this.width, this.height)
     this.drawTianZiGe()
-    this.drawReferenceChar()
+    this.drawReferenceZi()
     const hovered = this.hoveredStrokeId
     const selected = this.selectedStrokeId
     const topLayers = new Set([hovered, selected].filter(Boolean))
@@ -336,9 +336,9 @@ Alpine.data('strokePad', (opts = {}) => ({
   switchMode(mode) {
     if (this.mode === mode) return
     this.setMode(mode)
-    // 同步 URL: 仅书写页（存在 ?char=）时更新 mode 参数
+    // 同步 URL: 仅书写页（存在 ?zi=）时更新 mode 参数
     const params = new URLSearchParams(window.location.search)
-    if (params.get('char')) {
+    if (params.get('zi')) {
       params.set('mode', mode)
       history.replaceState(null, '', `?${params.toString()}`)
     }
@@ -503,7 +503,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   // 内部坐标系，再换算为盒相对坐标（超出盒外部分 clamp 到允许范围）；
   // 滑出画布时同样 clamp，避免越界点
   getPointFromEvent(event, pressure) {
-    const box = this.charBoxValue
+    const box = this.ziBoxValue
     if (!box) return null
     const rect = this.canvas.getBoundingClientRect()
     const scaleX = this.width / (rect.width || this.width)
@@ -530,7 +530,7 @@ Alpine.data('strokePad', (opts = {}) => ({
     // 单点笔画也支持（"点"）
     if (this.currentStroke && this.currentStroke.points.length >= 1) {
       // 笔刷归一化: 笔刷面积/背景字墨迹盒面积，播放时按当前盒面积还原
-      const box = this.charBoxValue
+      const box = this.ziBoxValue
       if (box) {
         this.recorder.setBrush(normalizeBrush(this.penWidth, box.w, box.h))
       }
@@ -569,7 +569,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   renderCurrentSegment() {
     const pts = this.currentStroke.points
     if (pts.length === 0) return
-    const box = this.charBoxValue
+    const box = this.ziBoxValue
     if (!box) return
     const px = pts.map(p => ({
       x: box.x0 + p.x * box.w,
@@ -624,7 +624,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   // brush（面积比）按当前盒面积还原（忠实显示录制笔宽）；颜色为前端展示配置
   // 高亮仅颜色区分，不改变笔宽
   drawTrajectory(trajectory, color, highlight = false) {
-    const box = this.charBoxValue
+    const box = this.ziBoxValue
     if (!box) return
     const pts = trajectory.points
     if (!pts || pts.length === 0) return
@@ -642,8 +642,8 @@ Alpine.data('strokePad', (opts = {}) => ({
 
   // 回放背景: 当前汉字（楷体半透明，颜色适配主题色）作为书写参照，而非书写笔画
   drawPlaybackBackground() {
-    if (!this.currentChar) return
-    this.drawCharRef(charRefColor())
+    if (!this.currentZi) return
+    this.drawZiRef(ziRefColor())
   },
 
   // ---- 撤销/清空 ----

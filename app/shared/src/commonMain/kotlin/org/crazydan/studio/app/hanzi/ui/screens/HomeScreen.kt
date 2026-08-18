@@ -42,13 +42,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.crazydan.studio.app.hanzi.shared.CharEntry
+import org.crazydan.studio.app.hanzi.shared.ZiEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.ui.Blue500
 import org.crazydan.studio.app.hanzi.ui.Gray400
 import org.crazydan.studio.app.hanzi.ui.Gray500
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
-import org.crazydan.studio.app.hanzi.ui.components.CharCell
+import org.crazydan.studio.app.hanzi.ui.components.ZiCell
 import org.crazydan.studio.app.hanzi.ui.components.DarkModeIcon
 import org.crazydan.studio.app.hanzi.ui.components.InlineLinkText
 import org.crazydan.studio.app.hanzi.ui.components.LightModeIcon
@@ -64,13 +64,13 @@ fun HomeScreen(
     db: HanziDb,
     dark: Boolean,
     onToggleTheme: () -> Unit,
-    onOpenChar: (String) -> Unit,
+    onOpenZi: (String) -> Unit,
     onOpenCommons: () -> Unit,
     onOpenPinyin: (String) -> Unit,
     onOpenStrokeManage: () -> Unit,
     onOpenDonate: () -> Unit,
-    initialCommons: List<CharEntry>? = null,
-    onCommonsLoaded: (List<CharEntry>?) -> Unit = {}
+    initialCommons: List<ZiEntry>? = null,
+    onCommonsLoaded: (List<ZiEntry>?) -> Unit = {}
 ) {
     var query by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
@@ -153,7 +153,7 @@ fun HomeScreen(
                 textStyle = TextStyle(fontFamily = FontFamily.Default),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = {
-                    onSearch(query, onOpenChar, onOpenPinyin) { error = it }
+                    onSearch(query, onOpenZi, onOpenPinyin) { error = it }
                 }),
                 modifier = Modifier.weight(1f)
             )
@@ -164,7 +164,7 @@ fun HomeScreen(
                     contentColor = Color.White
                 ),
                 onClick = {
-                    onSearch(query, onOpenChar, onOpenPinyin) { error = it }
+                    onSearch(query, onOpenZi, onOpenPinyin) { error = it }
                 }
             ) {
                 Text("查询")
@@ -240,9 +240,9 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 row.forEach { e ->
-                                    CharCell(
+                                    ZiCell(
                                         entry = e,
-                                        onClick = { onOpenChar(e.character) },
+                                        onClick = { onOpenZi(e.zi) },
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -286,7 +286,7 @@ fun HomeScreen(
                 when {
                     !strokeChecked -> Unit
                     strokeInfo != null -> Text(
-                        text = "当前可访问 ${strokeInfo!!.charCount} 个汉字的笔画数据（共 ${strokeInfo!!.strokeCount} 笔）。",
+                        text = "当前可访问 ${strokeInfo!!.ziCount} 个汉字的笔画数据（共 ${strokeInfo!!.strokeCount} 笔）。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp)
@@ -424,14 +424,14 @@ fun ThemeIconButton(dark: Boolean, onToggleTheme: () -> Unit) {
 // 查询路由: 单个汉字 → 汉字信息页；纯拼音（允许 ü）→ 拼音字列表页
 private fun onSearch(
     raw: String,
-    onOpenChar: (String) -> Unit,
+    onOpenZi: (String) -> Unit,
     onOpenPinyin: (String) -> Unit,
     onError: (String) -> Unit
 ) {
     val q = raw.trim().replace("v", "ü")
     if (q.isEmpty()) return
     when {
-        q.length == 1 && q[0] in '\u4e00'..'\u9fff' -> onOpenChar(q)
+        q.length == 1 && q[0] in '\u4e00'..'\u9fff' -> onOpenZi(q)
         q.all { it.lowercaseChar() in 'a'..'z' || it == 'ü' } -> onOpenPinyin(q.lowercase())
         else -> onError("请输入单个汉字或纯拼音（不带声调）")
     }

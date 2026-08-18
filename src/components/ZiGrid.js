@@ -7,25 +7,25 @@ import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 
 const CELL_CLASS = 'flex flex-col items-center gap-0.5 py-2 rounded-lg border border-transparent hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer dark:hover:bg-gray-700 dark:hover:border-blue-500'
 
-Alpine.data('charGrid', (chars = []) => ({
-  chars: chars || [],
+Alpine.data('ziGrid', (zis = []) => ({
+  zis: zis || [],
 
-  setChars(list) {
-    this.chars = list || []
+  setZis(list) {
+    this.zis = list || []
   },
 
   get gridHtml() {
-    return this.chars.map(c =>
-      `<button type="button" data-char="${c[0]}" class="${CELL_CLASS}">` +
+    return this.zis.map(c =>
+      `<button type="button" data-zi="${c[0]}" class="${CELL_CLASS}">` +
         `<span class="text-xs text-gray-400 dark:text-gray-400">${numberToSymbolTonePinyin(c[1])}</span>` +
         `<span class="text-3xl font-kaiti leading-none">${c[0]}</span>` +
       `</button>`).join('')
   },
 
-  // 点击格子 → 汉字信息页（事件委托: /char/?v=）
+  // 点击格子 → 汉字信息页（事件委托: /zi/?v=）
   onGridClick(event) {
-    const btn = event.target.closest('[data-char]')
+    const btn = event.target.closest('[data-zi]')
     if (!btn) return
-    location.href = `/char/?v=${encodeURIComponent(btn.dataset.char)}`
+    location.href = `/zi/?v=${encodeURIComponent(btn.dataset.zi)}`
   }
 }))

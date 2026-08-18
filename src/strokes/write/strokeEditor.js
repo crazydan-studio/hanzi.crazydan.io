@@ -2,23 +2,23 @@
 // 职责: 汉字信息/笔画列表的服务端同步（API 耦合留在此层）
 //   - 组合 src/components/StrokePad.js（公共书写板，零后端耦合）
 //   - 通过 padOpts 回调接收书写板输出（录入笔画/悬停/模式/回放进度）
-//   - 通过 $refs.pad 调用书写板实例方法注入数据（loadStrokes/setCharacter/setMode...）
+//   - 通过 $refs.pad 调用书写板实例方法注入数据（loadStrokes/setZi/setMode...）
 import Alpine from 'alpinejs'
 import { api } from '@services/api.js'
 import { createSyncClient } from '@services/syncClient.js'
 import { STROKE_TYPES, strokeTypesMap } from '@components/StrokeTypes.js'
-import { CHARACTER_STRUCTURES, characterStructuresMap, structureLabel } from '@components/CharacterStructures.js'
+import { ZI_STRUCTURES, ziStructuresMap, structureLabel } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 
 export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
-    character: null,
+    zi: null,
     strokes: [],
     STROKE_TYPES: STROKE_TYPES,
     strokeTypesMap: strokeTypesMap,
-    CHARACTER_STRUCTURES: CHARACTER_STRUCTURES,
-    characterStructuresMap: characterStructuresMap,
+    ZI_STRUCTURES: ZI_STRUCTURES,
+    ziStructuresMap: ziStructuresMap,
     structureLabel: structureLabel,      // 结构显示文本（含示例）
     symbolPinyin: numberToSymbolTonePinyin,   // 数字声调拼音 → 符号声调
     isSaving: false,
@@ -66,9 +66,9 @@ export function registerStrokeEditor() {
         onPlaybackToggle: (t) => this.onPlaybackToggle(t),
         onPenWidthChange: (w) => this.onPenWidthChange(w)
       }
-      // 书写页独立加载: 从 URL ?char= 解析目标汉字
-      const char = new URLSearchParams(window.location.search).get('char')
-      if (char) this.loadCharacter({ character: char })
+      // 书写页独立加载: 从 URL ?zi= 解析目标汉字
+      const zi = new URLSearchParams(window.location.search).get('zi')
+      if (zi) this.loadZi({ zi: zi })
       // 回放直达模式: ?mode=playback
       const mode = new URLSearchParams(window.location.search).get('mode')
       if (mode === 'playback') {
@@ -82,19 +82,19 @@ export function registerStrokeEditor() {
       this.sync = createSyncClient()
       const sync = this.sync
       // 当前字符 id（数字），用于事件匹配（后端广播为 number）
-      const currentId = () => (typeof this.character?.id === 'number' ? this.character.id : null)
+      const currentId = () => (typeof this.zi?.id === 'number' ? this.zi.id : null)
       // 他端写入了该字笔画 → 重新加载（服务端为权威状态）
       sync.on('strokes-changed', (p) => {
         const id = currentId()
-        if (id !== null && Number(p.characterId) === id) {
-          this.loadCharacter({ id })
+        if (id !== null && Number(p.ziId) === id) {
+          this.loadZi({ id })
         }
       })
       // 他端修改了该字信息（结构等）→ 重新加载
-      sync.on('character-updated', (p) => {
+      sync.on('zi-updated', (p) => {
         const id = currentId()
         if (id !== null && Number(p.id) === id) {
-          this.loadCharacter({ id })
+          this.loadZi({ id })
         }
       })
       // 他端页面跳转 → 跟随跳转
@@ -215,24 +215,24 @@ export function registerStrokeEditor() {
     },
 
     // 结构编辑（唯一可编辑字段，其余只读）
-    async updateCharacterStructure(character, structure) {
+    async updateZiStructure(zi, structure) {
       const code = Number(structure)
-      if (!Number.isInteger(code) || character.structure === code) return
+      if (!Number.isInteger(code) || zi.structure === code) return
       try {
-        const res = await api.patch(`/api/characters/${character.id}`, { structure: code })
-        this.character = res.data || this.character
+        const res = await api.patch(`/api/zi/${zi.id}`, { structure: code })
+        this.zi = res.data || this.zi
       } catch (e) {
         this.error = e.message
       }
     },
 
     // 部首编辑（同步后端）
-    async updateRadical(character, radical) {
+    async updateRadical(zi, radical) {
       const value = String(radical || '').trim()
-      if (character.radical === value) return
+      if (zi.radical === value) return
       try {
-        const res = await api.patch(`/api/characters/${character.id}`, { radical: value })
-        this.character = res.data || this.character
+        const res = await api.patch(`/api/zi/${zi.id}`, { radical: value })
+        this.zi = res.data || this.zi
       } catch (e) {
         this.error = e.message
       }
@@ -244,8 +244,8 @@ export function registerStrokeEditor() {
 
     // 笔顺参考图 URL: https://www.strokeorder.com/assets/bishun/stroke/{码点}.png
     get strokeRefUrl() {
-      if (!this.character?.character) return ''
-      const cp = this.character.character.codePointAt(0)
+      if (!this.zi?.zi) return ''
+      const cp = this.zi.zi.codePointAt(0)
       return `https://www.strokeorder.com/assets/bishun/stroke/${cp}.png`
     },
 
@@ -254,22 +254,22 @@ export function registerStrokeEditor() {
       this.strokeRefError = false
     },
 
-  // 加载汉字: 支持 { id }（列表选中）、{ character }（URL ?char= 直达）或裸 id
-  async loadCharacter(target) {
+  // 加载汉字: 支持 { id }（列表选中）、{ zi }（URL ?zi= 直达）或裸 id
+  async loadZi(target) {
     try {
       let res
       if (typeof target === 'number') {
-        res = await api.get(`/api/characters/${target}`)
+        res = await api.get(`/api/zi/${target}`)
       } else if (target?.id) {
-        res = await api.get(`/api/characters/${target.id}`)
-      } else if (target?.character) {
-        res = await api.get(`/api/characters/by-char/${encodeURIComponent(target.character)}`)
+        res = await api.get(`/api/zi/${target.id}`)
+      } else if (target?.zi) {
+        res = await api.get(`/api/zi/by-zi/${encodeURIComponent(target.zi)}`)
       } else {
         // 防御: 参数无效时静默（不打断同步流程），仅记录
-        console.warn('[strokeEditor] loadCharacter 收到无效参数:', target)
+        console.warn('[strokeEditor] loadZi 收到无效参数:', target)
         return
       }
-        this.character = res.data || null
+        this.zi = res.data || null
         this.strokes = res.data?.strokes || []
         // 数据重载后清空重绘状态（目标笔画可能已变化）
         // 注意: 不清空重做栈与清空备份 —— 本端写操作（撤销/删除/清空）会触发服务端
@@ -277,11 +277,11 @@ export function registerStrokeEditor() {
         this.redrawStroke = null
         this._lastOp = null
         // 数据注入公共书写板（参考字 + 笔画）
-        this.pad.setCharacter(this.character?.character || '')
+        this.pad.setZi(this.zi?.zi || '')
         this.pad.loadStrokes(this.strokes)
       } catch (e) {
         this.error = e.message
-        this.character = null
+        this.zi = null
         this.strokes = []
       }
     },
@@ -339,7 +339,7 @@ export function registerStrokeEditor() {
           return true
         }
         const res = await api.patch(
-          `/api/characters/${this.character.id}/strokes/${target.id}`,
+          `/api/zi/${this.zi.id}/strokes/${target.id}`,
           { trajectory_data: localStroke.trajectory_data })
         // 用新轨迹替换本地旧笔画（保持原位与笔顺）
         const idx = this.strokes.findIndex(s => s.id === target.id)
@@ -403,7 +403,7 @@ export function registerStrokeEditor() {
       const order = this.strokes.some(x => x.stroke_order === s.stroke_order)
         ? this.nextStrokeOrder() : s.stroke_order
       try {
-        const res = await api.post(`/api/characters/${this.character.id}/strokes`, {
+        const res = await api.post(`/api/zi/${this.zi.id}/strokes`, {
           stroke_order: order,
           stroke_type: s.stroke_type,
           trajectory_data: s.trajectory_data
@@ -439,7 +439,7 @@ export function registerStrokeEditor() {
         trajectory_data: s.trajectory_data
       }))
       try {
-        const res = await api.post(`/api/characters/${this.character.id}/strokes/batch`, { strokes })
+        const res = await api.post(`/api/zi/${this.zi.id}/strokes/batch`, { strokes })
         this.strokes = (res.data || []).slice().sort((a, b) => a.stroke_order - b.stroke_order)
         this.pad.loadStrokes(this.strokes)
         this.clearedStrokes = []
@@ -453,14 +453,14 @@ export function registerStrokeEditor() {
       this.isSaving = true
       try {
         const res = await api.post(
-          `/api/characters/${this.character.id}/strokes`, {
+          `/api/zi/${this.zi.id}/strokes`, {
             stroke_order: this.nextStrokeOrder(),
             stroke_type: 0,              // 0 = 未指定（数字编码）
             trajectory_data: localStroke.trajectory_data   // 仅坐标点数据
           })
         // 保存期间该笔画被撤销（画布已移除）→ 服务端补删，保持一致性
         if (this.cancelledLocalIds.has(localStroke.id)) {
-          await api.delete(`/api/characters/${this.character.id}/strokes/${res.data.id}`)
+          await api.delete(`/api/zi/${this.zi.id}/strokes/${res.data.id}`)
           this.cancelledLocalIds.delete(localStroke.id)
           return true
         }
@@ -498,7 +498,7 @@ export function registerStrokeEditor() {
     async deleteStroke(strokeId) {
       this.isDeleting++
       try {
-        await api.delete(`/api/characters/${this.character.id}/strokes/${strokeId}`)
+        await api.delete(`/api/zi/${this.zi.id}/strokes/${strokeId}`)
         this.strokes = this.strokes.filter(s => s.id !== strokeId)
         this.pad.removeStroke(strokeId)   // 书写板同步移除
       } catch (e) {
@@ -565,7 +565,7 @@ export function registerStrokeEditor() {
     async saveReorder(strokeIds) {
       try {
         const res = await api.post(
-          `/api/characters/${this.character.id}/strokes/reorder`, { strokeIds })
+          `/api/zi/${this.zi.id}/strokes/reorder`, { strokeIds })
         this.strokes = res.data || this.strokes
         // 重排后重做栈失效
         this.redoStack = []
@@ -575,7 +575,7 @@ export function registerStrokeEditor() {
       } catch (e) {
         this.error = e.message
         // 失败回滚: 重新从服务端加载
-        this.loadCharacter({ id: this.character.id })
+        this.loadZi({ id: this.zi.id })
       }
     },
 
@@ -585,7 +585,7 @@ export function registerStrokeEditor() {
       if (!Number.isInteger(code) || stroke.stroke_type === code) return
       try {
         const res = await api.patch(
-          `/api/characters/${this.character.id}/strokes/${stroke.id}`,
+          `/api/zi/${this.zi.id}/strokes/${stroke.id}`,
           { stroke_type: code })
         const idx = this.strokes.findIndex(s => s.id === stroke.id)
         if (idx !== -1) this.strokes[idx] = res.data

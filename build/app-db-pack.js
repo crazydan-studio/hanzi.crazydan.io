@@ -1,8 +1,8 @@
 // 打包「汉字信息」数据库到 App 资源目录（App 内置库; 笔画数据为独立库，另行导出/下载）
 // 数据源: server/data/hanzi_stroke.db（WAL 模式）
-// 产物:   app/android/src/main/assets/db/hanzi.db（仅 characters 表）+ hanzi.db.sha256
+// 产物:   app/android/src/main/assets/db/hanzi.db（仅 zi 表）+ hanzi.db.sha256
 // 说明:
-//   - 汉字信息（characters 表）在打包时单独导出，笔画数据（strokes 表）不打包
+//   - 汉字信息（zi 表）在打包时单独导出，笔画数据（strokes 表）不打包
 //     （见 build/export-stroke-db.js，经 pnpm export:stroke-db 生成后单独发布/下载）
 //   - 汉字数据未变化时不重新生成（产物与上一次完全一致则跳过，避免重复构建差异）
 //   - WAL 模式下直接复制主库文件可能丢失 WAL 中未落盘的写入，先 checkpoint 再导出
@@ -41,9 +41,9 @@ function main() {
       const out = new DatabaseSync(tmp)
       try {
         out.exec(`
-          CREATE TABLE characters (
+          CREATE TABLE zi (
             id INTEGER PRIMARY KEY,
-            character TEXT NOT NULL UNIQUE,
+            zi TEXT NOT NULL UNIQUE,
             pinyin TEXT NOT NULL DEFAULT '[]',
             used_weight INTEGER NOT NULL DEFAULT 0,
             structure INTEGER DEFAULT 0,
@@ -51,13 +51,13 @@ function main() {
             total_stroke_count INTEGER NOT NULL DEFAULT 0
           )
         `)
-        out.exec(`CREATE UNIQUE INDEX idx_characters_character_unique ON characters(character)`)
+        out.exec(`CREATE UNIQUE INDEX idx_zi_zi_unique ON zi(zi)`)
         const ins = out.prepare(`
-          INSERT INTO characters (id, character, pinyin, used_weight, structure, radical, total_stroke_count)
+          INSERT INTO zi (id, zi, pinyin, used_weight, structure, radical, total_stroke_count)
           VALUES (?, ?, ?, ?, ?, ?, ?)`)
-        const rows = db.prepare('SELECT id, character, pinyin, used_weight, structure, radical, total_stroke_count FROM characters').all()
+        const rows = db.prepare('SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count FROM zi').all()
         for (const r of rows) {
-          ins.run(r.id, r.character, r.pinyin, r.used_weight ?? 0,
+          ins.run(r.id, r.zi, r.pinyin, r.used_weight ?? 0,
             r.structure ?? 0, r.radical ?? '', r.total_stroke_count ?? 0)
         }
       } finally {

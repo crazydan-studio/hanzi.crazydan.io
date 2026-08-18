@@ -1,7 +1,7 @@
 package org.crazydan.studio.app.hanzi.shared
 
 /**
- * 汉字展示标签（与前端 src/components/CharacterStructures.js、StrokeTypes.js 一致）
+ * 汉字展示标签（与前端 src/components/ZiStructures.js、StrokeTypes.js 一致）
  */
 object HanziLabels {
 

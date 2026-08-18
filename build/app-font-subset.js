@@ -1,6 +1,6 @@
-// 精简中易楷体: 仅保留汉字库（characters 表）内的汉字，降低字体文件大小
+// 精简中易楷体: 仅保留汉字库（zi 表）内的汉字，降低字体文件大小
 // 数据源:
-//   - server/data/hanzi_stroke.db（characters 表，id = 汉字 unicode 数值）
+//   - server/data/hanzi_stroke.db（zi 表，id = 汉字 unicode 数值）
 //   - build/fonts/ZhongYiKaiTi.ttf（全量中易楷体，构建资源，不随 App 打包）
 // 产物:
 //   - app/android/src/main/assets/font/ZhongYiKaiTi.ttf（App 内置子集;
@@ -39,15 +39,15 @@ async function main() {
 
   // 1. 汉字库内全部汉字
   const db = new DatabaseSync(SRC_DB, { readOnly: true })
-  const rows = db.prepare('SELECT character FROM characters').all()
+  const rows = db.prepare('SELECT zi FROM zi').all()
   db.close()
-  const chars = rows.map(r => r.character).join('')
-  console.log(`汉字库汉字数量: ${chars.length}`)
+  const zis = rows.map(r => r.zi).join('')
+  console.log(`汉字库汉字数量: ${zis.length}`)
 
   // 2. 字体子集（harfbuzz hb-subset，保留字形轮廓与 cmap）: App 用 TTF、web 用 woff2
   const original = fs.readFileSync(SRC_FONT)
   for (const { file, format } of DSTS) {
-    const subset = await subsetFont(original, chars, { targetFormat: format })
+    const subset = await subsetFont(original, zis, { targetFormat: format })
     fs.writeFileSync(file, subset)
   }
 

@@ -51,13 +51,13 @@ fun StrokeDataManageScreen(
 ) {
     var info by remember { mutableStateOf<StrokeDbInfo?>(null) }
     var statusChecked by remember { mutableStateOf(false) }
-    var totalChars by remember { mutableStateOf(0) }
+    var totalZi by remember { mutableStateOf(0) }
     var notice by remember { mutableStateOf<String?>(null) }
 
     // 进入页面时检查已配置的笔画数据库（存在且完整）
     LaunchedEffect(Unit) {
         info = withContext(Dispatchers.Default) { db.strokeDbInfo() }
-        totalChars = withContext(Dispatchers.Default) { db.queryCharCount() }
+        totalZi = withContext(Dispatchers.Default) { db.queryZiCount() }
         statusChecked = true
     }
 
@@ -100,7 +100,7 @@ fun StrokeDataManageScreen(
             } else if (info != null) {
                 val i = info!!
                 Text(
-                    text = "已配置笔画数据库，可访问 **${i.charCount}** 个汉字的笔画数据（共 ${i.strokeCount} 笔）。",
+                    text = "已配置笔画数据库，可访问 **${i.ziCount}** 个汉字的笔画数据（共 ${i.strokeCount} 笔）。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -166,7 +166,7 @@ fun StrokeDataManageScreen(
                 onClick = { downloadScale("5000") }
             )
             ScaleOption(
-                title = "全部（约 ${formatWan(totalChars)}，与汉字实际数量相匹配）",
+                title = "全部（约 ${formatWan(totalZi)}，与汉字实际数量相匹配）",
                 desc = "全部汉字的笔画数据（完整规模）",
                 onClick = { downloadScale("full") }
             )

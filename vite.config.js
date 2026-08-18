@@ -28,9 +28,9 @@ function apiPort() {
 }
 
 // 目录式页面: 跳转只指定目录，自动定位到目录下的 index.html
-// dev/preview 下将 /char /pinyin /strokes(/write) 重定向到带尾斜杠路径
+// dev/preview 下将 /zi /pinyin /strokes(/write) 重定向到带尾斜杠路径
 // （与生产 express.static 行为一致）
-const DIR_PAGES = ['/strokes/write', '/strokes', '/commons', '/donate', '/char', '/pinyin']
+const DIR_PAGES = ['/strokes/write', '/strokes', '/commons', '/donate', '/zi', '/pinyin']
 
 function dirIndexRewrite(req, res, next) {
   const pathname = req.url.split('?')[0]
@@ -48,7 +48,7 @@ function flattenPages() {
     name: 'hanzi-flatten-pages',
     closeBundle() {
       const srcDist = path.join(__dirname, 'dist', 'src')
-      for (const name of ['index.html', 'char/index.html', 'pinyin/index.html',
+      for (const name of ['index.html', 'zi/index.html', 'pinyin/index.html',
         'commons/index.html', 'donate/index.html', 'strokes/index.html', 'strokes/write/index.html']) {
         const from = path.join(srcDist, name)
         const to = path.join(__dirname, 'dist', name)
@@ -139,7 +139,7 @@ export default defineConfig({
         // 功能页入口位于 src/ 源码目录，dev 下将页面 URL 映射到对应 HTML 文件
         const SRC_PAGES = {
           '/': 'src/index.html',
-          '/char/': 'src/char/index.html',
+          '/zi/': 'src/zi/index.html',
           '/pinyin/': 'src/pinyin/index.html',
           '/commons/': 'src/commons/index.html',
           '/donate/': 'src/donate/index.html',
@@ -192,7 +192,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: path.resolve(__dirname, 'src/index.html'),
-        char: path.resolve(__dirname, 'src/char/index.html'),
+        zi: path.resolve(__dirname, 'src/zi/index.html'),
         pinyin: path.resolve(__dirname, 'src/pinyin/index.html'),
         commons: path.resolve(__dirname, 'src/commons/index.html'),
         donate: path.resolve(__dirname, 'src/donate/index.html'),

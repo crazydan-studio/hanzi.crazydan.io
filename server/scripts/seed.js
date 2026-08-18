@@ -6,23 +6,23 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { initDatabase, closeDatabase } from '../services/database.js'
 import { strokeService } from '../services/strokeService.js'
-import { characterService } from '../services/characterService.js'
+import { ziService } from '../services/ziService.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 initDatabase()
 
 const seedData = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed-data.json'), 'utf8'))
 
-for (const item of seedData.characters) {
-  const { strokes, ...charData } = item
+for (const item of seedData.zi) {
+  const { strokes, ...ziData } = item
   try {
-    const character = characterService.create(charData)
+    const zi = ziService.create(ziData)
     if (strokes?.length) {
-      strokeService.createBatch(character.id, strokes)   // 事务批量插入
+      strokeService.createBatch(zi.id, strokes)   // 事务批量插入
     }
-    console.log(`Seeded: ${charData.character}`)
+    console.log(`Seeded: ${ziData.zi}`)
   } catch (e) {
-    console.error(`Skipped ${charData.character}: ${e.message}`)
+    console.error(`Skipped ${ziData.zi}: ${e.message}`)
   }
 }
 console.log('Seed complete')

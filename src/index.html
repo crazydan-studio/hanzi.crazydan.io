@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
+  <meta ziset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>汉字 | 首页</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
@@ -47,8 +47,8 @@
         <p x-show="!commonsLoading && !commonsError && commons.length === 0" x-cloak
           class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">暂无常用字数据</p>
         <div x-show="!commonsLoading && !commonsError && commons.length"
-        x-data="charGrid()" x-effect="setChars(commons)" @click="onGridClick($event)" x-html="gridHtml"
-        class="char-grid"></div>
+        x-data="ziGrid()" x-effect="setZis(commons)" @click="onGridClick($event)" x-html="gridHtml"
+        class="zi-grid"></div>
         <!-- 加载中: 悬浮于列表区域上层 -->
         <div x-show="commonsLoading" class="loading-overlay">
           <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">

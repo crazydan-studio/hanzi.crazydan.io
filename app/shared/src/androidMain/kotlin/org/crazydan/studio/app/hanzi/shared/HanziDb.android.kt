@@ -46,8 +46,8 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
                 sdb.close()
                 return
             }
-            val charCount = sdb.rawQuery(
-                "SELECT COUNT(*) FROM (SELECT DISTINCT character_id FROM strokes)", null
+            val ziCount = sdb.rawQuery(
+                "SELECT COUNT(*) FROM (SELECT DISTINCT zi_id FROM strokes)", null
             ).use {
                 it.moveToFirst()
                 it.getInt(0)
@@ -56,12 +56,12 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
                 it.moveToFirst()
                 it.getInt(0)
             }
-            if (charCount <= 0) {
+            if (ziCount <= 0) {
                 sdb.close()
                 return
             }
             strokeDb = sdb
-            strokeInfo = StrokeDbInfo(charCount, strokeCount)
+            strokeInfo = StrokeDbInfo(ziCount, strokeCount)
         } catch (e: Exception) {
             // 数据库无效（损坏/格式不符）: 静默清除
             strokeDb?.close()
@@ -72,17 +72,17 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
 
     override fun strokeDbInfo(): StrokeDbInfo? = strokeInfo
 
-    override fun queryCharCount(): Int =
-        db.rawQuery("SELECT COUNT(*) FROM characters", null).use {
+    override fun queryZiCount(): Int =
+        db.rawQuery("SELECT COUNT(*) FROM zi", null).use {
             it.moveToFirst()
             it.getInt(0)
         }
 
-    override fun queryCommons(limit: Int): List<CharEntry> {
-        val out = ArrayList<CharEntry>(limit)
+    override fun queryCommons(limit: Int): List<ZiEntry> {
+        val out = ArrayList<ZiEntry>(limit)
         queryAll(
-            "SELECT character, pinyin FROM characters " +
-                "ORDER BY used_weight DESC, character ASC LIMIT ?",
+            "SELECT zi, pinyin FROM zi " +
+                "ORDER BY used_weight DESC, zi ASC LIMIT ?",
             arrayOf(limit.toString())
         ) { cursor ->
             out.add(entry(cursor))
@@ -90,34 +90,34 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
         return out
     }
 
-    override fun queryPinyinList(plainPinyin: String): List<CharEntry> {
-        val out = ArrayList<CharEntry>()
+    override fun queryPinyinList(plainPinyin: String): List<ZiEntry> {
+        val out = ArrayList<ZiEntry>()
         // 走端侧拼音关联表（ensurePinyinIndexes 创建），避免全表扫描与读音 JSON 解析
         queryAll(
-            "SELECT c.character, p.value AS reading " +
+            "SELECT c.zi, p.value AS reading " +
                 "FROM pinyin_plain pp " +
                 "JOIN pinyin_map pm ON pm.plain_id = pp.id " +
                 "JOIN pinyin p ON p.id = pm.pinyin_id " +
-                "JOIN char_pinyin cp ON cp.pinyin_id = p.id " +
-                "JOIN characters c ON c.id = cp.character_id " +
+                "JOIN zi_pinyin cp ON cp.pinyin_id = p.id " +
+                "JOIN zi c ON c.id = cp.zi_id " +
                 "WHERE pp.value = ? " +
-                "ORDER BY cp.used_weight DESC, c.character ASC",
+                "ORDER BY cp.used_weight DESC, c.zi ASC",
             arrayOf(plainPinyin)
         ) { cursor ->
-            out.add(CharEntry(cursor.getString(0), cursor.getString(1)))
+            out.add(ZiEntry(cursor.getString(0), cursor.getString(1)))
         }
         return out
     }
 
-    override fun queryCharMeta(unicode: Int): CharMeta? {
+    override fun queryZiMeta(unicode: Int): ZiMeta? {
         return queryFirst(
-            "SELECT character, pinyin, total_stroke_count, radical, structure " +
-                "FROM characters WHERE id = ?",
+            "SELECT zi, pinyin, total_stroke_count, radical, structure " +
+                "FROM zi WHERE id = ?",
             arrayOf(unicode.toString())
         ) { cursor ->
             val pinyin = JSONArray(cursor.getString(1))
-            CharMeta(
-                character = cursor.getString(0),
+            ZiMeta(
+                zi = cursor.getString(0),
                 unicode = unicode,
                 pinyin = List(pinyin.length()) { pinyin.getString(it) },
                 totalStrokeCount = cursor.getInt(2),
@@ -127,12 +127,12 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
         }
     }
 
-    override fun queryCharStrokes(unicode: Int): List<CharStroke> {
+    override fun queryZiStrokes(unicode: Int): List<ZiStroke> {
         val sdb = strokeDb ?: return emptyList()   // 未配置笔画数据库
-        val out = ArrayList<CharStroke>()
+        val out = ArrayList<ZiStroke>()
         queryAll(
             "SELECT stroke_order, stroke_type, trajectory_data FROM strokes " +
-                "WHERE character_id = ? ORDER BY stroke_order",
+                "WHERE zi_id = ? ORDER BY stroke_order",
             arrayOf(unicode.toString())
         ) { cursor ->
             val traj = try {
@@ -163,7 +163,7 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
                 list.add(point)
                 prev = point
             }
-            out.add(CharStroke(cursor.getInt(0), cursor.getInt(1), traj.optInt("brush", 0), list))
+            out.add(ZiStroke(cursor.getInt(0), cursor.getInt(1), traj.optInt("brush", 0), list))
         }
         return out
     }
@@ -194,14 +194,14 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
                     "plain_id INTEGER NOT NULL)"
             )
             db.execSQL(
-                "CREATE TABLE char_pinyin (" +
-                    "character_id INTEGER NOT NULL, " +
+                "CREATE TABLE zi_pinyin (" +
+                    "zi_id INTEGER NOT NULL, " +
                     "pinyin_id INTEGER NOT NULL, " +
                     "used_weight INTEGER NOT NULL DEFAULT 0)"
             )
-            db.execSQL("CREATE INDEX idx_characters_weight ON characters(used_weight DESC, character ASC)")
+            db.execSQL("CREATE INDEX idx_zi_weight ON zi(used_weight DESC, zi ASC)")
             db.execSQL("CREATE INDEX idx_pinyin_map_plain ON pinyin_map(plain_id, pinyin_id)")
-            db.execSQL("CREATE INDEX idx_char_pinyin_pinyin ON char_pinyin(pinyin_id, used_weight, character_id)")
+            db.execSQL("CREATE INDEX idx_zi_pinyin_pinyin ON zi_pinyin(pinyin_id, used_weight, zi_id)")
 
             fillPinyinIndexes()
             db.execSQL("COMMIT")
@@ -220,8 +220,8 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
         val insMap = db.compileStatement(
             "INSERT OR IGNORE INTO pinyin_map(pinyin_id, plain_id) VALUES (?, ?)"
         )
-        val insCharPinyin = db.compileStatement(
-            "INSERT INTO char_pinyin(character_id, pinyin_id, used_weight) VALUES (?, ?, ?)"
+        val insZiPinyin = db.compileStatement(
+            "INSERT INTO zi_pinyin(zi_id, pinyin_id, used_weight) VALUES (?, ?, ?)"
         )
 
         // 内存缓存读音 id（读音重复率高，避免反复查库）
@@ -239,8 +239,8 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
             return id
         }
 
-        queryAll("SELECT id, pinyin, used_weight FROM characters", null) { cursor ->
-            val characterId = cursor.getLong(0)
+        queryAll("SELECT id, pinyin, used_weight FROM zi", null) { cursor ->
+            val ziId = cursor.getLong(0)
             val weight = cursor.getInt(2)
             val readings = JSONArray(cursor.getString(1))
             val seenPlain = HashSet<String>()
@@ -253,10 +253,10 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
                 insMap.bindLong(1, pinyinId)
                 insMap.bindLong(2, plainId)
                 insMap.executeInsert()
-                insCharPinyin.bindLong(1, characterId)
-                insCharPinyin.bindLong(2, pinyinId)
-                insCharPinyin.bindLong(3, weight.toLong())
-                insCharPinyin.executeInsert()
+                insZiPinyin.bindLong(1, ziId)
+                insZiPinyin.bindLong(2, pinyinId)
+                insZiPinyin.bindLong(3, weight.toLong())
+                insZiPinyin.executeInsert()
             }
         }
     }
@@ -268,10 +268,10 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
     }
 
     // 列表条目 [字, 第一个读音]
-    private fun entry(cursor: Cursor): CharEntry {
+    private fun entry(cursor: Cursor): ZiEntry {
         val readings = JSONArray(cursor.getString(1))
         val first = if (readings.length() > 0) readings.getString(0) else ""
-        return CharEntry(cursor.getString(0), first)
+        return ZiEntry(cursor.getString(0), first)
     }
 
     // 数字声调拼音 → 无声调拼音（去掉尾部声调数字）

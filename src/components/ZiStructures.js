@@ -1,7 +1,7 @@
 // 汉字结构类型定义（数字编码稳定不变）
-// code: 数字编码（characters.structure 存储值） | name: 结构名
+// code: 数字编码（zi.structure 存储值） | name: 结构名
 // examples: 示例汉字
-export const CHARACTER_STRUCTURES = [
+export const ZI_STRUCTURES = [
   { code: 0, name: '未指定',     examples: [] },
   { code: 1, name: '独体字',     examples: ['人', '日', '水'] },
   { code: 2, name: '左右结构',   examples: ['好', '明', '林'] },
@@ -15,8 +15,8 @@ export const CHARACTER_STRUCTURES = [
 ]
 
 // code → 结构对象映射
-export const characterStructuresMap = Object.fromEntries(
-  CHARACTER_STRUCTURES.map(s => [s.code, s]))
+export const ziStructuresMap = Object.fromEntries(
+  ZI_STRUCTURES.map(s => [s.code, s]))
 
 // 结构展示名（不含「结构」二字、无示例；对应静态数据 meta.json 中存储的结构编码）
 export const STRUCTURE_DISPLAY_NAMES = {
@@ -30,7 +30,7 @@ export function structureDisplayName(code) {
 
 // 结构显示文本（名称 + 示例，如 "左右结构 (好·明·林)"）
 export function structureLabel(code) {
-  const s = characterStructuresMap[code ?? 0]
+  const s = ziStructuresMap[code ?? 0]
   if (!s) return '未指定'
   return s.examples?.length ? `${s.name} (${s.examples.join('·')})` : s.name
 }

@@ -29,13 +29,13 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.crazydan.studio.app.hanzi.shared.CharStroke
+import org.crazydan.studio.app.hanzi.shared.ZiStroke
 import org.crazydan.studio.app.hanzi.shared.StrokeFormat
 import org.crazydan.studio.app.hanzi.shared.StrokePoint
 import org.crazydan.studio.app.hanzi.ui.Gray900
 import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
 import org.crazydan.studio.app.hanzi.ui.Platform
-import org.crazydan.studio.app.hanzi.ui.charRefColor
+import org.crazydan.studio.app.hanzi.ui.ziRefColor
 import org.crazydan.studio.app.hanzi.ui.strokeHighlightColor
 import org.crazydan.studio.app.hanzi.ui.strokeInkColor
 import org.crazydan.studio.app.hanzi.ui.tianZiGeColor
@@ -52,10 +52,10 @@ import org.crazydan.studio.app.hanzi.ui.tianZiGeColor
 private const val STROKE_GAP_MS = StrokeFormat.STROKE_GAP_MS
 
 /** 背景字墨迹盒（画布像素坐标）: 笔画坐标还原的基准（x 按盒宽、y 按盒高） */
-private class CharBox(val x0: Float, val y0: Float, val w: Float, val h: Float)
+private class ZiBox(val x0: Float, val y0: Float, val w: Float, val h: Float)
 
 /** 播放状态机（与 AnimationEngine.js 单一状态机对应） */
-class WritingPlayer(private val strokes: List<CharStroke>) {
+class WritingPlayer(private val strokes: List<ZiStroke>) {
 
     enum class State { IDLE, PLAYING, PAUSED, COMPLETED }
 
@@ -265,7 +265,7 @@ private fun smooth(values: List<Float>): List<Float> {
 
 /** 播放状态持有者: 笔画列表变化时重建播放器并驱动帧循环（仅播放期间占用帧回调） */
 @Composable
-fun rememberWritingPlayer(strokes: List<CharStroke>): WritingPlayer {
+fun rememberWritingPlayer(strokes: List<ZiStroke>): WritingPlayer {
     val player = remember(strokes) { WritingPlayer(strokes) }
     LaunchedEffect(player) {
         snapshotFlow { player.state }.collect { state ->
@@ -289,8 +289,8 @@ fun rememberWritingPlayer(strokes: List<CharStroke>): WritingPlayer {
  */
 @Composable
 fun WritingAnimationCanvas(
-    strokes: List<CharStroke>,
-    character: String,
+    strokes: List<ZiStroke>,
+    zi: String,
     dark: Boolean,
     modifier: Modifier = Modifier,
     player: WritingPlayer? = null,
@@ -299,7 +299,7 @@ fun WritingAnimationCanvas(
     val ink = strokeInkColor(dark)
     val highlight = strokeHighlightColor
     val border = tianZiGeColor(dark)
-    val ref = charRefColor(dark)
+    val ref = ziRefColor(dark)
 
     Canvas(
         modifier = modifier
@@ -310,8 +310,8 @@ fun WritingAnimationCanvas(
         val unit = size.width / StrokeFormat.INTERNAL_SIZE   // 前端 500×500 内部坐标系缩放
         // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
         drawTianZiGe(border, unit)
-        val layout = drawCharRef(character, ref, textMeasurer)
-        drawCharBoxDebug(layout, unit)
+        val layout = drawZiRef(zi, ref, textMeasurer)
+        drawZiBoxDebug(layout, unit)
         val box = layout?.box
 
         val completed = if (player != null) player.currentIndex.coerceIn(0, strokes.size) else strokes.size
@@ -335,9 +335,9 @@ fun WritingAnimationCanvas(
  */
 @Composable
 fun StrokeCellCanvas(
-    strokes: List<CharStroke>,
+    strokes: List<ZiStroke>,
     index: Int,
-    character: String,
+    zi: String,
     dark: Boolean,
     modifier: Modifier = Modifier,
     progress: Float? = null,
@@ -347,7 +347,7 @@ fun StrokeCellCanvas(
     val ink = strokeInkColor(dark)
     val highlight = strokeHighlightColor
     val border = tianZiGeColor(dark)
-    val ref = charRefColor(dark)
+    val ref = ziRefColor(dark)
     Canvas(
         modifier = modifier
             .aspectRatio(1f)
@@ -357,8 +357,8 @@ fun StrokeCellCanvas(
         val unit = size.width / StrokeFormat.INTERNAL_SIZE
         // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
         drawTianZiGe(border, unit)
-        val layout = drawCharRef(character, ref, textMeasurer)
-        drawCharBoxDebug(layout, unit)
+        val layout = drawZiRef(zi, ref, textMeasurer)
+        drawZiBoxDebug(layout, unit)
         val box = layout?.box
         // 此前笔画墨色已绘
         for (i in 0 until index) {
@@ -445,10 +445,10 @@ private fun DrawScope.drawDashedLine(
 }
 
 /** 背景字布局信息: 光栅实测墨迹盒（画布坐标，笔画坐标还原基准） */
-private class CharLayout(val box: CharBox)
+private class ZiLayout(val box: ZiBox)
 
 /**
- * 背景汉字绘制（与 web drawCharRef 一致，光栅实测坐标系）:
+ * 背景汉字绘制（与 web drawZiRef 一致，光栅实测坐标系）:
  *  - 字号为画布短边（正方形）的 92%（所有字相同）;
  *    实测墨迹盒超出田字格时按比例缩小字号，保证盒不超出且四周留有空白
  *  - 盒: 直接实际渲染该字并扫描像素，得到真实墨迹盒（假定字体始终包含该字，
@@ -458,19 +458,19 @@ private class CharLayout(val box: CharBox)
  *  - 田字格边框仅作装饰绘制于画布边缘，不参与汉字/笔画的坐标定位
  * 返回布局信息（墨迹盒为笔画坐标还原基准）; 度量失败时返回 null
  */
-private fun DrawScope.drawCharRef(
-    character: String,
+private fun DrawScope.drawZiRef(
+    zi: String,
     color: Color,
     textMeasurer: TextMeasurer
-): CharLayout? {
-    if (character.isEmpty()) return null
+): ZiLayout? {
+    if (zi.isEmpty()) return null
     // 画布尺寸无效（未布局/异常）时不做绘制
     if (size.width <= 0f || size.height <= 0f) return null
     val emPx = 92.sp.toPx()
     val baseScale = (size.width * 0.92f) / emPx
 
     // 光栅实测墨迹盒（相对文本对齐点: 水平左缘 + 基线）: 无回退
-    val raster = Platform.rasterCharBox(character, emPx) ?: return null
+    val raster = Platform.rasterZiBox(zi, emPx) ?: return null
 
     // 墨迹盒不得超出田字格且四周留白（各侧 4% 画布）: 必要时按比例缩小字号
     // （盒尺寸异常/为零时不缩放，避免 fit 出现 NaN/Infinity）
@@ -483,7 +483,7 @@ private fun DrawScope.drawCharRef(
     val fitH = if (inkH > 0f) maxH / inkH else 1f
     val fit = minOf(1f, if (fitW.isFinite()) fitW else 1f, if (fitH.isFinite()) fitH else 1f)
     val effPx = emPx * fit
-    val effRaster = if (fit < 1f) (Platform.rasterCharBox(character, effPx) ?: raster) else raster
+    val effRaster = if (fit < 1f) (Platform.rasterZiBox(zi, effPx) ?: raster) else raster
     val style = TextStyle(
         fontSize = (92f * fit).sp,
         fontFamily = KaiTiFontFamily,
@@ -491,7 +491,7 @@ private fun DrawScope.drawCharRef(
         textAlign = TextAlign.Center
     )
 
-    val layout = textMeasurer.measure(text = character, style = style)
+    val layout = textMeasurer.measure(text = zi, style = style)
     val lineBaseline = layout.getLineBaseline(0)
 
     // 布局: 实测墨迹中心对齐画布中心（x/y 双向平移，未缩放坐标）;
@@ -517,11 +517,11 @@ private fun DrawScope.drawCharRef(
     val y1 = cy + (textTop + lineBaseline + effRaster[3] - cy) * baseScale
     val w = x1 - x0
     val h = y1 - y0
-    return if (w > 0f && h > 0f) CharLayout(CharBox(x0, y0, w, h)) else null
+    return if (w > 0f && h > 0f) ZiLayout(ZiBox(x0, y0, w, h)) else null
 }
 
 /** 盒相对归一化坐标 → 画布坐标（x 按盒宽、y 按盒高分别缩放） */
-private fun DrawScope.toCanvas(p: StrokePoint, box: CharBox): Offset {
+private fun DrawScope.toCanvas(p: StrokePoint, box: ZiBox): Offset {
     return Offset(
         x = box.x0 + p.x / StrokeFormat.COORD_SCALE * box.w,
         y = box.y0 + p.y / StrokeFormat.COORD_SCALE * box.h
@@ -529,7 +529,7 @@ private fun DrawScope.toCanvas(p: StrokePoint, box: CharBox): Offset {
 }
 
 /** 笔刷面积比 → 当前盒上的基准笔宽（内部坐标系像素，面积比不变则与背景字相对大小一致） */
-private fun brushBaseWidth(brush: Int, box: CharBox): Float {
+private fun brushBaseWidth(brush: Int, box: ZiBox): Float {
     val area = box.w * box.h
     if (area <= 0f) return StrokeFormat.BASE_WIDTH
     val ratio = brush.toFloat() / StrokeFormat.BRUSH_SCALE
@@ -537,7 +537,7 @@ private fun brushBaseWidth(brush: Int, box: CharBox): Float {
 }
 
 /** 调试用（仅 debug 构建）: 绘制背景字墨迹盒边界（光栅实测盒，即笔画坐标系的基准） */
-private fun DrawScope.drawCharBoxDebug(layout: CharLayout?, unit: Float) {
+private fun DrawScope.drawZiBoxDebug(layout: ZiLayout?, unit: Float) {
     if (layout == null || !Platform.isDebug()) return
     val b = layout.box
     drawRect(
@@ -549,7 +549,7 @@ private fun DrawScope.drawCharBoxDebug(layout: CharLayout?, unit: Float) {
 }
 
 /** 完整笔画（墨色） */
-private fun DrawScope.drawFullStroke(stroke: CharStroke, color: Color, unit: Float, box: CharBox?) {
+private fun DrawScope.drawFullStroke(stroke: ZiStroke, color: Color, unit: Float, box: ZiBox?) {
     val pts = stroke.points
     if (pts.isEmpty() || box == null) return
     val widths = brushWidths(pts, brushBaseWidth(stroke.brush, box))
@@ -558,11 +558,11 @@ private fun DrawScope.drawFullStroke(stroke: CharStroke, color: Color, unit: Flo
 
 /** 部分笔画（进度 0..1，按时间戳插值到当前点） */
 private fun DrawScope.drawPartialStroke(
-    stroke: CharStroke,
+    stroke: ZiStroke,
     progress: Float,
     color: Color,
     unit: Float,
-    box: CharBox?
+    box: ZiBox?
 ) {
     val pts = stroke.points
     if (pts.isEmpty() || box == null) return
@@ -591,7 +591,7 @@ private fun DrawScope.drawStrokePath(
     progress: Float,
     color: Color,
     unit: Float,
-    box: CharBox
+    box: ZiBox
 ) {
     if (points.size < 2) {
         if (points.size == 1) {

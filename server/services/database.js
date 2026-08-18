@@ -25,10 +25,13 @@ export function initDatabase(dbPath = DB_PATH) {
   // 打开时先 checkpoint WAL（崩溃中断的写入得以安全落盘，避免数据滞留/丢失）
   db.exec('PRAGMA wal_checkpoint(PASSIVE)')
 
+  // 旧表名迁移: characters → zi（含列 character → zi、character_id → zi_id）
+  migrateZiTable()
+
   db.exec(`
-    CREATE TABLE IF NOT EXISTS characters (
+    CREATE TABLE IF NOT EXISTS zi (
       id INTEGER PRIMARY KEY,                   -- id = 汉字 unicode 数值
-      character TEXT NOT NULL UNIQUE,
+      zi TEXT NOT NULL UNIQUE,
       pinyin TEXT NOT NULL DEFAULT '[]',        -- 读音 JSON 数组（数字声调，可多音）
       used_weight INTEGER NOT NULL DEFAULT 0,   -- 使用频率权重
       structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 9),
@@ -36,22 +39,22 @@ export function initDatabase(dbPath = DB_PATH) {
       total_stroke_count INTEGER NOT NULL DEFAULT 0    -- 笔画数
     );
 
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_characters_character_unique
-      ON characters(character);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_zi_zi_unique
+      ON zi(zi);
 
     CREATE TABLE IF NOT EXISTS strokes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      character_id INTEGER NOT NULL,
+      zi_id INTEGER NOT NULL,
       stroke_order INTEGER NOT NULL CHECK(stroke_order >= 1),
       stroke_type INTEGER NOT NULL DEFAULT 0 CHECK(stroke_type BETWEEN 0 AND 35),
       trajectory_data BLOB NOT NULL,            -- 轨迹 JSON 经 zlib 压缩存储
-      FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+      FOREIGN KEY (zi_id) REFERENCES zi(id) ON DELETE CASCADE
     );
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_strokes_order_unique
-      ON strokes(character_id, stroke_order);
-    CREATE INDEX IF NOT EXISTS idx_strokes_character_id
-      ON strokes(character_id);
+      ON strokes(zi_id, stroke_order);
+    CREATE INDEX IF NOT EXISTS idx_strokes_zi_id
+      ON strokes(zi_id);
   `)
 
   // 数据格式守卫: 轨迹格式版本不一致（旧格式数据）时删除，由用户重新录入
@@ -60,6 +63,21 @@ export function initDatabase(dbPath = DB_PATH) {
   db.exec('PRAGMA auto_vacuum = FULL')
   db.exec('VACUUM')
   return db
+}
+
+// 旧表名迁移: characters → zi（列 character → zi、character_id → zi_id），
+// 索引名同步重建（幂等）
+function migrateZiTable() {
+  const hasOld = db.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'characters'"
+  ).all().length > 0
+  if (!hasOld) return
+  db.exec('ALTER TABLE characters RENAME TO zi')
+  db.exec('ALTER TABLE zi RENAME COLUMN character TO zi')
+  db.exec('ALTER TABLE strokes RENAME COLUMN character_id TO zi_id')
+  db.exec('DROP INDEX IF EXISTS idx_characters_character_unique')
+  db.exec('DROP INDEX IF EXISTS idx_strokes_character_id')
+  console.log('DB migrated: characters table → zi')
 }
 
 // 格式守卫: 轨迹版本号须为当前版本（数字 1）且带合法 brush 字段，
@@ -101,7 +119,7 @@ export function withTransaction(fn) {
 }
 
 // 行转换助手：将SQLite行转为API响应对象
-export function serializeCharacter(row) {
+export function serializeZi(row) {
   if (!row) return null
   const { pinyin, ...rest } = row
   let pinyinArr = []

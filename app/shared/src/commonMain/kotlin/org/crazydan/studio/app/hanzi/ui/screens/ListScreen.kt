@@ -32,10 +32,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.crazydan.studio.app.hanzi.shared.CharEntry
+import org.crazydan.studio.app.hanzi.shared.ZiEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
-import org.crazydan.studio.app.hanzi.ui.components.CharCell
+import org.crazydan.studio.app.hanzi.ui.components.ZiCell
 
 /** 页面顶部栏（返回 + 标题 + 主题切换图标） */
 @Composable
@@ -77,18 +77,18 @@ fun TopBar(
  * 选中字仅高亮不做定位
  */
 @Composable
-fun CharListScreen(
+fun ZiListScreen(
     title: String,
     emptyText: String,
     loading: Boolean,
     error: String?,
-    entries: List<CharEntry>,
+    entries: List<ZiEntry>,
     dark: Boolean,
     onToggleTheme: () -> Unit,
     onBack: () -> Unit,
-    onOpenChar: (String) -> Unit,
+    onOpenZi: (String) -> Unit,
     gridState: LazyGridState,
-    selectedCharacter: String = ""
+    selectedZi: String = ""
 ) {
 
     LazyVerticalGrid(
@@ -139,10 +139,10 @@ fun CharListScreen(
                 )
             }
             else -> items(entries) { e ->
-                CharCell(
+                ZiCell(
                     entry = e,
-                    onClick = { onOpenChar(e.character) },
-                    selected = e.character == selectedCharacter
+                    onClick = { onOpenZi(e.zi) },
+                    selected = e.zi == selectedZi
                 )
             }
         }
@@ -161,11 +161,11 @@ fun CommonsScreen(
     dark: Boolean,
     onToggleTheme: () -> Unit,
     onBack: () -> Unit,
-    onOpenChar: (String) -> Unit,
+    onOpenZi: (String) -> Unit,
     selected: String = "",
     gridState: LazyGridState,
-    initialEntries: List<CharEntry>? = null,
-    onEntriesLoaded: (List<CharEntry>?) -> Unit = {}
+    initialEntries: List<ZiEntry>? = null,
+    onEntriesLoaded: (List<ZiEntry>?) -> Unit = {}
 ) {
     var entries by remember { mutableStateOf(initialEntries) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -183,7 +183,7 @@ fun CommonsScreen(
     }
 
     val list = entries ?: emptyList()
-    CharListScreen(
+    ZiListScreen(
         title = "常用字列表${if (list.isNotEmpty()) "（${list.size} 个）" else ""}",
         emptyText = "暂无常用字数据",
         loading = entries == null && error == null,
@@ -192,9 +192,9 @@ fun CommonsScreen(
         dark = dark,
         onToggleTheme = onToggleTheme,
         onBack = onBack,
-        onOpenChar = onOpenChar,
+        onOpenZi = onOpenZi,
         gridState = gridState,
-        selectedCharacter = selected
+        selectedZi = selected
     )
 }
 
@@ -206,11 +206,11 @@ fun PinyinListScreen(
     dark: Boolean,
     onToggleTheme: () -> Unit,
     onBack: () -> Unit,
-    onOpenChar: (String) -> Unit,
+    onOpenZi: (String) -> Unit,
     selected: String = "",
     gridState: LazyGridState,
-    initialEntries: List<CharEntry>? = null,
-    onEntriesLoaded: (List<CharEntry>?) -> Unit = {}
+    initialEntries: List<ZiEntry>? = null,
+    onEntriesLoaded: (List<ZiEntry>?) -> Unit = {}
 ) {
     var entries by remember { mutableStateOf(initialEntries) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -228,7 +228,7 @@ fun PinyinListScreen(
     }
 
     val list = entries ?: emptyList()
-    CharListScreen(
+    ZiListScreen(
         title = "拼音「$pinyin」的汉字${if (list.isNotEmpty()) "（${list.size} 个）" else ""}",
         emptyText = "未找到拼音「$pinyin」的汉字",
         loading = entries == null && error == null,
@@ -237,8 +237,8 @@ fun PinyinListScreen(
         dark = dark,
         onToggleTheme = onToggleTheme,
         onBack = onBack,
-        onOpenChar = onOpenChar,
+        onOpenZi = onOpenZi,
         gridState = gridState,
-        selectedCharacter = selected
+        selectedZi = selected
     )
 }

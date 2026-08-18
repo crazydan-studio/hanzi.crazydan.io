@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
+  <meta ziset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>汉字 | 汉字信息</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="stylesheet" href="/src/styles/main.css">
 </head>
-<body class="bg-gray-50 min-h-screen dark:bg-gray-900" x-data="charApp()">
+<body class="bg-gray-50 min-h-screen dark:bg-gray-900" x-data="ziApp()">
 
   <div class="max-w-3xl mx-auto px-4 py-6">
     <header class="flex items-center justify-between mb-4">
@@ -42,9 +42,9 @@
           <div class="mb-4 rounded border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
             <!-- 读音行与左侧汉字作为一个整体做流式布局: 溢出时读音行整体独占一行 -->
             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span class="text-5xl md:text-6xl font-kaiti leading-none" x-text="meta.character"></span>
-              <button @click="copy(meta.character)" class="btn-sm"
-                x-text="copiedValue === meta.character ? '已复制' : '复制'"></button>
+              <span class="text-5xl md:text-6xl font-kaiti leading-none" x-text="meta.zi"></span>
+              <button @click="copy(meta.zi)" class="btn-sm"
+                x-text="copiedValue === meta.zi ? '已复制' : '复制'"></button>
               <!-- 读音（整体作为一行单元）: 试听 + 复制 -->
               <div class="flex flex-wrap items-center gap-2">
                 <template x-for="p in meta.pinyin" :key="p">
@@ -129,7 +129,7 @@
           <template x-if="hasStrokes">
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               <template x-for="(s, i) in strokes" :key="s.stroke_order">
-                <div x-data="strokeCell(meta.character, i, strokes)" class="flex flex-col items-center gap-1">
+                <div x-data="strokeCell(meta.zi, i, strokes)" class="flex flex-col items-center gap-1">
                   <div @click="togglePlay()"
                     class="relative border border-gray-200 rounded bg-white p-1 w-full cursor-pointer select-none dark:border-gray-700 dark:bg-gray-900"
                     :title="playing ? '点击终止播放' : '点击播放该笔画动画'">
@@ -166,6 +166,6 @@
 
   <footer x-data="appFooter()" x-html="html"></footer>
 
-  <script type="module" src="/src/char/main.js"></script>
+  <script type="module" src="/src/zi/main.js"></script>
 </body>
 </html>

@@ -8,24 +8,24 @@ import { deltaEncode, TRAJECTORY_VERSION } from './trajectory.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ZI_DIR = path.join(__dirname, '..', '..', 'public', 'assets', 'zi')
 
-function metaPath(characterId) {
-  return path.join(ZI_DIR, String(characterId), 'meta.json')
+function metaPath(ziId) {
+  return path.join(ZI_DIR, String(ziId), 'meta.json')
 }
 
-function strokesPath(characterId) {
-  return path.join(ZI_DIR, String(characterId), 'strokes.json')
+function strokesPath(ziId) {
+  return path.join(ZI_DIR, String(ziId), 'strokes.json')
 }
 
 // 同步部首/结构到 meta.json（仅文件存在时）
-export function syncCharacterMeta(character) {
-  if (!character) return false
-  const file = metaPath(character.id)
+export function syncZiMeta(zi) {
+  if (!zi) return false
+  const file = metaPath(zi.id)
   if (!fs.existsSync(file)) return false
   try {
     const meta = JSON.parse(fs.readFileSync(file, 'utf8'))
     // 单字母紧凑字段（与导出脚本一致）: r 部首 / s 结构编码（展示名由前端映射）
-    if (character.radical !== undefined) meta.r = character.radical
-    if (character.structure !== undefined) meta.s = character.structure
+    if (zi.radical !== undefined) meta.r = zi.radical
+    if (zi.structure !== undefined) meta.s = zi.structure
     fs.writeFileSync(file, JSON.stringify(meta))
     return true
   } catch {
@@ -35,9 +35,9 @@ export function syncCharacterMeta(character) {
 
 // 同步笔画数据到 strokes.json（该汉字须已导出 meta.json）:
 // 有笔画时创建/更新（轨迹为增量编码，含笔刷面积比 b）；无笔画时删除文件
-export function syncCharacterStrokes(characterId, strokes) {
-  const file = strokesPath(characterId)
-  if (!fs.existsSync(metaPath(characterId))) return false
+export function syncZiStrokes(ziId, strokes) {
+  const file = strokesPath(ziId)
+  if (!fs.existsSync(metaPath(ziId))) return false
   const list = (strokes || []).filter(s => s.trajectory_data?.points?.length > 0)
   try {
     if (list.length > 0) {

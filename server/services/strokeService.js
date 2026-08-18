@@ -1,57 +1,57 @@
 import { getDb, serializeStroke, withTransaction } from './database.js'
 import { AppError } from '../middleware/errorHandler.js'
-import { syncCharacterStrokes } from './staticSync.js'
+import { syncZiStrokes } from './staticSync.js'
 import { compressTrajectory } from './trajectory.js'
 
 export const strokeService = {
-  findByCharacter(characterId) {
+  findByZi(ziId) {
     const db = getDb()
     const rows = db.prepare(
-      'SELECT * FROM strokes WHERE character_id = ? ORDER BY stroke_order'
-    ).all(characterId)
+      'SELECT * FROM strokes WHERE zi_id = ? ORDER BY stroke_order'
+    ).all(ziId)
     return rows.map(serializeStroke)
   },
 
   // 校验字符存在性
-  assertCharacterExists(characterId) {
+  assertZiExists(ziId) {
     const db = getDb()
-    const exists = db.prepare('SELECT id FROM characters WHERE id = ?').get(characterId)
-    if (!exists) throw new AppError(404, 'NOT_FOUND', 'Character not found')
+    const exists = db.prepare('SELECT id FROM zi WHERE id = ?').get(ziId)
+    if (!exists) throw new AppError(404, 'NOT_FOUND', 'Zi not found')
   },
 
   // 按 id + 所属字符查找（用于校验笔画归属）
-  findByIdAndCharacter(id, characterId) {
+  findByIdAndZi(id, ziId) {
     const db = getDb()
     const row = db.prepare(
-      'SELECT * FROM strokes WHERE id = ? AND character_id = ?'
-    ).get(id, characterId)
+      'SELECT * FROM strokes WHERE id = ? AND zi_id = ?'
+    ).get(id, ziId)
     return row ? serializeStroke(row) : null
   },
 
-  create(characterId, data) {
-    this.assertCharacterExists(characterId)
+  create(ziId, data) {
+    this.assertZiExists(ziId)
     const db = getDb()
     const result = db.prepare(`
-      INSERT INTO strokes (character_id, stroke_order, stroke_type, trajectory_data)
+      INSERT INTO strokes (zi_id, stroke_order, stroke_type, trajectory_data)
       VALUES (?, ?, ?, ?)
-    `).run(characterId, data.stroke_order, data.stroke_type,
+    `).run(ziId, data.stroke_order, data.stroke_type,
       compressTrajectory(data.trajectory_data))
     const stroke = serializeStroke(db.prepare('SELECT * FROM strokes WHERE id = ?').get(result.lastInsertRowid))
     // 同步到静态数据 strokes.json（仅文件已存在时更新）
-    syncCharacterStrokes(characterId, this.findByCharacter(characterId))
+    syncZiStrokes(ziId, this.findByZi(ziId))
     return stroke
   },
 
   // 批量创建（事务）
-  createBatch(characterId, strokes) {
-    this.assertCharacterExists(characterId)
+  createBatch(ziId, strokes) {
+    this.assertZiExists(ziId)
     // 顺序唯一性校验
     const orders = strokes.map(s => s.stroke_order)
     if (new Set(orders).size !== orders.length) {
       throw new AppError(400, 'VALIDATION_ERROR', 'Duplicate stroke_order in batch')
     }
     // 与已存在笔画冲突校验
-    const existing = this.findByCharacter(characterId).map(s => s.stroke_order)
+    const existing = this.findByZi(ziId).map(s => s.stroke_order)
     const dup = orders.filter(o => existing.includes(o))
     if (dup.length > 0) {
       throw new AppError(409, 'CONFLICT', `stroke_order conflict: ${dup.join(', ')}`)
@@ -59,14 +59,14 @@ export const strokeService = {
 
     const db = getDb()
     const insert = db.prepare(`
-      INSERT INTO strokes (character_id, stroke_order, stroke_type, trajectory_data)
+      INSERT INTO strokes (zi_id, stroke_order, stroke_type, trajectory_data)
       VALUES (?, ?, ?, ?)
     `)
     // 事务（node:sqlite 无 db.transaction()，用 withTransaction 助手）
     const ids = withTransaction(() => {
       const result = []
       for (const s of strokes) {
-        const r = insert.run(characterId, s.stroke_order, s.stroke_type,
+        const r = insert.run(ziId, s.stroke_order, s.stroke_type,
           compressTrajectory(s.trajectory_data))
         result.push(r.lastInsertRowid)
       }
@@ -76,7 +76,7 @@ export const strokeService = {
     const createdStrokes = db.prepare(`SELECT * FROM strokes WHERE id IN (${placeholders})`)
       .all(...ids).map(serializeStroke)
     // 同步到静态数据 strokes.json（仅文件已存在时更新）
-    syncCharacterStrokes(characterId, this.findByCharacter(characterId))
+    syncZiStrokes(ziId, this.findByZi(ziId))
     return createdStrokes
   },
 
@@ -104,7 +104,7 @@ export const strokeService = {
     db.prepare(`UPDATE strokes SET ${updates.join(', ')} WHERE id = ?`).run(...params)
     const stroke = serializeStroke(db.prepare('SELECT * FROM strokes WHERE id = ?').get(id))
     // 同步到静态数据 strokes.json（仅文件已存在时更新）
-    syncCharacterStrokes(stroke.character_id, this.findByCharacter(stroke.character_id))
+    syncZiStrokes(stroke.zi_id, this.findByZi(stroke.zi_id))
     return stroke
   },
 
@@ -113,14 +113,14 @@ export const strokeService = {
     const current = db.prepare('SELECT * FROM strokes WHERE id = ?').get(id)
     db.prepare('DELETE FROM strokes WHERE id = ?').run(id)
     // 同步到静态数据 strokes.json（仅文件已存在时更新）
-    if (current) syncCharacterStrokes(current.character_id, this.findByCharacter(current.character_id))
+    if (current) syncZiStrokes(current.zi_id, this.findByZi(current.zi_id))
     return { success: true }
   },
 
   // 重排笔画顺序（事务）: strokeIds 按新顺序排列，stroke_order 赋值为 1..N
-  reorder(characterId, strokeIds) {
-    this.assertCharacterExists(characterId)
-    const existing = this.findByCharacter(characterId).map(s => s.id)
+  reorder(ziId, strokeIds) {
+    this.assertZiExists(ziId)
+    const existing = this.findByZi(ziId).map(s => s.id)
 
     // 校验: 数量一致、无重复、全部属于该汉字
     if (existing.length !== strokeIds.length ||
@@ -142,18 +142,18 @@ export const strokeService = {
       // 若顺序存在缺口（如 1,3,4,5），第一行 1→5 会与尚未更新的原 order=5 冲突。
       // 偏移量取「当前最大 order + N」，保证偏移后所有值都大于原最大值，逐行无碰撞。
       const { maxOrder } = db.prepare(
-        'SELECT COALESCE(MAX(stroke_order), 0) AS maxOrder FROM strokes WHERE character_id = ?'
-      ).get(characterId)
+        'SELECT COALESCE(MAX(stroke_order), 0) AS maxOrder FROM strokes WHERE zi_id = ?'
+      ).get(ziId)
       const offset = maxOrder + strokeIds.length
       db.prepare(
-        'UPDATE strokes SET stroke_order = stroke_order + ? WHERE character_id = ?'
-      ).run(offset, characterId)
+        'UPDATE strokes SET stroke_order = stroke_order + ? WHERE zi_id = ?'
+      ).run(offset, ziId)
       // 再按新顺序逐个赋最终值 1..N
       strokeIds.forEach((id, index) => update.run(index + 1, id))
     })
-    const strokes = this.findByCharacter(characterId)
+    const strokes = this.findByZi(ziId)
     // 同步到静态数据 strokes.json（仅文件已存在时更新）
-    syncCharacterStrokes(characterId, strokes)
+    syncZiStrokes(ziId, strokes)
     return strokes
   }
 }

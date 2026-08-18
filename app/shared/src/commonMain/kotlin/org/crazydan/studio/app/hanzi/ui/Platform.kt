@@ -37,7 +37,7 @@ expect object Platform {
      * [左, 上, 右, 下] 像素坐标；度量失败/不可用时返回 null。
      * 假定字体始终包含该字，不提供回退
      */
-    fun rasterCharBox(character: String, fontSizePx: Float): FloatArray?
+    fun rasterZiBox(zi: String, fontSizePx: Float): FloatArray?
 
     /**
      * 选择笔画数据库文件（系统文件选择器）:

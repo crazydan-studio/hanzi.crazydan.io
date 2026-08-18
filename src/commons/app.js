@@ -29,22 +29,22 @@ Alpine.data('commonsApp', () => ({
   },
 
   // 点击汉字: 就地修改 url 参数指示选中汉字（返回本页时据此定位），并跳转汉字信息页
-  openChar(c) {
+  openZi(c) {
     history.replaceState(null, '', `/commons/?v=${encodeURIComponent(c[0])}`)
-    location.href = `/char/?v=${encodeURIComponent(c[0])}`
+    location.href = `/zi/?v=${encodeURIComponent(c[0])}`
   },
 
-  // 格子点击事件（事件委托）: 取 data-char 后按选中逻辑处理
+  // 格子点击事件（事件委托）: 取 data-zi 后按选中逻辑处理
   onCellClick(event) {
-    const cell = event.target.closest('[data-char]')
+    const cell = event.target.closest('[data-zi]')
     if (!cell) return
-    this.openChar({ 0: cell.dataset.char })
+    this.openZi({ 0: cell.dataset.zi })
   },
 
   // 加载时按 url 参数滚动到选中汉字所在位置并高亮
   scrollToSelected() {
     if (!this.selected) return
-    const cell = this.$root.querySelector(`[data-char="${CSS.escape(this.selected)}"]`)
+    const cell = this.$root.querySelector(`[data-zi="${CSS.escape(this.selected)}"]`)
     if (!cell) return
     cell.scrollIntoView({ block: 'center' })
     cell.classList.add('ring-2', 'ring-blue-400', 'bg-blue-50', 'dark:bg-gray-700')

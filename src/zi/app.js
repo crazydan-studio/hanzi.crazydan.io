@@ -1,18 +1,18 @@
-// ============ 汉字信息页组件（char/index.html） ============
+// ============ 汉字信息页组件（zi/index.html） ============
 // 展示: 书写动画（倍速/暂停/重置）/ 读音试听 / 复制 / 汉典链接 / 笔画分解图
 import Alpine from 'alpinejs'
 import { AnimationEngine } from '@components/AnimationEngine.js'
-import { drawTianZiGe, drawCharRef, drawCharBoxDebug, charInkBox, charRefColor, strokeInkColor, displayUnit, ensureKaiFont } from '@components/StrokeBackground.js'
+import { drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from '@components/StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
 import { strokeTypesMap } from '@components/StrokeTypes.js'
-import { loadCharMeta, loadCharStrokes } from '@services/data.js'
+import { loadZiMeta, loadZiStrokes } from '@services/data.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { copyText } from '@services/clipboard.js'
 import { setBackUrl } from '@services/session.js'
 
-Alpine.data('charApp', () => ({
-  char: '',
+Alpine.data('ziApp', () => ({
+  zi: '',
   unicode: 0,
   zdicUrl: '',
   meta: null,
@@ -23,7 +23,7 @@ Alpine.data('charApp', () => ({
   engine: null,
   fontReady: false,       // 楷体加载完成且覆盖该字（背景字/笔画可渲染）
   fontError: false,       // 楷体加载失败（无兜底，显示失败提示）
-  charBoxValue: null,     // 背景字墨迹盒（内部坐标系，笔画坐标还原基准）
+  ziBoxValue: null,     // 背景字墨迹盒（内部坐标系，笔画坐标还原基准）
   SPEEDS: [0.5, 1, 1.5, 2],
   playbackSpeed: 1,
   playing: false,
@@ -38,25 +38,25 @@ Alpine.data('charApp', () => ({
   writeUrl: '',
 
   async init() {
-    // 路由参数: /char/?v=<汉字>
-    this.char = (new URLSearchParams(location.search).get('v') || '').trim()
-    if (!this.char) {
+    // 路由参数: /zi/?v=<汉字>
+    this.zi = (new URLSearchParams(location.search).get('v') || '').trim()
+    if (!this.zi) {
       this.error = '缺少汉字参数'
       this.loading = false
       return
     }
-    this.unicode = this.char.codePointAt(0)
-    this.zdicUrl = `https://zdic.net/hans/${encodeURIComponent(this.char)}`
-    this.writeUrl = `/strokes/write/?char=${encodeURIComponent(this.char)}`
+    this.unicode = this.zi.codePointAt(0)
+    this.zdicUrl = `https://zdic.net/hans/${encodeURIComponent(this.zi)}`
+    this.writeUrl = `/strokes/write/?zi=${encodeURIComponent(this.zi)}`
     try {
-      this.meta = await loadCharMeta(this.unicode)
+      this.meta = await loadZiMeta(this.unicode)
     } catch {
-      this.error = `未找到汉字「${this.char}」的信息`
+      this.error = `未找到汉字「${this.zi}」的信息`
       this.loading = false
       return
     }
     // 笔画数据仅常用字存在（其余汉字不支持播放书写动画与笔画分解）
-    this.strokes = await loadCharStrokes(this.unicode)
+    this.strokes = await loadZiStrokes(this.unicode)
     this.hasStrokes = Array.isArray(this.strokes) && this.strokes.length > 0
     this.loading = false
     await this.ensureFont()
@@ -72,11 +72,11 @@ Alpine.data('charApp', () => ({
   },
 
   // 测量当前汉字墨迹盒（需引擎画布就绪后调用）
-  measureCharBox() {
+  measureZiBox() {
     const e = this.engine
     if (!e || !this.fontReady) return
-    this.charBoxValue = charInkBox(e.cssW, e.cssH, this.char)
-    if (this.charBoxValue) e.refreshBox()
+    this.ziBoxValue = ziInkBox(e.cssW, e.cssH, this.zi)
+    if (this.ziBoxValue) e.refreshBox()
   },
 
   // 书写动画引擎: 田字格 + 字型背景（背景汉字半透明，颜色适配主题），
@@ -90,7 +90,7 @@ Alpine.data('charApp', () => ({
       highlightColor: STROKE_HIGHLIGHT_COLOR,
       strokeGap: 300,
       completedColor: () => strokeInkColor(),   // 已绘笔画墨色（适配主题）
-      charBox: () => this.charBoxValue          // 墨迹盒提供者
+      ziBox: () => this.ziBoxValue          // 墨迹盒提供者
     })
     this.engine.onBeforeRender = () => {
       const canvas = this.$refs.mainCanvas
@@ -98,10 +98,10 @@ Alpine.data('charApp', () => ({
       const rect = canvas.getBoundingClientRect()
       if (!rect.width) return   // 尺寸未确定，暂不绘制
       drawTianZiGe(this.engine.ctx, this.engine.cssW, this.engine.cssH, displayUnit(canvas, rect), rect.width)
-      drawCharRef(this.engine.ctx, this.engine.cssW, this.engine.cssH, this.char, charRefColor())
+      drawZiRef(this.engine.ctx, this.engine.cssW, this.engine.cssH, this.zi, ziRefColor())
       // 调试: 绘制背景字墨迹盒边界（仅开发模式）
       if (import.meta.env.DEV) {
-        drawCharBoxDebug(this.engine.ctx, this.engine.cssW, this.engine.cssH, this.char)
+        drawZiBoxDebug(this.engine.ctx, this.engine.cssW, this.engine.cssH, this.zi)
       }
     }
     // 笔画开始: 实时显示当前笔画名（未命名提示笔画类型未知）
@@ -112,7 +112,7 @@ Alpine.data('charApp', () => ({
       this.playing = false
       this.strokeName = ''
     }
-    this.measureCharBox()
+    this.measureZiBox()
     if (this.hasStrokes) {
       this.engine.loadStrokes(this.strokes)
     } else {
@@ -151,7 +151,7 @@ Alpine.data('charApp', () => ({
 
   play() {
     if (!this.engine || !this.hasStrokes) return
-    if (!this.fontReady || !this.charBoxValue) return   // 字体未就绪/未覆盖该字不可播放
+    if (!this.fontReady || !this.ziBoxValue) return   // 字体未就绪/未覆盖该字不可播放
     this.engine.singleStrokePlayback = false
     this.engine.play()
     this.playing = this.engine.state === 'PLAYING'
@@ -211,8 +211,8 @@ Alpine.data('charApp', () => ({
 
   // 问题反馈链接: title 为【问题字】【{汉字}】，body 为问题描述模板
   get issueUrl() {
-    const title = `【问题字】【${this.char}】`
-    const body = `【${this.char}】字存在以下问题或需做以下改进：\n\n`
+    const title = `【问题字】【${this.zi}】`
+    const body = `【${this.zi}】字存在以下问题或需做以下改进：\n\n`
     return `https://github.com/crazydan-studio/hanzi.crazydan.io/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`
   },
 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
+  <meta ziset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>汉字 | 汉字笔画管理</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
@@ -21,8 +21,8 @@
       <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
     </header>
 
-    <!-- 汉字列表（独立页面；点击行进入书写页 write/?char=） -->
-    <section x-data="characterList()">
+    <!-- 汉字列表（独立页面；点击行进入书写页 write/?zi=） -->
+    <section x-data="ziList()">
       <div>
         <!-- 过滤条: 搜索(字/拼音) + 完整笔画图过滤 -->
         <div class="flex flex-wrap items-center gap-3 mb-4">
@@ -52,11 +52,11 @@
             </tr>
           </thead>
           <tbody>
-            <template x-for="c in characters" :key="c.id">
+            <template x-for="c in zi" :key="c.id">
               <tr class="border-b border-gray-200 cursor-pointer hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700" @click="openWriter(c)">
                 <td class="px-3 py-2 text-2xl font-bold font-kaiti"
                   :title="'笔画数: ' + c.total_stroke_count">
-                  <span x-text="c.character"></span>
+                  <span x-text="c.zi"></span>
                   <span class="text-xs text-gray-400 font-normal ml-1 dark:text-gray-500"
                     x-text="'(' + c.total_stroke_count + ' 笔)'"></span>
                 </td>
@@ -68,14 +68,14 @@
                   <!-- x-effect 响应式重绘: x-for 复用DOM时 x-init 不会重跑，
                        改用 effect 依赖 c.strokes 变化自动刷新缩略图 -->
                   <canvas class="border border-gray-200 rounded dark:border-gray-600"
-                    x-effect="renderThumb($el, c.strokes, c.character, themeVersion)"></canvas>
+                    x-effect="renderThumb($el, c.strokes, c.zi, themeVersion)"></canvas>
                 </td>
               </tr>
             </template>
             <tr x-show="!loading && loadError" x-cloak>
               <td colspan="4" class="px-3 py-6 text-center text-red-600" x-text="loadError"></td>
             </tr>
-            <tr x-show="!loading && !loadError && characters.length === 0" x-cloak>
+            <tr x-show="!loading && !loadError && zi.length === 0" x-cloak>
               <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">无匹配汉字</td>
             </tr>
           </tbody>

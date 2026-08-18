@@ -21,7 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.crazydan.studio.app.hanzi.shared.CharEntry
+import org.crazydan.studio.app.hanzi.shared.ZiEntry
 import org.crazydan.studio.app.hanzi.shared.Pinyin
 import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
 
@@ -31,8 +31,8 @@ import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
  */
 
 @Composable
-fun CharCell(
-    entry: CharEntry,
+fun ZiCell(
+    entry: ZiEntry,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     selected: Boolean = false
@@ -59,7 +59,7 @@ fun CharCell(
         )
         Spacer(Modifier.height(2.dp))
         Text(
-            text = entry.character,
+            text = entry.zi,
             style = MaterialTheme.typography.headlineSmall,
             fontFamily = KaiTiFontFamily,
             color = MaterialTheme.colorScheme.onSurface
@@ -69,10 +69,10 @@ fun CharCell(
 
 /** 首页常用字速览（少量条目，固定列数） */
 @Composable
-fun CharGrid(
-    entries: List<CharEntry>,
+fun ZiGrid(
+    entries: List<ZiEntry>,
     columns: Int,
-    onClick: (CharEntry) -> Unit,
+    onClick: (ZiEntry) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -85,7 +85,7 @@ fun CharGrid(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 row.forEach { e ->
-                    CharCell(
+                    ZiCell(
                         entry = e,
                         onClick = { onClick(e) },
                         modifier = Modifier.weight(1f)
@@ -101,8 +101,8 @@ fun CharGrid(
 
 /** 水平条目（汉字 + 读音，列表行样式） */
 @Composable
-fun CharRow(
-    entry: CharEntry,
+fun ZiRow(
+    entry: ZiEntry,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -115,7 +115,7 @@ fun CharRow(
             .padding(horizontal = 8.dp, vertical = 10.dp)
     ) {
         Text(
-            text = entry.character,
+            text = entry.zi,
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.width(48.dp)

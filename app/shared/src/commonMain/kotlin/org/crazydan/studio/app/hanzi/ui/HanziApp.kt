@@ -12,9 +12,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import org.crazydan.studio.app.hanzi.shared.CharEntry
+import org.crazydan.studio.app.hanzi.shared.ZiEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
-import org.crazydan.studio.app.hanzi.ui.screens.CharDetailScreen
+import org.crazydan.studio.app.hanzi.ui.screens.ZiDetailScreen
 import org.crazydan.studio.app.hanzi.ui.screens.CommonsScreen
 import org.crazydan.studio.app.hanzi.ui.screens.DonateScreen
 import org.crazydan.studio.app.hanzi.ui.screens.HomeScreen
@@ -24,7 +24,7 @@ import org.crazydan.studio.app.hanzi.ui.screens.StrokeDataManageScreen
 /** 页面 */
 sealed interface Screen {
     data object Home : Screen
-    data class CharDetail(val character: String) : Screen
+    data class ZiDetail(val zi: String) : Screen
     data object Commons : Screen
     data class PinyinList(val pinyin: String) : Screen
     data object StrokeDataManage : Screen
@@ -51,11 +51,11 @@ class AppNavigator(initial: Screen = Screen.Home) {
      * 列表数据缓存（跨页面切换保持）: 回退时列表立即以缓存数据渲染，
      * 网格内容不经历"加载中"收缩，滚动位置得以原样恢复（否则会被钳制归零）
      */
-    var commonsEntries: List<CharEntry>? = null
-    val pinyinEntries = mutableMapOf<String, List<CharEntry>?>()
+    var commonsEntries: List<ZiEntry>? = null
+    val pinyinEntries = mutableMapOf<String, List<ZiEntry>?>()
 
     /** 首页常用字速览缓存（仅首次加载一次） */
-    var homeCommons: List<CharEntry>? = null
+    var homeCommons: List<ZiEntry>? = null
 
     fun open(screen: Screen) {
         stack.addLast(this.screen)
@@ -110,7 +110,7 @@ fun HanziApp(
                     db = db,
                     dark = darkTheme,
                     onToggleTheme = toggleTheme,
-                    onOpenChar = { navigator.open(Screen.CharDetail(it)) },
+                    onOpenZi = { navigator.open(Screen.ZiDetail(it)) },
                     onOpenCommons = { navigator.open(Screen.Commons) },
                     onOpenPinyin = { navigator.open(Screen.PinyinList(it)) },
                     onOpenStrokeManage = { navigator.open(Screen.StrokeDataManage) },
@@ -118,9 +118,9 @@ fun HanziApp(
                     initialCommons = navigator.homeCommons,
                     onCommonsLoaded = { navigator.homeCommons = it }
                 )
-                is Screen.CharDetail -> CharDetailScreen(
+                is Screen.ZiDetail -> ZiDetailScreen(
                     db = db,
-                    character = s.character,
+                    zi = s.zi,
                     dark = darkTheme,
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
@@ -138,10 +138,10 @@ fun HanziApp(
                     dark = darkTheme,
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
-                    onOpenChar = { char ->
+                    onOpenZi = { zi ->
                         // 记录选中字，返回本页时高亮
-                        navigator.commonsSelected = char
-                        navigator.open(Screen.CharDetail(char))
+                        navigator.commonsSelected = zi
+                        navigator.open(Screen.ZiDetail(zi))
                     },
                     selected = navigator.commonsSelected,
                     gridState = navigator.commonsGridState,
@@ -154,10 +154,10 @@ fun HanziApp(
                     dark = darkTheme,
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
-                    onOpenChar = { char ->
+                    onOpenZi = { zi ->
                         // 记录选中字，返回本页时高亮
-                        navigator.pinyinSelected = char
-                        navigator.open(Screen.CharDetail(char))
+                        navigator.pinyinSelected = zi
+                        navigator.open(Screen.ZiDetail(zi))
                     },
                     selected = navigator.pinyinSelected,
                     gridState = navigator.pinyinGridState,

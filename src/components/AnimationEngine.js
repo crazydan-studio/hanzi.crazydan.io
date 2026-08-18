@@ -4,7 +4,7 @@ import { computeBrushWidths, drawBrushStroke, brushBaseWidth } from './Brush.js'
 // 单一RAF状态机。不使用 async/await + Promise 链，全部状态显式管理，
 // pause/resume/seek 均为状态切换，天然安全。
 // 轨迹坐标以【背景汉字墨迹盒】为坐标系归一化存储（x 按盒宽、y 按盒高），
-// 播放端经 charBox 提供者测量当前盒后还原为内部像素坐标。
+// 播放端经 ziBox 提供者测量当前盒后还原为内部像素坐标。
 export class AnimationEngine {
   constructor(canvas, options = {}) {
     this.canvas = canvas
@@ -15,7 +15,7 @@ export class AnimationEngine {
     this.penWidthCoef = options.penWidthCoef ?? 1   // 笔宽系数（默认 1: 忠实还原录制笔宽）
     // 背景汉字墨迹盒提供者: () => { x0, y0, w, h } | null
     // 字体未加载/未覆盖该字时返回 null → 笔画坐标无法还原，不渲染笔画
-    this.charBox = options.charBox ?? null
+    this.ziBox = options.ziBox ?? null
     // 已完成笔画的颜色: 可为函数（每帧求值，适配主题切换）
     this.completedColor = options.completedColor ?? '#000000'
 
@@ -68,7 +68,7 @@ export class AnimationEngine {
 
     // 背景汉字墨迹盒（内部坐标系）: 笔画坐标以盒为坐标系归一化存储，
     // 还原 = 盒起点 + 归一化值 × 当前盒宽/高（x、y 分别按盒宽、盒高）
-    const box = this.charBox ? this.charBox() : null
+    const box = this.ziBox ? this.ziBox() : null
     this.boxReady = !!(box && box.w > 0 && box.h > 0)
     for (const s of this.strokes) {
       const traj = s.trajectory_data
@@ -92,7 +92,7 @@ export class AnimationEngine {
   // 墨迹盒更新后重新换算坐标（字体加载完成/字符变化后由宿主调用）
   refreshBox() {
     if (this.strokes.length === 0) return
-    const box = this.charBox ? this.charBox() : null
+    const box = this.ziBox ? this.ziBox() : null
     this.boxReady = !!(box && box.w > 0 && box.h > 0)
     for (const s of this.strokes) {
       const traj = s.trajectory_data

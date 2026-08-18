@@ -49,14 +49,14 @@ Alpine.data('homeApp', () => ({
       })
   },
 
-  // 查询: 单个汉字 → 汉字信息页 /char/?v=
+  // 查询: 单个汉字 → 汉字信息页 /zi/?v=
   //       纯拼音（不带声调，允许 ü）→ 拼音字列表页 /pinyin/?v=
   //       拼音中的 ü 可用 v 代替（如 lv 视为 lü），查询前自动替换
   search() {
     const q = this.query.trim().replace(/v/g, 'ü')
     if (!q) return
     if (/^[\u4e00-\u9fff]$/.test(q)) {
-      location.href = `/char/?v=${encodeURIComponent(q)}`
+      location.href = `/zi/?v=${encodeURIComponent(q)}`
     } else if (/^[a-z\u00fc]+$/i.test(q)) {
       location.href = `/pinyin/?v=${q.toLowerCase()}`
     } else {
