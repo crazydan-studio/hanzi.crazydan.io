@@ -371,13 +371,8 @@ fun HomeScreen(
                         )
                     }
                     AboutBlock("联系我们", aboutTextStyle, dark) {
-                        // 邮箱地址单独一行展示，避免长地址在句内产生不必要的换行
-                        Text(
-                            "如有合作或商务需求，可发送邮件至：",
-                            style = aboutTextStyle
-                        )
                         InlineLinkText(
-                            text = "support@studio.crazydan.org",
+                            text = "如有合作或商务需求，可发送邮件至 support@studio.crazydan.org",
                             links = mapOf("support@studio.crazydan.org" to "mailto:support@studio.crazydan.org"),
                             style = aboutTextStyle
                         )
