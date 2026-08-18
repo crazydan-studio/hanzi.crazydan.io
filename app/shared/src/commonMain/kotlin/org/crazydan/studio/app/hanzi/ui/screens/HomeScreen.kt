@@ -16,8 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,16 +42,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.crazydan.studio.app.hanzi.shared.ZiEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
-import org.crazydan.studio.app.hanzi.ui.Blue500
+import org.crazydan.studio.app.hanzi.shared.StrokeDbInfo
 import org.crazydan.studio.app.hanzi.ui.Gray400
 import org.crazydan.studio.app.hanzi.ui.Gray500
+import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
-import org.crazydan.studio.app.hanzi.ui.components.ZiCell
 import org.crazydan.studio.app.hanzi.ui.components.DarkModeIcon
 import org.crazydan.studio.app.hanzi.ui.components.InlineLinkText
 import org.crazydan.studio.app.hanzi.ui.components.LightModeIcon
 import org.crazydan.studio.app.hanzi.ui.components.MixedFontText
+import org.crazydan.studio.app.hanzi.ui.components.PrimaryButton
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
+import org.crazydan.studio.app.hanzi.ui.components.ZiGrid
 import org.crazydan.studio.app.hanzi.ui.logoPainter
 
 /**
@@ -80,7 +80,7 @@ fun HomeScreen(
     var commonsError by remember { mutableStateOf(false) }
 
     // 笔画数据状态（进入首页时检查已配置的笔画数据库）
-    var strokeInfo by remember { mutableStateOf<org.crazydan.studio.app.hanzi.shared.StrokeDbInfo?>(null) }
+    var strokeInfo by remember { mutableStateOf<StrokeDbInfo?>(null) }
     var strokeChecked by remember { mutableStateOf(false) }
 
     // 进入首页时不自动聚焦搜索框（避免弹出键盘）；常用字速览仅首次加载（缓存复用）
@@ -88,14 +88,14 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         focusManager.clearFocus()
         if (initialCommons == null) {
-            val list = withContext(Dispatchers.Default) { db.queryCommons(20) }
+            val list = withContext(Dispatchers.Default) { db.queryCommons(HOME_COMMONS_LIMIT) }
             commons = list
             commonsLoading = false
             commonsError = list.isEmpty()
             onCommonsLoaded(list)
         }
         // 笔画数据库状态（重新进入首页时刷新）
-        strokeInfo = withContext(Dispatchers.Default) { db.strokeDbStatus()?.info }
+        strokeInfo = withContext(Dispatchers.Default) { db.strokeDbStatus().info }
         strokeChecked = true
     }
 
@@ -157,19 +157,12 @@ fun HomeScreen(
                 }),
                 modifier = Modifier.weight(1f)
             )
-            Button(
-                // 与 web 一致: 深蓝主按钮（浅/暗主题相同，不随主题变浅）
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Blue500,
-                    contentColor = Color.White
-                ),
+            PrimaryButton(
+                text = "查询",
                 onClick = {
                     onSearch(query, onOpenZi, onOpenPinyin) { error = it }
                 }
-            ) {
-                Text("查询")
-            }
-        }
+            )        }
         // 提示说明（汉字用楷体，英文/拼音用系统字体，避免字符间隔过大）
         MixedFontText(
             text = "仅可输入单个汉字或单个无声调拼音；拼音中的 ü 可用 v 代替（如 lv 等同于 lü）",
@@ -230,28 +223,12 @@ fun HomeScreen(
                             .fillMaxWidth()
                             .padding(vertical = 20.dp)
                     )
-                    else -> Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    else -> ZiGrid(
+                        entries = commons,
+                        columns = 5,
+                        onClick = { onOpenZi(it.zi) },
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        commons.chunked(5).forEach { row ->
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                row.forEach { e ->
-                                    ZiCell(
-                                        entry = e,
-                                        onClick = { onOpenZi(e.zi) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                repeat(5 - row.size) {
-                                    Spacer(Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    }
+                    )
                 }
             }
 
@@ -271,16 +248,10 @@ fun HomeScreen(
                         )
                     }
                     Spacer(Modifier.width(12.dp))
-                    Button(
-                        // 与 web 一致: 深蓝主按钮
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Blue500,
-                            contentColor = Color.White
-                        ),
+                    PrimaryButton(
+                        text = "管理",
                         onClick = onOpenStrokeManage
-                    ) {
-                        Text("管理")
-                    }
+                    )
                 }
                 // 附加说明: 已配置且完整时显示可访问的汉字数量；缺失/无效时警示
                 when {
@@ -316,16 +287,10 @@ fun HomeScreen(
                         )
                     }
                     Spacer(Modifier.width(12.dp))
-                    Button(
-                        // 与 web 一致: 深蓝主按钮
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Blue500,
-                            contentColor = Color.White
-                        ),
+                    PrimaryButton(
+                        text = "去赞助",
                         onClick = onOpenDonate
-                    ) {
-                        Text("去赞助")
-                    }
+                    )
                 }
             }
 
@@ -337,7 +302,7 @@ fun HomeScreen(
                 )
                 InlineLinkText(
                     text = "关于本站（汉字网）",
-                    links = mapOf("汉字网" to "https://hanzi.crazydan.io"),
+                    links = mapOf("汉字网" to SiteLinks.SITE),
                     style = MaterialTheme.typography.titleMedium
                 )
                 Column(
@@ -347,7 +312,7 @@ fun HomeScreen(
                     AboutBlock("建站初心", dark) {
                         InlineLinkText(
                             text = "本站是「筷字输入法」的衍生项目，旨在汇总汉字信息与资源，并向公共领域免费提供高质量的汉字笔画数据，方便个人学习与课堂教学使用，为汉字的广泛传播与学习、增强汉字的世界影响力贡献一份力量。",
-                            links = mapOf("筷字输入法" to "https://github.com/crazydan-studio/kuaizi-ime"),
+                            links = mapOf("筷字输入法" to SiteLinks.KUAII_IME),
                             style = aboutTextStyle
                         )
                     }
@@ -355,8 +320,8 @@ fun HomeScreen(
                         InlineLinkText(
                             text = "本站点（https://hanzi.crazydan.io）所提供的资源和源代码，仅限用于个人学习、师生教学等非商业用途；商业使用本站点所提供的汉字笔画数据，需获得商业授权。本站点所提供的汉字信息数据、拼音音频文件来源于「汉典网」（https://zdic.net/），直接使用需遵从其「使用条款」。",
                             links = mapOf(
-                                "汉典网" to "https://zdic.net/",
-                                "使用条款" to "https://zdic.net/terms/"
+                                "汉典网" to SiteLinks.ZDIC,
+                                "使用条款" to SiteLinks.ZDIC_TERMS
                             ),
                             style = aboutTextStyle
                         )
@@ -365,7 +330,7 @@ fun HomeScreen(
                         InlineLinkText(
                             text = "若在使用过程中遇到任何问题，或有好的改进建议，欢迎在「Issues」页面提出，我们将积极回应，并尽可能解决相关疑难。",
                             links = mapOf(
-                                "Issues" to "https://github.com/crazydan-studio/hanzi.crazydan.io/issues"
+                                "Issues" to SiteLinks.ISSUES
                             ),
                             style = aboutTextStyle
                         )
@@ -373,14 +338,14 @@ fun HomeScreen(
                     AboutBlock("联系我们", dark) {
                         InlineLinkText(
                             text = "如有合作或商务需求，可发送邮件至 support@studio.crazydan.org",
-                            links = mapOf("support@studio.crazydan.org" to "mailto:support@studio.crazydan.org"),
+                            links = mapOf("support@studio.crazydan.org" to "mailto:${SiteLinks.SUPPORT_EMAIL}"),
                             style = aboutTextStyle
                         )
                     }
                     AboutBlock("致谢", dark) {
                         InlineLinkText(
                             text = "感谢「汉典网」收集和提供的汉字详细信息。",
-                            links = mapOf("汉典网" to "https://zdic.net/"),
+                            links = mapOf("汉典网" to SiteLinks.ZDIC),
                             style = aboutTextStyle
                         )
                     }
@@ -420,6 +385,9 @@ fun ThemeIconButton(dark: Boolean, onToggleTheme: () -> Unit) {
         )
     }
 }
+
+// 首页常用字速览数量（与 web 首页一致: 前 20 个常用汉字）
+private const val HOME_COMMONS_LIMIT = 20
 
 // 查询路由: 单个汉字 → 汉字信息页；纯拼音（允许 ü）→ 拼音字列表页
 private fun onSearch(

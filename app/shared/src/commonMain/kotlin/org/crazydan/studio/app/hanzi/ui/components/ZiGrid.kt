@@ -67,7 +67,7 @@ fun ZiCell(
     }
 }
 
-/** 首页常用字速览（少量条目，固定列数） */
+/** 汉字网格（首页常用字速览 / 常用字列表 / 拼音字列表）: 固定列数、行末空位补齐 */
 @Composable
 fun ZiGrid(
     entries: List<ZiEntry>,
@@ -96,34 +96,5 @@ fun ZiGrid(
                 }
             }
         }
-    }
-}
-
-/** 水平条目（汉字 + 读音，列表行样式） */
-@Composable
-fun ZiRow(
-    entry: ZiEntry,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 10.dp)
-    ) {
-        Text(
-            text = entry.zi,
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.width(48.dp)
-        )
-        Text(
-            text = Pinyin.numberToSymbolTone(entry.pinyin),
-            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Default),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }

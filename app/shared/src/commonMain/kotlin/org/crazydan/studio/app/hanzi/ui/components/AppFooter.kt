@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.crazydan.studio.app.hanzi.ui.Platform
+import org.crazydan.studio.app.hanzi.ui.SiteLinks
 
 /**
  * 站点页脚（各页面共用，与前端 AppFooter.js 一致）: 外部链接与版权声明
@@ -30,12 +31,12 @@ fun AppFooter(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(bottom = 6.dp)
         ) {
-            FooterLink("筷字输入法", "https://github.com/crazydan-studio/kuaizi-ime", muted)
-            FooterLink("汉典网", "https://zdic.net/", muted)
+            FooterLink("筷字输入法", SiteLinks.KUAII_IME, muted)
+            FooterLink("汉典网", SiteLinks.ZDIC, muted)
         }
         InlineLinkText(
             text = "本站点内容版权归 Crazydan Studio 所有",
-            links = mapOf("Crazydan Studio" to "https://studio.crazydan.org/"),
+            links = mapOf("Crazydan Studio" to SiteLinks.STUDIO),
             style = MaterialTheme.typography.bodySmall.copy(color = muted)
         )
     }

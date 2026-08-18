@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import org.crazydan.studio.app.hanzi.shared.ZiStroke
 import org.crazydan.studio.app.hanzi.shared.StrokeFormat
 import org.crazydan.studio.app.hanzi.shared.StrokePoint
+import org.crazydan.studio.app.hanzi.ui.Blue500
 import org.crazydan.studio.app.hanzi.ui.Gray900
 import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
 import org.crazydan.studio.app.hanzi.ui.Platform
@@ -48,9 +49,6 @@ import org.crazydan.studio.app.hanzi.ui.tianZiGeColor
  *    按时间戳插值回放，笔触宽度随压力/起笔收笔变化；已完成笔画墨色、当前笔画高亮色
  */
 
-// 笔画间停顿（毫秒，与前端 strokeGap 一致）
-private const val STROKE_GAP_MS = StrokeFormat.STROKE_GAP_MS
-
 /** 背景字墨迹盒（画布像素坐标）: 笔画坐标还原的基准（x 按盒宽、y 按盒高） */
 private class ZiBox(val x0: Float, val y0: Float, val w: Float, val h: Float)
 
@@ -66,9 +64,6 @@ class WritingPlayer(private val strokes: List<ZiStroke>) {
     var progress by mutableFloatStateOf(0f)   // 当前笔画内进度 0..1
         private set
     var playbackSpeed by mutableFloatStateOf(1f)
-
-    /** 单笔播放模式: 当前笔画结束后立即停止（笔画分解图点击） */
-    var singleStroke = false
 
     private var elapsedMs = 0f
     private var gapRemainingMs = 0f
@@ -100,18 +95,6 @@ class WritingPlayer(private val strokes: List<ZiStroke>) {
         playbackSpeed = value.coerceIn(0.25f, 4f)
     }
 
-    /** 跳转到指定笔画（从该笔起点继续） */
-    fun seekTo(index: Int) {
-        if (strokes.isEmpty()) return
-        val target = index.coerceIn(0, strokes.size - 1)
-        val wasPlaying = state == State.PLAYING
-        currentIndex = target
-        progress = 0f
-        elapsedMs = 0f
-        gapRemainingMs = 0f
-        state = if (wasPlaying) State.PLAYING else State.PAUSED
-    }
-
     /** 帧推进: dtMs 为墙钟毫秒，速度在此内部应用（与前端 tick 一致） */
     fun tick(rawDtMs: Float, onComplete: () -> Unit) {
         if (state != State.PLAYING) return
@@ -136,8 +119,8 @@ class WritingPlayer(private val strokes: List<ZiStroke>) {
         if (elapsedMs >= duration) {
             progress = 1f
             currentIndex++
-            // 单笔播放模式: 该笔结束即停止
-            if (singleStroke || currentIndex >= strokes.size) {
+            // 全部笔画结束
+            if (currentIndex >= strokes.size) {
                 state = State.COMPLETED
                 onComplete()
             } else {
@@ -543,7 +526,7 @@ private fun DrawScope.drawZiBoxDebug(layout: ZiLayout?, unit: Float) {
     if (layout == null || !Platform.isDebug()) return
     val b = layout.box
     drawRect(
-        color = Color(0.23f, 0.51f, 0.96f, 0.6f),   // blue-500 半透明
+        color = Blue500.copy(alpha = 0.6f),   // 与前端调试色一致（blue-500 半透明）
         topLeft = Offset(b.x0 * unit, b.y0 * unit),
         size = androidx.compose.ui.geometry.Size(b.w * unit, b.h * unit),
         style = Stroke(width = 1.5f)

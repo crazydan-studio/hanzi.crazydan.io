@@ -112,3 +112,6 @@ fun strokeInkColor(dark: Boolean) = if (dark) Gray50 else Color.Black
 
 /** 笔画动画高亮色（正在绘制的笔画） */
 val strokeHighlightColor = Red600
+
+/** 弹窗遮罩色（放大查看等全屏遮罩背景） */
+val OverlayScrim = Color(0xB3000000)

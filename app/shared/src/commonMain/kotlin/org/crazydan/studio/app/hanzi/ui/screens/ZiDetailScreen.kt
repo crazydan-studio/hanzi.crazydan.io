@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +58,7 @@ import org.crazydan.studio.app.hanzi.shared.unicodePointAt
 import org.crazydan.studio.app.hanzi.ui.Blue500
 import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
 import org.crazydan.studio.app.hanzi.ui.Platform
+import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
 import org.crazydan.studio.app.hanzi.ui.components.BugReportIcon
 import org.crazydan.studio.app.hanzi.ui.components.OpenInNewIcon
@@ -181,8 +181,8 @@ fun ZiDetailScreen(
                                 val title = "【问题字】【${m.zi}】"
                                 val body = "【${m.zi}】字存在以下问题或需做以下改进：\n\n"
                                 Platform.openUrl(
-                                    "https://github.com/crazydan-studio/hanzi.crazydan.io/issues/new" +
-                                        "?title=${encodeUrl(title)}&body=${encodeUrl(body)}"
+                                    SiteLinks.ISSUES +
+                                        "/new?title=${encodeUrl(title)}&body=${encodeUrl(body)}"
                                 )
                             }
                         )
@@ -190,7 +190,7 @@ fun ZiDetailScreen(
                             text = "汉典网详情",
                             icon = OpenInNewIcon,
                             onClick = {
-                                Platform.openUrl("https://zdic.net/hans/${encodeUrl(m.zi)}")
+                                Platform.openUrl("${SiteLinks.ZDIC}hans/${encodeUrl(m.zi)}")
                             }
                         )
                     }
@@ -375,13 +375,12 @@ private fun WritingPanel(
 ) {
     val player = rememberWritingPlayer(strokes)
 
-    // 播放（含暂停）期间实时显示当前笔画名；未命名（类型 0）提示笔画类型未知
+    // 播放（含暂停）期间实时显示当前笔画名（未指定类型显示「未指定」）
     val strokeName = if (player.state == WritingPlayer.State.PLAYING ||
         player.state == WritingPlayer.State.PAUSED
     ) {
         strokes.getOrNull(player.currentIndex)?.let { s ->
-            if (s.strokeType == 0) "笔画类型未知"
-            else HanziLabels.strokeTypeName(s.strokeType).ifEmpty { "笔画类型未知" }
+            HanziLabels.strokeTypeName(s.strokeType)
         }
     } else {
         null
@@ -438,13 +437,11 @@ private fun WritingPanel(
                     primary = player.state != WritingPlayer.State.PLAYING,
                     onClick = {
                         Platform.stopPinyin()
-                        player.singleStroke = false
                         if (player.state == WritingPlayer.State.PLAYING) player.pause()
                         else player.play()
                     }
                 )
                 SmallButton(text = "重置", onClick = {
-                    player.singleStroke = false
                     player.reset()
                 })
                 // 倍速（与 web SPEEDS 一致: 0.5/1/1.5/2）
@@ -495,26 +492,28 @@ private fun StrokeDecomposition(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.padding(top = 12.dp)
     ) {
+        // strokes 已按笔顺排序，逐行线性编号（第 N 笔）
+        var index = 0
         strokes.chunked(4).forEach { row ->
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 row.forEach { stroke ->
-                    val index = strokes.indexOfFirst { it.strokeOrder == stroke.strokeOrder }
+                    val strokeIndex = index++
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .weight(1f)
-                            .clickable { onTogglePlay(index) }
+                            .clickable { onTogglePlay(strokeIndex) }
                             .padding(2.dp)
                     ) {
                         StrokeCellCanvas(
                             strokes = strokes,
-                            index = index,
+                            index = strokeIndex,
                             zi = zi,
                             dark = dark,
-                            progress = if (index == playingIndex) playingProgress else null,
+                            progress = if (strokeIndex == playingIndex) playingProgress else null,
                             modifier = Modifier.fillMaxWidth()
                         )
                         Text(
@@ -525,7 +524,7 @@ private fun StrokeDecomposition(
                             modifier = Modifier.padding(top = 2.dp)
                         )
                         Text(
-                            text = "第 ${index + 1} 笔",
+                            text = "第 ${strokeIndex + 1} 笔",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -539,7 +538,6 @@ private fun StrokeDecomposition(
         }
     }
 }
-
 // ---- 小型按钮（与 web btn-sm 相近，避免 Material 默认按钮过大） ----
 
 @Composable
@@ -547,23 +545,20 @@ private fun SmallButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true,
     primary: Boolean = false
 ) {
     val shape = RoundedCornerShape(6.dp)
     // 主按钮颜色与 web 一致（bg-blue-500 白字，浅/暗主题相同，不随主题变浅）
     val bg = if (primary) Blue500 else Color.Transparent
-    val fg = if (primary) Color.White
-    else if (enabled) MaterialTheme.colorScheme.onSurface
-    else MaterialTheme.colorScheme.onSurfaceVariant
+    val fg = if (primary) Color.White else MaterialTheme.colorScheme.onSurface
     Text(
         text = text,
-        color = fg.copy(alpha = if (enabled) 1f else 0.5f),
+        color = fg,
         style = MaterialTheme.typography.bodyMedium,
         modifier = modifier
             .clip(shape)
             .background(bg)
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(onClick = onClick)
             .border(
                 width = 1.dp,
                 color = if (primary) Color.Transparent else MaterialTheme.colorScheme.outlineVariant,

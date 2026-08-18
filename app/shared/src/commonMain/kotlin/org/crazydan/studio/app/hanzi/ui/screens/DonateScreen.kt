@@ -1,6 +1,5 @@
 package org.crazydan.studio.app.hanzi.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,7 +35,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import org.crazydan.studio.app.hanzi.ui.OverlayScrim
 import org.crazydan.studio.app.hanzi.ui.Platform
+import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
 
@@ -92,9 +93,9 @@ fun DonateScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(top = 16.dp)
             ) {
-                QrCode("支付宝", "donate/alipay.jpg", dark, Modifier.weight(1f)) { zoomed = it }
-                QrCode("微信", "donate/wechat.png", dark, Modifier.weight(1f)) { zoomed = it }
-                QrCode("PayPal", "donate/hanzi-site.png", dark, Modifier.weight(1f)) { zoomed = it }
+                QR_CODES.forEach { (name, file) ->
+                    QrCode(name, "donate/$file", dark, Modifier.weight(1f)) { zoomed = it }
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -115,9 +116,7 @@ fun DonateScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             TextButton(onClick = {
-                Platform.openUrl(
-                    "https://github.com/crazydan-studio/hanzi.crazydan.io/blob/master/docs/donate/index.md"
-                )
+                Platform.openUrl(SiteLinks.DONATE_LIST)
             }) {
                 Text("友情赞助清单 →")
             }
@@ -135,6 +134,13 @@ fun DonateScreen(
         )
     }
 }
+
+// 收款码（名称 → assets/donate 文件名；资源由 build/app-assets-pack.js 下载/拷贝）
+private val QR_CODES = listOf(
+    "支付宝" to "alipay.jpg",
+    "微信" to "wechat.png",
+    "PayPal" to "hanzi-site.png"
+)
 
 /** 单个收款码（内置资源图片，加载失败时显示占位） */
 @Composable
@@ -206,7 +212,7 @@ private fun QrZoomDialog(assetPath: String, onDismiss: () -> Unit) {
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxSize()
-                .background(androidx.compose.ui.graphics.Color(0xB3000000))
+                .background(OverlayScrim)
                 .clickable(onClick = onDismiss)
         ) {
             val image = bitmap

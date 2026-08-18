@@ -1,6 +1,6 @@
 // 汉字 App（Kotlin Multiplatform）
-//  - shared: 平台无关的汉字数据访问（Android 实现基于 sqlite；iOS 预留）
-//  - android: Android 应用（WebView 内嵌前端资源）
+//  - shared: 平台无关的汉字数据访问与 Compose UI（Android 实现基于 sqlite）
+//  - android: Android 应用（原生 Compose UI）
 rootProject.name = "hanzi-app"
 
 pluginManagement {

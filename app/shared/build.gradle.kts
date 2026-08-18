@@ -14,11 +14,6 @@ kotlin {
         }
     }
 
-    // iOS 预留: 仅声明目标与源码目录，暂不实现（HanziDb.ios.kt 为占位实现）
-    iosX64()
-    iosArm64()
-    iosSimulatorArm64()
-
     sourceSets {
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -31,8 +26,6 @@ kotlin {
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.documentfile)
-        }
-        iosMain.dependencies {
         }
     }
 }
