@@ -14,7 +14,7 @@
 // 存储: characters 表（id = 汉字 unicode 数值）；已存在记录更新（保留已有笔画）
 // 字体覆盖检查: 导入前检查自带中易楷体是否包含该字，缺失则不导入并输出告警
 import { DatabaseSync } from 'node:sqlite'
-import fontkit from 'fontkit'
+import * as fontkit from 'fontkit'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
