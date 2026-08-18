@@ -80,7 +80,7 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
 
     override fun queryCommons(limit: Int): List<ZiEntry> {
         val out = ArrayList<ZiEntry>(limit)
-        queryAll(
+        queryAll(db,
             "SELECT zi, pinyin FROM zi " +
                 "ORDER BY used_weight DESC, zi ASC LIMIT ?",
             arrayOf(limit.toString())
@@ -93,7 +93,7 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
     override fun queryPinyinList(plainPinyin: String): List<ZiEntry> {
         val out = ArrayList<ZiEntry>()
         // 走端侧拼音关联表（ensurePinyinIndexes 创建），避免全表扫描与读音 JSON 解析
-        queryAll(
+        queryAll(db,
             "SELECT c.zi, p.value AS reading " +
                 "FROM pinyin_plain pp " +
                 "JOIN pinyin_map pm ON pm.plain_id = pp.id " +
@@ -110,7 +110,7 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
     }
 
     override fun queryZiMeta(unicode: Int): ZiMeta? {
-        return queryFirst(
+        return queryFirst(db,
             "SELECT zi, pinyin, total_stroke_count, radical, structure " +
                 "FROM zi WHERE id = ?",
             arrayOf(unicode.toString())
@@ -130,7 +130,7 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
     override fun queryZiStrokes(unicode: Int): List<ZiStroke> {
         val sdb = strokeDb ?: return emptyList()   // 未配置笔画数据库
         val out = ArrayList<ZiStroke>()
-        queryAll(
+        queryAll(sdb,
             "SELECT stroke_order, stroke_type, trajectory_data FROM strokes " +
                 "WHERE zi_id = ? ORDER BY stroke_order",
             arrayOf(unicode.toString())
@@ -239,7 +239,7 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
             return id
         }
 
-        queryAll("SELECT id, pinyin, used_weight FROM zi", null) { cursor ->
+        queryAll(db, "SELECT id, pinyin, used_weight FROM zi", null) { cursor ->
             val ziId = cursor.getLong(0)
             val weight = cursor.getInt(2)
             val readings = JSONArray(cursor.getString(1))
@@ -295,8 +295,8 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
         }
     }
 
-    // 查询所有行并逐行执行 block（Cursor 自动关闭）
-    private fun queryAll(sql: String, args: Array<String>?, block: (Cursor) -> Unit) {
+    // 查询所有行并逐行执行 block（Cursor 自动关闭）; db 为目标数据库
+    private fun queryAll(db: SQLiteDatabase, sql: String, args: Array<String>?, block: (Cursor) -> Unit) {
         db.rawQuery(sql, args).use { cursor ->
             while (cursor.moveToNext()) {
                 block(cursor)
@@ -304,8 +304,8 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
         }
     }
 
-    // 仅取首行执行 block；无结果返回 null
-    private fun <T> queryFirst(sql: String, args: Array<String>?, block: (Cursor) -> T): T? {
+    // 仅取首行执行 block；无结果返回 null; db 为目标数据库
+    private fun <T> queryFirst(db: SQLiteDatabase, sql: String, args: Array<String>?, block: (Cursor) -> T): T? {
         val cursor = db.rawQuery(sql, args)
         cursor.use {
             if (cursor.moveToFirst()) return block(cursor)
