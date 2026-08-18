@@ -1,25 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>汉字 | 汉字笔画管理</title>
-  <link rel="icon" type="image/svg+xml" href="/logo.svg">
-  <link rel="stylesheet" href="/src/styles/main.css">
 </head>
 <body class="bg-gray-50 min-h-screen dark:bg-gray-900">
 
-  <div class="max-w-6xl mx-auto p-4 md:p-6" x-data>
-    <header class="flex flex-wrap items-center justify-between gap-2 mb-6">
-      <div class="flex items-center gap-3">
-        <a href="/" class="btn-sm">← 返回首页</a>
-        <div>
-          <h1 class="text-xl md:text-2xl font-bold">汉字笔画管理</h1>
-          <p class="text-xs text-gray-500 dark:text-gray-400">本地管理与维护汉字结构、笔画数据</p>
-        </div>
-      </div>
-      <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
-    </header>
+  <div class="max-w-6xl mx-auto p-4 md:p-6">
+    <div x-data="pageHeader({ title: '汉字笔画管理', subtitle: '本地管理与维护汉字结构、笔画数据', wrap: true, size: 'lg', mb: 'mb-6' })" x-html="html"></div>
 
     <!-- 汉字列表（独立页面；点击行进入书写页 write/?zi=） -->
     <section x-data="ziList()">
@@ -38,7 +26,7 @@
             <button @click="setHasStrokes('0')" class="btn-sm"
               :class="hasStrokes === '0' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">无笔画图</button>
           </div>
-          <span class="text-sm text-gray-500 dark:text-gray-400" x-text="`按使用频率降序`"></span>
+          <span class="text-sm text-gray-500 dark:text-gray-400">按使用频率降序</span>
         </div>
 
         <div class="relative min-h-[120px]">
@@ -81,12 +69,7 @@
           </tbody>
         </table>
         <!-- 加载中: 悬浮于列表区域上层 -->
-        <div x-show="loading" class="loading-overlay">
-          <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span class="spinner"></span>
-            加载中...
-          </span>
-        </div>
+        <div x-show="loading" x-data="loadingOverlay()" class="loading-overlay" x-html="html"></div>
         </div>
 
         <!-- 常驻分页组件: 分页大小下拉 + 上一页/页码/下一页 -->
@@ -116,7 +99,6 @@
             </div>
           </div>
         </div>
-        <p x-show="error" class="text-red-600 text-sm mt-2" x-text="error"></p>
       </div>
     </section>
   </div>

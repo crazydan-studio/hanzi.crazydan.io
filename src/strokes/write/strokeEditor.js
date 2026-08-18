@@ -7,7 +7,7 @@ import Alpine from 'alpinejs'
 import { api } from '@services/api.js'
 import { createSyncClient } from '@services/syncClient.js'
 import { STROKE_TYPES, strokeTypesMap } from '@components/StrokeTypes.js'
-import { ZI_STRUCTURES, ziStructuresMap, structureLabel } from '@components/ZiStructures.js'
+import { ZI_STRUCTURES } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 
@@ -18,10 +18,7 @@ export function registerStrokeEditor() {
     STROKE_TYPES: STROKE_TYPES,
     strokeTypesMap: strokeTypesMap,
     ZI_STRUCTURES: ZI_STRUCTURES,
-    ziStructuresMap: ziStructuresMap,
-    structureLabel: structureLabel,      // 结构显示文本（含示例）
     symbolPinyin: numberToSymbolTonePinyin,   // 数字声调拼音 → 符号声调
-    isSaving: false,
     saveQueue: Promise.resolve(),
     cancelledLocalIds: new Set(),
     error: null,
@@ -40,8 +37,7 @@ export function registerStrokeEditor() {
     // ---- 书写板联动状态（经 strokePad 回调同步） ----
     padMode: 'write',                    // strokePad 当前模式
     playbackActiveStrokeId: null,        // 回放正在绘制的笔画 id（列表联动高亮）
-    playbackActiveIndex: -1,             // 回放当前笔画在播放列表中的索引
-    selectedStrokeId: null,              // 回放模式: 点击选中的笔画（保持选中直到重播/重置）
+    selectedStrokeId: null,              // 书写/回放模式点击选中的笔画（画布置顶高亮/单笔播放）
 
     // 书写板组件实例（onReady 回传注入，替代 $refs 时序依赖）
     pad: null,
@@ -58,7 +54,7 @@ export function registerStrokeEditor() {
           if (this._pendingWidth) { pad.setPenWidth(this._pendingWidth); this._pendingWidth = null }
         },
         onStrokeRecorded: (stroke) => this.onStrokeRecorded(stroke),
-        onStrokeRemoveRequest: ({ strokeId }) => this.onStrokeRemoveRequest({ strokeId }),
+        onStrokeRemoveRequest: (p) => this.onStrokeRemoveRequest(p),
         onStrokeClearAll: (strokes) => this.onStrokeClearAll(strokes),
         onStrokeHover: (strokeId) => this.hoverStroke(strokeId),
         onModeChanged: (mode) => this.onPadModeChanged(mode),
@@ -145,6 +141,14 @@ export function registerStrokeEditor() {
       this.pad?.seekToStroke(strokeId)
     },
 
+    // 书写模式: 点击列表行选中/取消选中该笔画（画布置顶高亮）
+    selectStroke(stroke) {
+      if (this.padMode !== 'write') return
+      const id = stroke?.id
+      this.selectedStrokeId = this.selectedStrokeId === id ? null : id
+      this.pad?.setSelectedStroke(this.selectedStrokeId)
+    },
+
     // 清除单笔选中（重新播放全部 / 重置时）
     clearSelection() {
       this.selectedStrokeId = null
@@ -190,7 +194,6 @@ export function registerStrokeEditor() {
       this.padMode = mode
       if (mode !== 'playback') {
         this.playbackActiveStrokeId = null
-        this.playbackActiveIndex = -1
       }
     },
 
@@ -202,8 +205,7 @@ export function registerStrokeEditor() {
     },
 
     // strokePad 回放进度（列表联动高亮正在绘制的笔画；不参与多端同步）
-    onPlaybackProgress({ index, strokeId }) {
-      this.playbackActiveIndex = index ?? -1
+    onPlaybackProgress({ strokeId }) {
       this.playbackActiveStrokeId = strokeId ?? null
     },
 
@@ -269,22 +271,22 @@ export function registerStrokeEditor() {
         console.warn('[strokeEditor] loadZi 收到无效参数:', target)
         return
       }
-        this.zi = res.data || null
-        this.strokes = res.data?.strokes || []
-        // 数据重载后清空重绘状态（目标笔画可能已变化）
-        // 注意: 不清空重做栈与清空备份 —— 本端写操作（撤销/删除/清空）会触发服务端
-        // 广播回环重载，若清空则重做/恢复永远不可用；恢复与重做对笔顺冲突有兜底处理
-        this.redrawStroke = null
-        this._lastOp = null
-        // 数据注入公共书写板（参考字 + 笔画）
-        this.pad.setZi(this.zi?.zi || '')
-        this.pad.loadStrokes(this.strokes)
-      } catch (e) {
-        this.error = e.message
-        this.zi = null
-        this.strokes = []
-      }
-    },
+      this.zi = res.data || null
+      this.strokes = res.data?.strokes || []
+      // 数据重载后清空重绘状态（目标笔画可能已变化）
+      // 注意: 不清空重做栈与清空备份 —— 本端写操作（撤销/删除/清空）会触发服务端
+      // 广播回环重载，若清空则重做/恢复永远不可用；恢复与重做对笔顺冲突有兜底处理
+      this.redrawStroke = null
+      this._lastOp = null
+      // 数据注入公共书写板（参考字 + 笔画）
+      this.pad.setZi(this.zi?.zi || '')
+      this.pad.loadStrokes(this.strokes)
+    } catch (e) {
+      this.error = e.message
+      this.zi = null
+      this.strokes = []
+    }
+  },
 
     // 计算下一个 stroke_order（max+1，服务端权威）
     nextStrokeOrder() {
@@ -330,7 +332,6 @@ export function registerStrokeEditor() {
     async saveRedraw(localStroke) {
       const target = this.redrawStroke
       if (!target) return false
-      this.isSaving = true
       try {
         // 用户在保存完成前撤销了重绘笔画 → 仅清理画布，不做覆盖
         if (this.cancelledLocalIds.has(localStroke.id)) {
@@ -353,8 +354,6 @@ export function registerStrokeEditor() {
       } catch (e) {
         this.error = e.message
         return false
-      } finally {
-        this.isSaving = false
       }
     },
 
@@ -450,7 +449,6 @@ export function registerStrokeEditor() {
     },
 
     async saveStroke(localStroke) {
-      this.isSaving = true
       try {
         const res = await api.post(
           `/api/zi/${this.zi.id}/strokes`, {
@@ -476,8 +474,6 @@ export function registerStrokeEditor() {
         this.error = e.message
         this.cancelledLocalIds.delete(localStroke.id)   // 保存失败无需补删，清理标记
         return false
-      } finally {
-        this.isSaving = false
       }
     },
 

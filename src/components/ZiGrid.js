@@ -7,6 +7,13 @@ import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 
 const CELL_CLASS = 'flex flex-col items-center gap-0.5 py-2 rounded-lg border border-transparent hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer dark:hover:bg-gray-700 dark:hover:border-blue-500'
 
+// 拼接 HTML 前的字符转义（数据来自静态 JSON，防御性处理）
+function escapeHtml(v) {
+  return String(v).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]))
+}
+
 Alpine.data('ziGrid', (zis = []) => ({
   zis: zis || [],
 
@@ -16,9 +23,9 @@ Alpine.data('ziGrid', (zis = []) => ({
 
   get gridHtml() {
     return this.zis.map(c =>
-      `<button type="button" data-zi="${c[0]}" class="${CELL_CLASS}">` +
-        `<span class="text-xs text-gray-400 font-pinyin dark:text-gray-400">${numberToSymbolTonePinyin(c[1])}</span>` +
-        `<span class="text-3xl font-kaiti leading-none">${c[0]}</span>` +
+      `<button type="button" data-zi="${escapeHtml(c[0])}" class="${CELL_CLASS}">` +
+        `<span class="text-xs text-gray-400 font-pinyin dark:text-gray-400">${escapeHtml(numberToSymbolTonePinyin(c[1]))}</span>` +
+        `<span class="text-3xl font-kaiti leading-none">${escapeHtml(c[0])}</span>` +
       `</button>`).join('')
   },
 

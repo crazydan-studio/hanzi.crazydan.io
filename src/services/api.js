@@ -1,4 +1,4 @@
-const BASE_URL = ''   // 同源（dev由Vite proxy转发，prod由Express托管）
+// ============ API 客户端（同源: dev 由 Vite proxy 转发，prod 由 Express 托管） ============
 
 class ApiError extends Error {
   constructor(status, code, message, details = {}) {
@@ -16,7 +16,7 @@ async function request(method, path, body) {
   }
   if (body !== undefined) options.body = JSON.stringify(body)
 
-  const res = await fetch(`${BASE_URL}${path}`, options)
+  const res = await fetch(path, options)
   let payload = {}
   try { payload = await res.json() } catch { /* 非JSON响应 */ }
 

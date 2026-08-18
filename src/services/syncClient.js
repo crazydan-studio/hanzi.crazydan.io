@@ -20,12 +20,11 @@ export function createSyncClient() {
 
   const handlers = new Map()   // event -> Set<fn>
   let es = null
-  let connected = false
 
   function connect() {
     if (es) return
     es = new EventSource(`/api/sync?client=${encodeURIComponent(clientId)}`)
-    es.addEventListener('ready', () => { connected = true })
+    es.addEventListener('ready', () => { /* 连接确认 */ })
     for (const evt of LISTEN_EVENTS) {
       es.addEventListener(evt, (e) => {
         let payload = {}
@@ -35,8 +34,7 @@ export function createSyncClient() {
         }
       })
     }
-    // EventSource 断线自动重连；重连成功再标记
-    es.onerror = () => { connected = false }
+    // EventSource 断线自动重连（无需手动处理）
   }
 
   // 订阅事件

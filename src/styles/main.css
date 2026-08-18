@@ -39,27 +39,24 @@ body {
   -webkit-touch-callout: none;
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
+  /* 所有展示汉字默认使用自带中易楷体（无系统字体回退；字体未覆盖的汉字由
+     浏览器按需系统兜底显示，画布背景字不做兜底渲染） */
+  font-family: 'ZhongYiKaiTi', serif;
 }
 input, select, textarea {
   -webkit-user-select: text;
   user-select: text;
 }
 
-/* 所有展示汉字默认使用自带中易楷体（无系统字体回退；字体未覆盖的汉字由
-   浏览器按需系统兜底显示，画布背景字不做兜底渲染） */
-body {
-  font-family: 'ZhongYiKaiTi', serif;
-}
-
-.font-kaiti {
-  font-family: 'ZhongYiKaiTi', serif;
-}
-
-
 /* 拼音/拉丁文本: 使用系统字体（楷体拉丁字形（含带声调拼音）间距过大） */
 .font-pinyin {
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+}
+
+/* 楷体覆盖场景（如置于 .font-pinyin 父级下的汉字） */
+.font-kaiti {
+  font-family: 'ZhongYiKaiTi', serif;
 }
 
 @layer components {

@@ -1,10 +1,10 @@
 // ============ 汉字列表页组件（列表页 index.html 专用） ============
-// 列: 汉字/读音/结构(内联编辑)/笔画图(小图)；按权重降序
+// 列: 汉字/读音/结构(只读)/笔画图(小图)；按权重降序
 // 过滤: 完整笔画图 + 字/拼音搜索；分页大小可选；过滤与分页均 URL 路由
 import Alpine from 'alpinejs'
 import { api } from '@services/api.js'
 import { createSyncClient } from '@services/syncClient.js'
-import { ZI_STRUCTURES, structureLabel } from '@components/ZiStructures.js'
+import { structureLabel } from '@components/ZiStructures.js'
 import { strokeInkColor, ziInkBox, ensureKaiFont } from '@components/StrokeBackground.js'
 import { COORD_SCALE } from '@components/Constants.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
@@ -22,11 +22,9 @@ Alpine.data('ziList', () => ({
   LIMIT_OPTIONS: [20, 50, 100],
   themeVersion: 0,         // 主题版本号（x-effect 依赖，主题切换时重绘笔画缩略图）
   loadError: '',           // 列表加载失败提示（与加载中/无结果互斥）
-  ZI_STRUCTURES: ZI_STRUCTURES,   // 结构内联编辑下拉
   structureLabel: structureLabel,               // 结构名显示
   symbolPinyin: numberToSymbolTonePinyin,       // 数字声调拼音 → 符号声调
   loading: false,
-  error: null,
 
   init() {
     // 从 URL 参数恢复 过滤/分页（?page=&limit=&search=&has_strokes=）
@@ -119,18 +117,6 @@ Alpine.data('ziList', () => ({
     this.hasStrokes = v
     this.page = 1
     this.updateUrl()
-  },
-
-  // 结构内联编辑（唯一可编辑字段，其余只读）
-  async updateStructure(zi, structure) {
-    const code = Number(structure)
-    if (!Number.isInteger(code) || zi.structure === code) return
-    try {
-      const res = await api.patch(`/api/zi/${zi.id}`, { structure: code })
-      zi.structure = res.data.structure
-    } catch (e) {
-      this.error = e.message
-    }
   },
 
   // 笔画小图: 以背景汉字墨迹盒为坐标系还原笔画轨迹（归一化 ×1000），

@@ -10,9 +10,7 @@ export class AnimationEngine {
     this.canvas = canvas
     this.ctx = canvas.getContext('2d')
     this.strokeGap = options.strokeGap ?? 300   // 笔画间停顿(墙钟毫秒)
-    this.baseWidth = options.baseWidth ?? BASE_WIDTH   // 无笔刷数据时的兜底基准笔宽
     this.highlightColor = options.highlightColor ?? null   // 正在绘制笔画的动画高亮色
-    this.penWidthCoef = options.penWidthCoef ?? 1   // 笔宽系数（默认 1: 忠实还原录制笔宽）
     // 背景汉字墨迹盒提供者: () => { x0, y0, w, h } | null
     // 字体未加载/未覆盖该字时返回 null → 笔画坐标无法还原，不渲染笔画
     this.ziBox = options.ziBox ?? null
@@ -37,7 +35,6 @@ export class AnimationEngine {
     this.onComplete = null       // () 全部完成
     this.onProgress = null       // (index, progress) 笔画内进度 0-1
     this.onBeforeRender = null   // () 清屏后回调（宿主绘制田字格等背景）
-    this.onAfterRender = null    // () 笔画绘制完成后回调（宿主绘制覆盖层，如田字格置于笔画上层）
 
     this.setupCanvas()
   }
@@ -79,11 +76,11 @@ export class AnimationEngine {
           pressure: (p[2] ?? PRESSURE_SCALE / 2) / PRESSURE_SCALE,
           timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
         }))
-        // 基准笔宽 = 面积比还原（笔宽²/盒面积 比值 × 当前盒面积 开方）× 展示系数
-        s.pxBrushWidth = brushBaseWidth(traj.brush, box.w, box.h) * (this.penWidthCoef ?? 1)
+        // 基准笔宽 = 面积比还原（笔宽²/盒面积 比值 × 当前盒面积 开方）
+        s.pxBrushWidth = brushBaseWidth(traj.brush, box.w, box.h)
       } else {
         s.pxPoints = []
-        s.pxBrushWidth = this.baseWidth * (this.penWidthCoef ?? 1)
+        s.pxBrushWidth = BASE_WIDTH
       }
     }
     this.reset()
@@ -103,10 +100,10 @@ export class AnimationEngine {
           pressure: (p[2] ?? PRESSURE_SCALE / 2) / PRESSURE_SCALE,
           timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
         }))
-        s.pxBrushWidth = brushBaseWidth(traj.brush, box.w, box.h) * (this.penWidthCoef ?? 1)
+        s.pxBrushWidth = brushBaseWidth(traj.brush, box.w, box.h)
       } else {
         s.pxPoints = []
-        s.pxBrushWidth = this.baseWidth * (this.penWidthCoef ?? 1)
+        s.pxBrushWidth = BASE_WIDTH
       }
     }
     this.redrawCompleted()
@@ -251,8 +248,6 @@ export class AnimationEngine {
       // 当前笔画动画中: 高亮色
       this.renderPartial(stroke, progress, this.highlightColor || ink)
     }
-    // 覆盖层（田字格等置于笔画上层）
-    this.onAfterRender?.()
   }
 
   getStrokeDuration(pts) {
@@ -288,7 +283,7 @@ export class AnimationEngine {
   // 单点宽度（前端基准笔宽 × 压力），展示配置
   // 基准笔宽来自该笔画轨迹的笔刷面积比，忠实还原录制笔宽
   strokeWidthAt(stroke, p) {
-    const base = stroke?.pxBrushWidth ?? this.baseWidth * (this.penWidthCoef ?? 1)
+    const base = stroke?.pxBrushWidth ?? BASE_WIDTH
     const pressure = p?.pressure ?? 0.5
     return base * (0.4 + 0.6 * pressure)
   }
@@ -369,7 +364,6 @@ export class AnimationEngine {
     for (let i = 0; i < this.currentIndex && i < this.strokes.length; i++) {
       this.renderFullStroke(this.strokes[i], ink)
     }
-    this.onAfterRender?.()
   }
 
   clearCanvas() {

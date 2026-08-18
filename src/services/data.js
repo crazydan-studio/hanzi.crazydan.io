@@ -1,4 +1,4 @@
-// ============ 静态数据加载（public/assets，由 build/export-data.js 导出生成） ============
+// ============ 静态数据加载（public/assets，由 build/export-zi.js 导出生成） ============
 // 静态文件采用单字母紧凑结构（降低存储开销），在此归一化为完整字段供页面使用
 import { structureDisplayName } from '@components/ZiStructures.js'
 
@@ -56,9 +56,11 @@ export function loadCommons() {
   return loadJson('/assets/zi/commons.json')
 }
 
-// 拼音字列表（[字, 读音][]，按权重排序）
-export function loadPinyinList(plain) {
-  return loadJson(`/assets/pinyin/${encodeURIComponent(plain)}/meta.json`)
+// 拼音字列表（[字, 读音][]，按权重排序）；无该拼音数据时返回 null
+export async function loadPinyinList(plain) {
+  const res = await fetch(`/assets/pinyin/${encodeURIComponent(plain)}/meta.json`)
+  if (!res.ok) return null
+  return res.json()
 }
 
 // 单个汉字信息（public/assets/zi/{Unicode}/meta.json）
