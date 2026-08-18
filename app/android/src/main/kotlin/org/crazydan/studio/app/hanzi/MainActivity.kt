@@ -52,7 +52,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Platform.init(this)
+        // 笔画数据库文件选择器: 必须在生命周期 STARTED 前注册（onCreate 中注册，
+        // 避免运行时注册抛 IllegalStateException），经 Platform 回调解析所选文件
+        val strokeDbPicker = registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            Platform.onStrokeDbPicked(uri)
+        }
+        Platform.init(this, strokeDbPicker)
         // 主题（开屏淡出前加载完毕，首页直接应用）
         val savedDark = ThemeStore.load() ?: isSystemDark()
         // 开屏为暗色品牌页: 窗口背景先置为暗色

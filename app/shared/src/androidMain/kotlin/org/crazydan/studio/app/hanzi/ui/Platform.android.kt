@@ -177,18 +177,13 @@ actual object Platform {
     }
 
     actual fun pickStrokeDb(onPicked: (String?) -> Unit) {
-        val activity = AppContextHolder.appActivity ?: run {
+        // 文件选择器 launcher 须在生命周期 STARTED 前注册（由 MainActivity.onCreate 注册），
+        // 此处仅发起选择
+        val launcher = pickLauncher ?: run {
             onPicked(null)
             return
         }
         pickCallback = onPicked
-        val launcher = pickLauncher ?: activity.registerForActivityResult(
-            ActivityResultContracts.OpenDocument()
-        ) { uri ->
-            val cb = pickCallback
-            pickCallback = null
-            cb?.invoke(uri?.let { resolvePickedDb(it) })
-        }.also { pickLauncher = it }
         try {
             launcher.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "*/*"))
         } catch (e: Exception) {
@@ -237,9 +232,13 @@ actual object Platform {
         }
     }
 
-    /** 应用上下文/宿主 Activity 注入（MainActivity 初始化时调用） */
-    fun init(activity: ComponentActivity) {
+    /**
+     * 应用上下文/宿主 Activity 与笔画数据库文件选择器注入
+     * （MainActivity.onCreate 调用; 选择器 launcher 须在生命周期 STARTED 前注册）
+     */
+    fun init(activity: ComponentActivity, strokeDbPicker: ActivityResultLauncher<Array<String>>) {
         AppContextHolder.appActivity = activity
         AppContextHolder.appContext = activity
+        pickLauncher = strokeDbPicker
     }
 }
