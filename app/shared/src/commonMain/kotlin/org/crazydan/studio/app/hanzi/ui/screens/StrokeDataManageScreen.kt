@@ -1,7 +1,9 @@
 package org.crazydan.studio.app.hanzi.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,11 +13,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +40,7 @@ import org.crazydan.studio.app.hanzi.shared.StrokeDbInfo
 import org.crazydan.studio.app.hanzi.ui.Blue500
 import org.crazydan.studio.app.hanzi.ui.Platform
 import org.crazydan.studio.app.hanzi.ui.StrokeDbStore
+import org.crazydan.studio.app.hanzi.ui.components.AppFooter
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
 import org.crazydan.studio.app.hanzi.ui.components.StrokeDbFullIcon
 import org.crazydan.studio.app.hanzi.ui.components.StrokeDbLargeIcon
@@ -158,24 +163,28 @@ fun StrokeDataManageScreen(
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ScaleOption(
                 icon = StrokeDbSmallIcon,
+                iconSize = 22.dp,
                 title = "1500",
                 desc = "约 1500 个高频常用汉字（小规模）",
                 onClick = { downloadScale("1500") }
             )
             ScaleOption(
                 icon = StrokeDbMediumIcon,
+                iconSize = 28.dp,
                 title = "3000",
                 desc = "约 3000 个高频汉字（中规模）",
                 onClick = { downloadScale("3000") }
             )
             ScaleOption(
                 icon = StrokeDbLargeIcon,
+                iconSize = 34.dp,
                 title = "5000",
                 desc = "约 5000 个高频汉字（大规模）",
                 onClick = { downloadScale("5000") }
             )
             ScaleOption(
                 icon = StrokeDbFullIcon,
+                iconSize = 42.dp,
                 title = "全部（约 ${formatWan(totalChars)}，与汉字实际数量相匹配）",
                 desc = "全部汉字的笔画数据（完整规模）",
                 onClick = { downloadScale("full") }
@@ -187,13 +196,18 @@ fun StrokeDataManageScreen(
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.padding(top = 12.dp)
         )
+
+        AppFooter()
+        Spacer(Modifier.height(8.dp))
     }
 }
 
-/** 数据规模选项（图标 + 标题 + 说明，点击下载） */
+/** 数据规模选项（图标块 + 标题 + 说明，点击下载）:
+ * 图标块为统一尺寸的圆角方块，图标随数据规模增大（形象表示规模大小） */
 @Composable
 private fun ScaleOption(
     icon: ImageVector,
+    iconSize: androidx.compose.ui.unit.Dp,
     title: String,
     desc: String,
     onClick: () -> Unit
@@ -205,12 +219,22 @@ private fun ScaleOption(
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.width(28.dp)
-            )
+            // 图标块: 统一方块底衬 + 按规模增大的图标
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.width(56.dp).height(56.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.width(iconSize).height(iconSize)
+                    )
+                }
+            }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleSmall)

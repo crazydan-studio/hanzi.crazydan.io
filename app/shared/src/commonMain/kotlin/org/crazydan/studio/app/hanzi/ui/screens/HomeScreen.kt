@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,8 @@ import kotlinx.coroutines.withContext
 import org.crazydan.studio.app.hanzi.shared.CharEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.ui.Blue500
+import org.crazydan.studio.app.hanzi.ui.Gray400
+import org.crazydan.studio.app.hanzi.ui.Gray500
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
 import org.crazydan.studio.app.hanzi.ui.components.CharCell
 import org.crazydan.studio.app.hanzi.ui.components.DarkModeIcon
@@ -252,16 +255,16 @@ fun HomeScreen(
                 }
             }
 
-            // 汉字笔画数据管理（按需下载，避免占用过多存储空间）
+            // 笔画数据（按需下载，避免占用过多存储空间）
             SectionCard {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("汉字笔画数据", style = MaterialTheme.typography.titleMedium)
+                        Text("笔画数据", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "笔画数据为独立数据库，可按需下载不同规模的数据集（1500/3000/5000/全部），下载后指定存放位置即可使用",
+                            "笔画数据为独立数据库，可按需下载不同规模的数据集，下载后指定存放位置即可使用",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 2.dp)
@@ -341,14 +344,14 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.padding(top = 12.dp)
                 ) {
-                    AboutBlock("建站初心", aboutTextStyle) {
+                    AboutBlock("建站初心", aboutTextStyle, dark) {
                         InlineLinkText(
                             text = "本站是「筷字输入法」的衍生项目，旨在汇总汉字信息与资源，并向公共领域免费提供高质量的汉字笔画数据，方便个人学习与课堂教学使用，为汉字的广泛传播与学习、增强汉字的世界影响力贡献一份力量。",
                             links = mapOf("筷字输入法" to "https://github.com/crazydan-studio/kuaizi-ime"),
                             style = aboutTextStyle
                         )
                     }
-                    AboutBlock("许可协议", aboutTextStyle) {
+                    AboutBlock("许可协议", aboutTextStyle, dark) {
                         InlineLinkText(
                             text = "本站点（https://hanzi.crazydan.io）所提供的资源和源代码，仅限用于个人学习、师生教学等非商业用途；商业使用本站点所提供的汉字笔画数据，需获得商业授权。本站点所提供的汉字信息数据、拼音音频文件来源于「汉典网」（https://zdic.net/），直接使用需遵从其「使用条款」。",
                             links = mapOf(
@@ -358,7 +361,7 @@ fun HomeScreen(
                             style = aboutTextStyle
                         )
                     }
-                    AboutBlock("建议与意见", aboutTextStyle) {
+                    AboutBlock("建议与意见", aboutTextStyle, dark) {
                         InlineLinkText(
                             text = "若在使用过程中遇到任何问题，或有好的改进建议，欢迎在「Issues」页面提出，我们将积极回应，并尽可能解决相关疑难。",
                             links = mapOf(
@@ -367,7 +370,7 @@ fun HomeScreen(
                             style = aboutTextStyle
                         )
                     }
-                    AboutBlock("联系我们", aboutTextStyle) {
+                    AboutBlock("联系我们", aboutTextStyle, dark) {
                         // 邮箱地址单独一行展示，避免长地址在句内产生不必要的换行
                         Text(
                             "如有合作或商务需求，可发送邮件至：",
@@ -379,7 +382,7 @@ fun HomeScreen(
                             style = aboutTextStyle
                         )
                     }
-                    AboutBlock("致谢", aboutTextStyle) {
+                    AboutBlock("致谢", aboutTextStyle, dark) {
                         InlineLinkText(
                             text = "感谢「汉典网」收集和提供的汉字详细信息。",
                             links = mapOf("汉典网" to "https://zdic.net/"),
@@ -395,10 +398,16 @@ fun HomeScreen(
 }
 
 @Composable
-private fun AboutBlock(title: String, textStyle: TextStyle, content: @Composable () -> Unit) {
+private fun AboutBlock(title: String, textStyle: TextStyle, dark: Boolean, content: @Composable () -> Unit) {
     Column {
-        // 子项标题颜色与正文一致（与 web 一致: 整块文案同为次要色）
-        Text(title, style = MaterialTheme.typography.titleSmall.copy(color = textStyle.color))
+        // 子项标题: 加粗 + 颜色与 web 一致（text-gray-500 / dark:text-gray-400）
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = if (dark) Gray400 else Gray500
+            )
+        )
         Column(Modifier.padding(top = 4.dp)) {
             content()
         }
