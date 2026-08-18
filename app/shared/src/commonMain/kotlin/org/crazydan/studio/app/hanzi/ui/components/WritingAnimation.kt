@@ -464,6 +464,8 @@ private fun DrawScope.drawCharRef(
     textMeasurer: TextMeasurer
 ): CharLayout? {
     if (character.isEmpty()) return null
+    // 画布尺寸无效（未布局/异常）时不做绘制
+    if (size.width <= 0f || size.height <= 0f) return null
     val emPx = 92.sp.toPx()
     val baseScale = (size.width * 0.92f) / emPx
 
@@ -471,12 +473,15 @@ private fun DrawScope.drawCharRef(
     val raster = Platform.rasterCharBox(character, emPx) ?: return null
 
     // 墨迹盒不得超出田字格且四周留白（各侧 4% 画布）: 必要时按比例缩小字号
+    // （盒尺寸异常/为零时不缩放，避免 fit 出现 NaN/Infinity）
     val margin = size.width * 0.04f
-    val fit = minOf(
-        1f,
-        (size.width - margin * 2f) / ((raster[2] - raster[0]) * baseScale),
-        (size.height - margin * 2f) / ((raster[3] - raster[1]) * baseScale)
-    )
+    val inkW = (raster[2] - raster[0]) * baseScale
+    val inkH = (raster[3] - raster[1]) * baseScale
+    val maxW = size.width - margin * 2f
+    val maxH = size.height - margin * 2f
+    val fitW = if (inkW > 0f) maxW / inkW else 1f
+    val fitH = if (inkH > 0f) maxH / inkH else 1f
+    val fit = minOf(1f, if (fitW.isFinite()) fitW else 1f, if (fitH.isFinite()) fitH else 1f)
     val effPx = emPx * fit
     val effRaster = if (fit < 1f) (Platform.rasterCharBox(character, effPx) ?: raster) else raster
     val style = TextStyle(

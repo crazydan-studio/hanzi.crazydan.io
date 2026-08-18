@@ -27,6 +27,17 @@ export function displayUnit(canvas, rect) {
 // 背景字统一字体族（自带静态中易楷体，无系统字体回退）
 export const KAI_FONT_FAMILY = '"ZhongYiKaiTi"'
 
+// 楷体是否已加载可用（仅检查字体加载状态，不做覆盖检测——各浏览器对
+// check(font, text) 的覆盖语义实现不一致）; 未加载时不做任何渲染/测量（无兜底，
+// 避免回退字体导致的字形尺寸异常）
+export function kaiFontReady() {
+  try {
+    return !!document.fonts?.check('100px "ZhongYiKaiTi"')
+  } catch {
+    return false
+  }
+}
+
 // 光栅实测墨迹盒缓存（按 字号+字 缓存; 字体加载完成后清空，防回退字体度量残留）
 const charBoxCache = new Map()
 
@@ -54,6 +65,7 @@ export async function ensureKaiFont() {
 //     （留出四周边距、收紧中宫中心、顺应结构重心）
 export function drawCharRef(ctx, width, height, char, color = charRefColor()) {
   if (!char) return
+  if (!kaiFontReady()) return   // 楷体未加载: 不做回退渲染（无兜底）
   const lay = charBoxLayout(width, height, char)
   if (!lay) return
 
@@ -71,6 +83,9 @@ export function drawCharRef(ctx, width, height, char, color = charRefColor()) {
 // 即为实际绘制像素的精确边界（汉字笔画书写坐标系）
 // 返回 { font, drawX, drawY, box }（drawX/drawY 为绘制对齐点，box 为墨迹盒）
 function charBoxLayout(width, height, char) {
+  if (!kaiFontReady()) return null   // 楷体未加载: 不做测量（无兜底）
+  // 画布尺寸无效（未布局/异常）时不做测量
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null
   // 统一字号: 画布短边的 92%（留边距防溢出），所有字相同
   const margin = Math.min(width, height) * 0.04   // 四周留白（画布的 4%）
   const baseSize = Math.max(1, Math.round(Math.min(width, height) * 0.92))
@@ -81,9 +96,12 @@ function charBoxLayout(width, height, char) {
   if (!baseRel) return null
 
   // 墨迹盒不得超出田字格且四周留白: 必要时按比例缩小字号
-  const fit = Math.min(1,
-    (width - margin * 2) / baseRel.w,
-    (height - margin * 2) / baseRel.h)
+  // （盒尺寸异常/为零时不缩放，避免 fit 出现 NaN/Infinity）
+  const maxW = width - margin * 2
+  const maxH = height - margin * 2
+  const fitW = baseRel.w > 0 ? maxW / baseRel.w : 1
+  const fitH = baseRel.h > 0 ? maxH / baseRel.h : 1
+  const fit = Math.min(1, Number.isFinite(fitW) ? fitW : 1, Number.isFinite(fitH) ? fitH : 1)
   const fontSize = Math.max(1, Math.round(baseSize * fit))
   const rel = fit < 1
     ? rasterCharBoxRel(`${fontSize}px ${KAI_FONT_FAMILY}`, fontSize, char) ?? baseRel
@@ -104,7 +122,10 @@ function charBoxLayout(width, height, char) {
 }
 
 // 光栅实测墨迹盒（相对对齐点）: 离屏实际渲染（textAlign center + textBaseline middle，
-// 与 drawCharRef 一致），按 alpha>0 像素扫描；结果与字号无关地缓存
+// 与 drawCharRef 一致），按像素扫描; 结果与字号无关地缓存
+// 扫描阈值: 丢弃 AA 淡边（alpha ≤ 8 视为透明），使盒贴合可见墨迹
+const ALPHA_THRESHOLD = 8
+
 function rasterCharBoxRel(font, fontSize, char) {
   const key = `${fontSize}@${char}`
   const cached = charBoxCache.get(key)
@@ -129,7 +150,7 @@ function rasterCharBoxRel(font, fontSize, char) {
   let minX = off.width, minY = off.height, maxX = -1, maxY = -1
   for (let y = 0; y < off.height; y++) {
     for (let x = 0; x < off.width; x++) {
-      if (data[(y * off.width + x) * 4 + 3] > 0) {
+      if (data[(y * off.width + x) * 4 + 3] > ALPHA_THRESHOLD) {
         if (x < minX) minX = x
         if (x > maxX) maxX = x
         if (y < minY) minY = y
@@ -141,9 +162,13 @@ function rasterCharBoxRel(font, fontSize, char) {
   const rel = {
     l: minX / dpr - cx,
     t: minY / dpr - cy,
-    r: (maxX + 1) / dpr - cx,
-    b: (maxY + 1) / dpr - cy
+    r: maxX / dpr - cx,
+    b: maxY / dpr - cy,
+    w: (maxX - minX) / dpr,
+    h: (maxY - minY) / dpr
   }
+  // 合理性上限: 墨迹盒超出字身 1.3 倍（回退字体/异常渲染的特征）→ 视为无效，不缓存
+  if (rel.w > fontSize * 1.3 || rel.h > fontSize * 1.3) return null
   charBoxCache.set(key, rel)
   return rel
 }

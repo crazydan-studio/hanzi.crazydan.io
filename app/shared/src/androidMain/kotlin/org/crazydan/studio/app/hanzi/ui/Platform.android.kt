@@ -123,7 +123,7 @@ actual object Platform {
         val context = AppContextHolder.appContext ?: return null
         return try {
             val typeface = android.graphics.Typeface.createFromAsset(
-                context.assets, "font/ZhongYiKaiTi.woff2")
+                context.assets, "font/ZhongYiKaiTi.ttf")
             val paint = android.graphics.Paint(
                 android.graphics.Paint.ANTI_ALIAS_FLAG
             ).apply {
@@ -140,14 +140,14 @@ actual object Platform {
             val baseline = (size - glyphHeight) / 2f - fm.ascent
             canvas.drawText(character, size / 2f, baseline, paint)
 
-            // 扫描 alpha > 0 像素（实际渲染墨迹，含 AA 边缘）
+            // 扫描阈值: 丢弃 AA 淡边（alpha ≤ 8 视为透明），使盒贴合可见墨迹
             val px = IntArray(size * size)
             bmp.getPixels(px, 0, size, 0, 0, size, size)
             var minX = size; var minY = size; var maxX = -1; var maxY = -1
             for (y in 0 until size) {
                 val row = y * size
                 for (x in 0 until size) {
-                    if (px[row + x].ushr(24) > 0) {
+                    if (px[row + x].ushr(24) > 8) {
                         if (x < minX) minX = x
                         if (x > maxX) maxX = x
                         if (y < minY) minY = y
@@ -157,14 +157,18 @@ actual object Platform {
             }
             bmp.recycle()
             if (maxX < 0) return null
+            // 合理性上限: 墨迹盒超出字身 1.3 倍（回退字体/异常渲染的特征）→ 视为无效
+            val w = maxX - minX
+            val h = maxY - minY
+            if (w > fontSizePx * 1.3f || h > fontSizePx * 1.3f) return null
 
             // 相对文本对齐点（水平左缘 + 基线）: 布局左缘 = 中心 - 文字宽/2
             val textLeft = size / 2f - paint.measureText(character) / 2f
             return floatArrayOf(
                 minX - textLeft,
                 minY - baseline,
-                maxX + 1 - textLeft,
-                maxY + 1 - baseline
+                maxX - textLeft,
+                maxY - baseline
             )
         } catch (e: Exception) {
             null
