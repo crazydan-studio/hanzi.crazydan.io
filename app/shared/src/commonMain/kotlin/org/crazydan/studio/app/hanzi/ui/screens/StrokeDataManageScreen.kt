@@ -189,9 +189,9 @@ fun StrokeDataManageScreen(
         )
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val scales = listOf(
-                Triple("1500", "约 1500 个高频常用汉字（小规模）", "1500"),
-                Triple("3000", "约 3000 个高频汉字（中规模）", "3000"),
-                Triple("5000", "约 5000 个高频汉字（大规模）", "5000"),
+                Triple("1500 字", "约 1500 个高频常用汉字（小规模）", "1500"),
+                Triple("3000 字", "约 3000 个高频汉字（中规模）", "3000"),
+                Triple("5000 字", "约 5000 个高频汉字（大规模）", "5000"),
                 Triple("全部（约 ${formatWan(totalZi)}）", "全部汉字的笔画数据（完整规模）", "full")
             )
             scales.chunked(2).forEach { row ->
@@ -210,13 +210,8 @@ fun StrokeDataManageScreen(
                 }
             }
         }
-        Text(
-            text = "注意：点击下载后将在浏览器中打开下载页，请等待下载完成后返回本页，再点击上方「导入笔画数据文件」按钮进行导入。",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(top = 12.dp)
-        )
 
+        Spacer(Modifier.height(8.dp))
         AppFooter()
         Spacer(Modifier.height(8.dp))
     }
