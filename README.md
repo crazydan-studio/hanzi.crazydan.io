@@ -46,7 +46,7 @@
    ```
 
    产物：
-   - `app/android/src/main/assets/font/ZhongYiKaiTi.ttf`：App 内置字体（全量 TTF，`createFromAsset` 直读）
+   - `app/android/src/main/assets/fonts/ZhongYiKaiTi.ttf`：App 内置字体（全量 TTF，`createFromAsset` 直读）
    - `public/fonts/ZhongYiKaiTi.woff2`：web 端显示字体（全量 TTF 转 woff2，仅格式转换，保留全部字形）
 
 3. 导出前端静态数据（常用字列表、拼音字列表、汉字信息与笔画数据，数据直接取自后端数据库）：

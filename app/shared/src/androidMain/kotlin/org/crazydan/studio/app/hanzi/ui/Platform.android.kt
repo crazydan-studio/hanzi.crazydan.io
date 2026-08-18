@@ -9,6 +9,7 @@ import android.graphics.BitmapFactory
 import android.media.MediaPlayer
 import android.net.Uri
 import androidx.activity.ComponentActivity
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -123,7 +124,7 @@ actual object Platform {
         val context = AppContextHolder.appContext ?: return null
         return try {
             val typeface = android.graphics.Typeface.createFromAsset(
-                context.assets, "font/ZhongYiKaiTi.ttf")
+                context.assets, "fonts/ZhongYiKaiTi.ttf")
             val paint = android.graphics.Paint(
                 android.graphics.Paint.ANTI_ALIAS_FLAG
             ).apply {
@@ -194,6 +195,13 @@ actual object Platform {
             pickCallback = null
             onPicked(null)
         }
+    }
+
+    /** 文件选择结果回调（MainActivity 的 launcher 回调，经此解析所选文件路径） */
+    fun onStrokeDbPicked(uri: Uri?) {
+        val cb = pickCallback
+        pickCallback = null
+        cb?.invoke(uri?.let { resolvePickedDb(it) })
     }
 
     // 解析用户选择的笔画数据库:

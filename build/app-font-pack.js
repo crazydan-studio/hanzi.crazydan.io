@@ -2,7 +2,7 @@
 //  - App 内置: 直接使用全量 TTF（build/fonts/ZhongYiKaiTi.ttf）
 //  - web 端:   全量字体转换为 woff2（仅格式转换，不删除任何字形）
 // 产物:
-//   - app/android/src/main/assets/font/ZhongYiKaiTi.ttf
+//   - app/android/src/main/assets/fonts/ZhongYiKaiTi.ttf
 //   - public/fonts/ZhongYiKaiTi.woff2
 // 用法:
 //   pnpm app:font
@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..')
 const SRC_FONT = path.join(ROOT, 'build', 'fonts', 'ZhongYiKaiTi.ttf')
 const DSTS = [
-  path.join(ROOT, 'app', 'android', 'src', 'main', 'assets', 'font', 'ZhongYiKaiTi.ttf'),
+  path.join(ROOT, 'app', 'android', 'src', 'main', 'assets', 'fonts', 'ZhongYiKaiTi.ttf'),
   path.join(ROOT, 'public', 'fonts', 'ZhongYiKaiTi.woff2')
 ]
 

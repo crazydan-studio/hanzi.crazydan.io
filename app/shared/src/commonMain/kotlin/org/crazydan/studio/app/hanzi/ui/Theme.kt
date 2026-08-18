@@ -9,7 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 
-/** 中易楷体（内置 assets/font/ZhongYiKaiTi.ttf）; Android 实现从 assets 加载 */
+/** 中易楷体（内置 assets/fonts/ZhongYiKaiTi.ttf）; Android 实现从 assets 加载 */
 expect fun platformKaiTiFontFamily(): FontFamily
 
 // 与前端（Tailwind）配色保持一致
@@ -97,7 +97,7 @@ fun HanziTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable 
 
 // ---- 书写动画相关颜色（与前端 StrokeBackground.js / 引擎一致） ----
 
-/** 中易楷体（内置 assets/font/ZhongYiKaiTi.ttf，与前端静态楷体同源） */
+/** 中易楷体（内置 assets/fonts/ZhongYiKaiTi.ttf，与前端静态楷体同源） */
 val KaiTiFontFamily: FontFamily
     get() = platformKaiTiFontFamily()
 
