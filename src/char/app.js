@@ -75,7 +75,7 @@ Alpine.data('charApp', () => ({
   measureCharBox() {
     const e = this.engine
     if (!e || !this.fontReady) return
-    this.charBoxValue = charInkBox(e.ctx, e.cssW, e.cssH, this.char)
+    this.charBoxValue = charInkBox(e.cssW, e.cssH, this.char)
     if (this.charBoxValue) e.refreshBox()
   },
 

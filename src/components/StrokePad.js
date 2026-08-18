@@ -165,7 +165,7 @@ Alpine.data('strokePad', (opts = {}) => ({
       this.charBoxValue = null
       return
     }
-    this.charBoxValue = charInkBox(this.ctx, this.width, this.height, this.currentChar)
+    this.charBoxValue = charInkBox(this.width, this.height, this.currentChar)
   },
 
   // 切换书写/回放模式

@@ -76,7 +76,7 @@ Alpine.data('strokeCell', (char, index, strokes) => ({
   // 测量背景字墨迹盒（字体就绪后）: 笔画坐标以墨迹盒为坐标系还原
   remeasureBox() {
     if (!this.fontReady) return
-    this._box = charInkBox(this.engine.ctx, this.engine.cssW, this.engine.cssH, char)
+    this._box = charInkBox(this.engine.cssW, this.engine.cssH, char)
     if (this._box) this.engine.refreshBox()
   },
 

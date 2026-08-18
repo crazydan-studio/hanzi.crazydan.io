@@ -43,7 +43,7 @@ import org.crazydan.studio.app.hanzi.ui.tianZiGeColor
 /**
  * 书写动画（移植自前端 AnimationEngine.js + StrokeBackground.js + Brush.js）
  *  - 田字格: 外框 + 米字格中央十字虚线（中心空心）
- *  - 背景汉字: 半透明参考字（统一字号、固定基线、居中）
+ *  - 背景汉字: 半透明参考字（统一字号、墨迹盒中心对齐田字格中心）
  *  - 笔画: 以背景字墨迹盒为坐标系还原轨迹（x 按盒宽、y 按盒高），
  *    按时间戳插值回放，笔触宽度随压力/起笔收笔变化；已完成笔画墨色、当前笔画高亮色
  */
@@ -310,8 +310,9 @@ fun WritingAnimationCanvas(
         val unit = size.width / StrokeFormat.INTERNAL_SIZE   // 前端 500×500 内部坐标系缩放
         // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
         drawTianZiGe(border, unit)
-        val box = drawCharRef(character, ref, textMeasurer)
-        drawCharBoxDebug(box, unit)
+        val layout = drawCharRef(character, ref, textMeasurer)
+        drawCharBoxDebug(layout, unit)
+        val box = layout?.box
 
         val completed = if (player != null) player.currentIndex.coerceIn(0, strokes.size) else strokes.size
         for (i in 0 until completed) {
@@ -356,8 +357,9 @@ fun StrokeCellCanvas(
         val unit = size.width / StrokeFormat.INTERNAL_SIZE
         // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
         drawTianZiGe(border, unit)
-        val box = drawCharRef(character, ref, textMeasurer)
-        drawCharBoxDebug(box, unit)
+        val layout = drawCharRef(character, ref, textMeasurer)
+        drawCharBoxDebug(layout, unit)
+        val box = layout?.box
         // 此前笔画墨色已绘
         for (i in 0 until index) {
             drawFullStroke(strokes[i], ink, unit, box)
@@ -442,16 +444,30 @@ private fun DrawScope.drawDashedLine(
     }
 }
 
+/** 背景字布局信息: 墨迹盒（画布坐标）+ 文本布局左上角与缩放（光栅盒换算用） */
+private class CharLayout(
+    val box: CharBox,
+    val textLeft: Float,
+    val textTop: Float,
+    val scale: Float,
+    val fontSizePx: Float
+)
+
 /**
- * 背景汉字绘制（与 web drawCharRef 完全一致）:
- *  - 字号为画布短边（正方形）的 92%
- *  - 以基准字「永」的字体度量固定基线，所有字共用；
- *    字形中心对齐画布中心 → baseline y = 画布中心 - (descent - ascent)/2
- *    （ascent/descent 相对基线度量，与 web actualBoundingBoxAscent/Descent 一致）
+ * 背景汉字绘制（与 web drawCharRef 一致，光栅实测坐标系）:
+ *  - 字号为画布短边（正方形）的 92%（所有字相同）
+ *  - 盒: 直接实际渲染该字并扫描像素，得到真实墨迹盒（假定字体始终包含该字，
+ *    不提供回退; 允许墨迹盒坐标超出画布边界）
+ *  - 布局: 以实测墨迹盒为基准做 x/y 双向平移，使墨迹中心对齐田字格中心
+ *    （留出四周边距、收紧中宫中心、顺应结构重心）
  *  - 田字格边框仅作装饰绘制于画布边缘，不参与汉字/笔画的坐标定位
- * 返回该字墨迹盒（画布像素坐标，笔画坐标还原基准）; 度量失败时返回 null
+ * 返回布局信息（墨迹盒为笔画坐标还原基准）; 度量失败时返回 null
  */
-private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer: TextMeasurer): CharBox? {
+private fun DrawScope.drawCharRef(
+    character: String,
+    color: Color,
+    textMeasurer: TextMeasurer
+): CharLayout? {
     if (character.isEmpty()) return null
     val style = TextStyle(
         fontSize = 92.sp,
@@ -461,17 +477,19 @@ private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer:
     )
     val emPx = 92.sp.toPx()
     val scale = (size.width * 0.92f) / emPx
-    val refLayout = textMeasurer.measure(text = "永", style = style)
-    val refGlyph = refLayout.getBoundingBox(0)
-    val refBaseline = refLayout.getLineBaseline(0)
-    val ascent = refBaseline - refGlyph.top
-    val descent = refGlyph.bottom - refBaseline
-    val baselineY = size.height / 2f - (descent - ascent) / 2f
+
+    // 光栅实测墨迹盒（相对文本对齐点: 水平左缘 + 基线）: 无回退
+    val raster = Platform.rasterCharBox(character, emPx) ?: return null
 
     val layout = textMeasurer.measure(text = character, style = style)
-    // 文本布局左上角（未缩放画布坐标）: 水平居中、垂直按固定基线
-    val textLeft = (size.width - layout.size.width) / 2f
-    val textTop = baselineY - layout.getLineBaseline(0)
+    val lineBaseline = layout.getLineBaseline(0)
+
+    // 布局: 实测墨迹中心对齐画布中心（x/y 双向平移，未缩放坐标）;
+    // 墨迹盒以文本对齐点（左缘 + 基线）度量
+    val boxCX = (raster[0] + raster[2]) / 2f
+    val boxCY = (raster[1] + raster[3]) / 2f
+    val textLeft = size.width / 2f - boxCX
+    val textTop = size.height / 2f - lineBaseline - boxCY
 
     scale(scale, scale, pivot = Offset(size.width / 2f, size.height / 2f)) {
         drawText(
@@ -480,17 +498,20 @@ private fun DrawScope.drawCharRef(character: String, color: Color, textMeasurer:
         )
     }
 
-    // 墨迹盒（画布坐标）: 字形包围盒经与绘制完全相同的 缩放+平移 变换
-    val glyph = layout.getBoundingBox(0)
+    // 墨迹盒（画布坐标）: 光栅盒经与绘制完全相同的 缩放+平移 变换
     val cx = size.width / 2f
     val cy = size.height / 2f
-    val x0 = cx + (textLeft + glyph.left - cx) * scale
-    val y0 = cy + (textTop + glyph.top - cy) * scale
-    val x1 = cx + (textLeft + glyph.right - cx) * scale
-    val y1 = cy + (textTop + glyph.bottom - cy) * scale
+    val x0 = cx + (textLeft + raster[0] - cx) * scale
+    val y0 = cy + (textTop + lineBaseline + raster[1] - cy) * scale
+    val x1 = cx + (textLeft + raster[2] - cx) * scale
+    val y1 = cy + (textTop + lineBaseline + raster[3] - cy) * scale
     val w = x1 - x0
     val h = y1 - y0
-    return if (w > 0f && h > 0f) CharBox(x0, y0, w, h) else null
+    return if (w > 0f && h > 0f) {
+        CharLayout(CharBox(x0, y0, w, h), textLeft, textTop, scale, emPx)
+    } else {
+        null
+    }
 }
 
 /** 盒相对归一化坐标 → 画布坐标（x 按盒宽、y 按盒高分别缩放） */
@@ -509,13 +530,14 @@ private fun brushBaseWidth(brush: Int, box: CharBox): Float {
     return if (ratio > 0f) kotlin.math.sqrt(ratio * area) else StrokeFormat.BASE_WIDTH
 }
 
-/** 调试用（仅 debug 构建）: 以半透明实线绘制背景字墨迹盒边界 */
-private fun DrawScope.drawCharBoxDebug(box: CharBox?, unit: Float) {
-    if (box == null || !Platform.isDebug()) return
+/** 调试用（仅 debug 构建）: 绘制背景字墨迹盒边界（光栅实测盒，即笔画坐标系的基准） */
+private fun DrawScope.drawCharBoxDebug(layout: CharLayout?, unit: Float) {
+    if (layout == null || !Platform.isDebug()) return
+    val b = layout.box
     drawRect(
         color = Color(0.23f, 0.51f, 0.96f, 0.6f),   // blue-500 半透明
-        topLeft = Offset(box.x0 * unit, box.y0 * unit),
-        size = androidx.compose.ui.geometry.Size(box.w * unit, box.h * unit),
+        topLeft = Offset(b.x0 * unit, b.y0 * unit),
+        size = androidx.compose.ui.geometry.Size(b.w * unit, b.h * unit),
         style = Stroke(width = 1.5f)
     )
 }

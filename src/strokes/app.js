@@ -144,7 +144,7 @@ Alpine.data('characterList', () => ({
     const ctx = canvas.getContext('2d')
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, size, size)
-    const box = character ? charInkBox(ctx, size, size, character) : null
+    const box = character ? charInkBox(size, size, character) : null
     if (!box) return
     ctx.strokeStyle = strokeInkColor()   // 墨色适配主题
     ctx.lineWidth = 2

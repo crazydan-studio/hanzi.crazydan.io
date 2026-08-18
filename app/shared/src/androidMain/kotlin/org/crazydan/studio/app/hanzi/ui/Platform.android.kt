@@ -118,6 +118,59 @@ actual object Platform {
             android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
 
+    actual fun rasterCharBox(character: String, fontSizePx: Float): FloatArray? {
+        if (character.isEmpty()) return null
+        val context = AppContextHolder.appContext ?: return null
+        return try {
+            val typeface = android.graphics.Typeface.createFromAsset(
+                context.assets, "font/ZhongYiKaiTi.ttf")
+            val paint = android.graphics.Paint(
+                android.graphics.Paint.ANTI_ALIAS_FLAG
+            ).apply {
+                this.typeface = typeface
+                textSize = fontSizePx
+                textAlign = android.graphics.Paint.Align.CENTER
+            }
+            val fm = paint.fontMetrics
+            val size = (fontSizePx * 1.6f).toInt().coerceAtLeast(4)
+            val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bmp)
+            // 字形垂直居中: 基线 = 顶部留白 + ascent 高度（fm.ascent 为负值）
+            val glyphHeight = fm.descent - fm.ascent
+            val baseline = (size - glyphHeight) / 2f - fm.ascent
+            canvas.drawText(character, size / 2f, baseline, paint)
+
+            // 扫描 alpha > 0 像素（实际渲染墨迹，含 AA 边缘）
+            val px = IntArray(size * size)
+            bmp.getPixels(px, 0, size, 0, 0, size, size)
+            var minX = size; var minY = size; var maxX = -1; var maxY = -1
+            for (y in 0 until size) {
+                val row = y * size
+                for (x in 0 until size) {
+                    if (px[row + x].ushr(24) > 0) {
+                        if (x < minX) minX = x
+                        if (x > maxX) maxX = x
+                        if (y < minY) minY = y
+                        if (y > maxY) maxY = y
+                    }
+                }
+            }
+            bmp.recycle()
+            if (maxX < 0) return null
+
+            // 相对文本对齐点（水平左缘 + 基线）: 布局左缘 = 中心 - 文字宽/2
+            val textLeft = size / 2f - paint.measureText(character) / 2f
+            return floatArrayOf(
+                minX - textLeft,
+                minY - baseline,
+                maxX + 1 - textLeft,
+                maxY + 1 - baseline
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     actual fun pickStrokeDb(onPicked: (String?) -> Unit) {
         val activity = AppContextHolder.appActivity ?: run {
             onPicked(null)

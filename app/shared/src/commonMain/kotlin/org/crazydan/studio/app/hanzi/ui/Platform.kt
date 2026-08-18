@@ -32,6 +32,14 @@ expect object Platform {
     fun isDebug(): Boolean
 
     /**
+     * 光栅实测墨迹盒（汉字笔画书写坐标系的基准）: 以指定字号渲染字符后
+     * 扫描实际像素（alpha>0），返回相对文本对齐点（水平左缘 + 基线）的
+     * [左, 上, 右, 下] 像素坐标；度量失败/不可用时返回 null。
+     * 假定字体始终包含该字，不提供回退
+     */
+    fun rasterCharBox(character: String, fontSizePx: Float): FloatArray?
+
+    /**
      * 选择笔画数据库文件（系统文件选择器）:
      * 优先解析为可直接打开的真实文件路径（避免复制大文件）；
      * 无法解析时复制到应用私有目录。回调返回可用路径或 null（取消/无效）

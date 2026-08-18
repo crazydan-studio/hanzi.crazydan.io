@@ -27,14 +27,16 @@ export function displayUnit(canvas, rect) {
 // 背景字统一字体族（自带静态中易楷体，无系统字体回退）
 export const KAI_FONT_FAMILY = '"ZhongYiKaiTi"'
 
-// 等待自带楷体可用（加载失败返回 false，由调用方显示加载/失败状态）
-// 注意: 不依赖 document.fonts.check 的覆盖检测（各浏览器对 check(font, text)
-// 的覆盖语义实现不一致，可能导致误判），墨迹盒测量直接以该字体进行，
-// 缺字时浏览器按字形回退，测量与绘制使用同一生效字体，笔画仍与所绘字型对齐
+// 光栅实测墨迹盒缓存（按 字号+字 缓存; 字体加载完成后清空，防回退字体度量残留）
+const charBoxCache = new Map()
+
+// 等待自带楷体可用（加载失败返回 false，由调用方显示加载/失败状态）;
+// 加载完成后清空墨迹盒缓存（此前可能以回退字体测得）
 export async function ensureKaiFont() {
   if (!document.fonts?.load) return false
   try {
     await document.fonts.load('300px "ZhongYiKaiTi"')
+    charBoxCache.clear()
     return true
   } catch {
     return false
@@ -43,116 +45,113 @@ export async function ensureKaiFont() {
 
 // 楷体半透明参考字核心绘制（书写模式参考字与回放/动画背景共用）
 // 背景汉字以半透明形式绘制于田字格上层，颜色适配主题
-// 设计原则: 所有汉字使用【统一字号】+【固定基线】，大小与位置一致。
+// 设计原则: 所有汉字使用【统一字号】+【光栅实测盒中心对齐】。
 //   - 字号: 画布尺寸的固定比例（同一字体 em 框一致 → 所有字一样大）
-//   - 基线: 用基准字符(永)测量字体级 ascent/descent，对所有字用同一条基线
-//   - 垂直: 字形中心对齐画布中心（基于字体级度量，与具体字无关）
+//   - 盒: 直接实际渲染该字并扫描像素（alpha>0），得到真实墨迹盒
+//     （假定字体始终包含该字，不提供回退; 允许墨迹盒坐标超出画布边界）
+//   - 布局: 以实测墨迹盒为基准做 x/y 双向平移，使墨迹中心对齐田字格中心
+//     （留出四周边距、收紧中宫中心、顺应结构重心）
 export function drawCharRef(ctx, width, height, char, color = charRefColor()) {
   if (!char) return
-  const m = charMetrics(ctx, width, height, char)
-  if (!m) return   // 度量异常时不绘制（异常场景，正常流程必成功）
+  const lay = charBoxLayout(width, height, char)
+  if (!lay) return
 
   ctx.save()
-  ctx.font = m.font
+  ctx.font = lay.font
   ctx.fillStyle = color
   ctx.textAlign = 'center'
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillText(char, width / 2, m.baselineY)
+  ctx.textBaseline = 'middle'
+  ctx.fillText(char, lay.drawX, lay.drawY)
   ctx.restore()
 }
 
-// 字体级度量（统一字号 + 固定基线）: 测量值与绘制共用同一套计算，保证
-// charInkBox 返回的墨迹盒与 drawCharRef 实际绘制的字型严格一致
-// 度量失败时回退字体级近似值，保证测量函数始终返回结果
-function charMetrics(ctx, width, height, char) {
+// 背景字布局与光栅实测（统一字号 + 实测盒中心对齐）:
+// 测量（离屏实际渲染扫描）与绘制共用同一几何，返回的墨迹盒
+// 即为实际绘制像素的精确边界（汉字笔画书写坐标系）
+// 返回 { font, drawX, drawY, box }（drawX/drawY 为绘制对齐点，box 为墨迹盒）
+function charBoxLayout(width, height, char) {
   // 统一字号: 画布短边的 92%（留边距防溢出），所有字相同
   const fontSize = Math.round(Math.min(width, height) * 0.92)
   const font = `${fontSize}px ${KAI_FONT_FAMILY}`
 
-  // 固定基线: 基准字符(永)的字体级度量（所有字共用）
-  let ascent = 0, descent = 0
-  try {
-    ctx.save()
-    ctx.font = font
-    const ref = ctx.measureText('永')
-    ascent = ref.actualBoundingBoxAscent
-    descent = ref.actualBoundingBoxDescent
-    ctx.restore()
-  } catch { /* 忽略 */ }
-  if (!ascent && !descent) {
-    ascent = fontSize * 0.85   // CJK 近似: 上 85% / 下 15%
-    descent = fontSize * 0.12
-  }
+  // 光栅实测: 该字实际渲染像素的墨迹盒（相对对齐点; 无渲染像素时 null）
+  const rel = rasterCharBoxRel(font, fontSize, char)
+  if (!rel) return null
 
-  // 字形中心 = baseline - ascent + (ascent+descent)/2 = baseline + (descent-ascent)/2
-  // 让字形中心对齐画布中心 → baseline y = 画布中心 - (descent-ascent)/2
-  const baselineY = height / 2 - (descent - ascent) / 2
-  return {
-    font,
-    fontSize,
-    ascent,
-    descent,
-    baselineY
+  // 布局: 墨迹中心对齐田字格中心（x/y 双向平移）
+  const drawX = width / 2 - (rel.l + rel.r) / 2
+  const drawY = height / 2 - (rel.t + rel.b) / 2
+  const box = {
+    x0: drawX + rel.l,
+    y0: drawY + rel.t,
+    x1: drawX + rel.r,
+    y1: drawY + rel.b,
+    w: rel.r - rel.l,
+    h: rel.b - rel.t
   }
+  return { font, drawX, drawY, box }
 }
 
-// 背景汉字墨迹盒（内部坐标系像素）: { x0, y0, x1, y1, w, h }
-// 以墨迹盒为笔画数据的坐标系（x 归一化按盒宽、y 按盒高）;
-// 注意: actualBoundingBox* 相对 textAlign/textBaseline 的对齐点度量，
-// 须与 drawCharRef 的绘制设置（center/alphabetic）保持一致。
-// 缺字（字体未覆盖）时浏览器按字形回退，度量与绘制使用同一生效字体，
-// 墨迹盒仍与所绘字型一致；度量异常/退化时回退统一 em 盒，保证书写可用
-export function charInkBox(ctx, width, height, char) {
-  const m = charMetrics(ctx, width, height, char)
-  let left = 0, right = 0, ascent = 0, descent = 0
-  try {
-    ctx.save()
-    ctx.font = m.font
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'alphabetic'
-    const tm = ctx.measureText(char)
-    left = tm.actualBoundingBoxLeft ?? 0
-    right = tm.actualBoundingBoxRight ?? 0
-    ascent = tm.actualBoundingBoxAscent ?? 0
-    descent = tm.actualBoundingBoxDescent ?? 0
-    ctx.restore()
-  } catch { /* 度量异常，走统一 em 盒回退 */ }
-  if (!ascent && !descent) {
-    ascent = m.ascent
-    descent = m.descent
+// 光栅实测墨迹盒（相对对齐点）: 离屏实际渲染（textAlign center + textBaseline middle，
+// 与 drawCharRef 一致），按 alpha>0 像素扫描；结果与字号无关地缓存
+function rasterCharBoxRel(font, fontSize, char) {
+  const key = `${fontSize}@${char}`
+  const cached = charBoxCache.get(key)
+  if (cached) return cached
+
+  const dpr = window.devicePixelRatio || 1
+  const size = Math.ceil(fontSize * 2)   // 2em 画布，对齐点置于中心
+  const off = document.createElement('canvas')
+  off.width = size * dpr
+  off.height = size * dpr
+  const octx = off.getContext('2d', { willReadFrequently: true })
+  if (!octx) return null
+  octx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  octx.font = font
+  octx.textAlign = 'center'
+  octx.textBaseline = 'middle'
+  const cx = size / 2
+  const cy = size / 2
+  octx.fillText(char, cx, cy)
+
+  const data = octx.getImageData(0, 0, off.width, off.height).data
+  let minX = off.width, minY = off.height, maxX = -1, maxY = -1
+  for (let y = 0; y < off.height; y++) {
+    for (let x = 0; x < off.width; x++) {
+      if (data[(y * off.width + x) * 4 + 3] > 0) {
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+    }
   }
-  const x0 = width / 2 + left
-  const x1 = width / 2 + right
-  const y0 = m.baselineY - ascent
-  const y1 = m.baselineY + descent
-  const w = x1 - x0
-  const h = y1 - y0
-  if (w > 0 && h > 0) {
-    return { x0, y0, x1, y1, w, h }
+  if (maxX < 0) return null
+  const rel = {
+    l: minX / dpr - cx,
+    t: minY / dpr - cy,
+    r: (maxX + 1) / dpr - cx,
+    b: (maxY + 1) / dpr - cy
   }
-  // 回退: 统一 em 盒（基准字「永」的字体级度量 + 全字身宽），
-  // 保证墨迹盒始终可用（书写/回放坐标换算不依赖具体字形度量）
-  const ew = m.fontSize
-  const eh = m.ascent + m.descent
-  return {
-    x0: width / 2 - ew / 2,
-    y0: m.baselineY - m.ascent,
-    x1: width / 2 + ew / 2,
-    y1: m.baselineY + m.descent,
-    w: ew,
-    h: eh
-  }
+  charBoxCache.set(key, rel)
+  return rel
 }
 
-// 调试用（仅开发模式）: 以半透明实线绘制背景汉字墨迹盒边界，
-// 便于核对笔画数据（盒相对坐标系）与背景字型的对齐关系
+// 背景汉字墨迹盒（内部坐标系像素，汉字笔画书写坐标系）: { x0, y0, x1, y1, w, h }
+// 基于光栅实测（实际渲染像素），与 drawCharRef 所绘字型严格一致;
+// 假定字体始终包含该字，不提供回退; 盒可超出画布边界（坐标允许负值）
+export function charInkBox(width, height, char) {
+  if (!char) return null
+  return charBoxLayout(width, height, char)?.box ?? null
+}
+
+// 调试用（仅开发模式）: 绘制背景字墨迹盒边界（光栅实测盒，即笔画坐标系的基准）
 export function drawCharBoxDebug(ctx, width, height, char) {
-  const box = charInkBox(ctx, width, height, char)
+  const box = charInkBox(width, height, char)
   if (!box) return
   ctx.save()
   ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)'   // blue-500 半透明
   ctx.lineWidth = 1.5
-  ctx.setLineDash([])
   ctx.strokeRect(box.x0, box.y0, box.w, box.h)
   ctx.restore()
 }
