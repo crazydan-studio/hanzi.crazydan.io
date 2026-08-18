@@ -216,9 +216,9 @@ actual object Platform {
                 return real.absolutePath
             }
         }
-        // 兜底: 复制到 filesDir/db/hanzi_stroke.db（保持文件名稳定，幂等覆盖）
+        // 兜底: 复制到缓存目录（临时供校验/导入；正式导入由 HanziDb 复制到固定位置）
         return try {
-            val dir = File(context.filesDir, "db").apply { mkdirs() }
+            val dir = File(context.cacheDir, "stroke-import").apply { mkdirs() }
             val dest = File(dir, "hanzi_stroke.db")
             val tmp = File(dir, "hanzi_stroke.db.tmp")
             context.contentResolver.openInputStream(uri)?.use { input ->

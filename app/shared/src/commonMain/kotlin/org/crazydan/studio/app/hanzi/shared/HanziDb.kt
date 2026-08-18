@@ -7,8 +7,8 @@ package org.crazydan.studio.app.hanzi.shared
  *   - 汉字信息库（内置）: build/app-db-pack.js 打包的 hanzi.db（仅 zi 表），
  *     提供 常用字/拼音/汉字信息 查询
  *   - 笔画数据库（独立下载）: build/export-stroke-db.js 导出的 hanzi-stroke-{数量}.db，
- *     仅包含 strokes 表，由用户下载后指定存放位置（经 [configureStrokeDb] 配置），
- *     提供笔画轨迹查询；汉字信息仍由内置 hanzi.db 提供
+ *     仅包含 strokes 表，由用户下载后经 [validateStrokeDb]/[importStrokeDb] 导入到
+ *     固定位置（应用数据目录 hanzi_stroke.db）；汉字信息仍由内置 hanzi.db 提供
  */
 
 /** 列表条目（常用字 / 拼音字列表）: [字, 读音] */
@@ -49,6 +49,15 @@ data class StrokeDbInfo(
     val strokeCount: Int        // 笔画总数
 )
 
+/** 笔画数据库可用性状态（固定位置的库） */
+enum class StrokeDbState { MISSING, INVALID, READY }
+
+/** 笔画数据库状态（可用性 + 可访问规模） */
+data class StrokeDbStatus(
+    val state: StrokeDbState,
+    val info: StrokeDbInfo?     // 可访问规模（READY 时非空）
+)
+
 /** 汉字数据源 */
 interface HanziDb : AutoCloseable {
 
@@ -67,14 +76,17 @@ interface HanziDb : AutoCloseable {
     /** 汉字总数（内置信息库; 笔画数据「全部」规模说明用） */
     fun queryZiCount(): Int
 
-    /**
-     * 配置笔画数据库访问位置（用户下载后指定）:
-     * 路径无效/库损坏时静默清除（笔画查询返回空列表）; 传 null 清除配置
-     */
-    fun configureStrokeDb(path: String?)
+    /** 校验所选笔画数据库文件（表结构 + 数据量）；无效/损坏时返回 null */
+    fun validateStrokeDb(path: String): StrokeDbInfo?
 
-    /** 当前笔画数据库状态；未配置/无效时为 null */
-    fun strokeDbInfo(): StrokeDbInfo?
+    /**
+     * 导入笔画数据库到固定位置（应用数据目录的 hanzi_stroke.db）:
+     * 复制源文件并替换现有库，成功后即处于 READY 状态；失败返回 false
+     */
+    fun importStrokeDb(sourcePath: String): Boolean
+
+    /** 当前笔画数据库状态（固定位置的库 + 可用性 + 可访问规模） */
+    fun strokeDbStatus(): StrokeDbStatus
 
     /**
      * 创建拼音查询索引（端侧按需执行，幂等）:

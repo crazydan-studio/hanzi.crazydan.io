@@ -31,7 +31,6 @@ import org.crazydan.studio.app.hanzi.ui.HanziApp
 import org.crazydan.studio.app.hanzi.ui.InitNoticeScreen
 import org.crazydan.studio.app.hanzi.ui.Platform
 import org.crazydan.studio.app.hanzi.ui.SplashScreen
-import org.crazydan.studio.app.hanzi.ui.StrokeDbStore
 import org.crazydan.studio.app.hanzi.ui.ThemeStore
 import java.io.File
 import java.io.FileOutputStream
@@ -78,7 +77,7 @@ class MainActivity : ComponentActivity() {
                     val file = prepareDb()
                     val hanziDb = HanziDbFactory.open(file.absolutePath)
                     hanziDb.ensurePinyinIndexes()
-                    hanziDb.configureStrokeDb(StrokeDbStore.load())
+
                     hanziDb
                 }
 

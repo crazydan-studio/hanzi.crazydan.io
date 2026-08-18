@@ -95,7 +95,7 @@ fun HomeScreen(
             onCommonsLoaded(list)
         }
         // 笔画数据库状态（重新进入首页时刷新）
-        strokeInfo = withContext(Dispatchers.Default) { db.strokeDbInfo() }
+        strokeInfo = withContext(Dispatchers.Default) { db.strokeDbStatus()?.info }
         strokeChecked = true
     }
 
@@ -264,7 +264,7 @@ fun HomeScreen(
                     Column(Modifier.weight(1f)) {
                         Text("笔画数据", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "笔画数据为独立数据库，可按需下载不同规模的数据集，下载后指定存放位置即可使用",
+                            "笔画数据为独立数据库，可按需下载不同规模的数据集，下载后导入即可使用",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 2.dp)
@@ -292,7 +292,7 @@ fun HomeScreen(
                         modifier = Modifier.padding(top = 8.dp)
                     )
                     else -> Text(
-                        text = "尚未配置笔画数据库：汉字信息页暂无法显示笔画书写动画与笔画分解图，建议尽快管理下载。",
+                        text = "尚未导入笔画数据：汉字信息页暂无法显示笔画书写动画与笔画分解图，建议尽快管理导入。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 8.dp)

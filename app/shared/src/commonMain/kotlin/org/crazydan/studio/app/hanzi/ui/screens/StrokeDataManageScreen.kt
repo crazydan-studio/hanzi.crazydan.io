@@ -1,6 +1,7 @@
 package org.crazydan.studio.app.hanzi.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,36 +12,41 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.shared.StrokeDbInfo
+import org.crazydan.studio.app.hanzi.shared.StrokeDbState
+import org.crazydan.studio.app.hanzi.shared.StrokeDbStatus
 import org.crazydan.studio.app.hanzi.ui.Blue500
 import org.crazydan.studio.app.hanzi.ui.Platform
-import org.crazydan.studio.app.hanzi.ui.StrokeDbStore
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
 
 /**
  * 笔画数据管理页:
- *  - 显示当前已指定位置的笔画数据库状态（可访问汉字数量/笔画总数；缺失或无效时警示）
+ *  - 显示已导入笔画数据的状态（可访问汉字数量/笔画总数；未导入或数据损坏时提示）
  *  - 按需下载不同规模（1500/3000/5000/全部）的笔画数据（跳转浏览器下载），
- *    下载完成后重新指定数据库存放位置，避免重复复制大体积文件
+ *    选择文件后校验数据有效性、二次确认后导入到应用数据目录
  */
 @Composable
 fun StrokeDataManageScreen(
@@ -49,32 +55,57 @@ fun StrokeDataManageScreen(
     onToggleTheme: () -> Unit,
     onBack: () -> Unit
 ) {
-    var info by remember { mutableStateOf<StrokeDbInfo?>(null) }
+    var status by remember { mutableStateOf<StrokeDbStatus?>(null) }
     var statusChecked by remember { mutableStateOf(false) }
     var totalZi by remember { mutableStateOf(0) }
     var notice by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
-    // 进入页面时检查已配置的笔画数据库（存在且完整）
+    // 导入流程弹窗: 校验中 → 确认 → 导入中 → 成功
+    var dialog by remember { mutableStateOf<ImportDialog?>(null) }
+
+    // 进入页面时检查已导入的笔画数据
     LaunchedEffect(Unit) {
-        info = withContext(Dispatchers.Default) { db.strokeDbInfo() }
+        status = withContext(Dispatchers.Default) { db.strokeDbStatus() }
         totalZi = withContext(Dispatchers.Default) { db.queryZiCount() }
         statusChecked = true
     }
 
-    // 重新指定数据库后刷新状态
-    fun refreshInfo() {
-        info = db.strokeDbInfo()
+    fun refreshStatus() {
+        status = db.strokeDbStatus()
     }
 
-    fun pickAndConfigure() {
+    fun pickAndImport() {
         Platform.pickStrokeDb { path ->
             if (path == null) {
                 notice = "未选择文件，或所选文件不可用"
-            } else {
-                StrokeDbStore.save(path)
-                db.configureStrokeDb(path)
-                refreshInfo()
+                return@pickStrokeDb
+            }
+            // 校验数据有效性（期间显示等待）
+            dialog = ImportDialog.Checking
+            scope.launch {
+                val info = withContext(Dispatchers.Default) { db.validateStrokeDb(path) }
+                if (info == null) {
+                    dialog = null
+                    notice = "所选文件无效或数据损坏，无法导入"
+                } else {
+                    dialog = ImportDialog.Confirm(path, info)
+                }
+            }
+        }
+    }
+
+    fun doImport(d: ImportDialog.Confirm) {
+        dialog = ImportDialog.Importing
+        scope.launch {
+            val ok = withContext(Dispatchers.Default) { db.importStrokeDb(d.sourcePath) }
+            if (ok) {
+                refreshStatus()
+                dialog = ImportDialog.Done(d.info)
                 notice = null
+            } else {
+                dialog = null
+                notice = "导入失败，请重试"
             }
         }
     }
@@ -87,7 +118,7 @@ fun StrokeDataManageScreen(
     ) {
         TopBar(title = "笔画数据管理", dark = dark, onToggleTheme = onToggleTheme, onBack = onBack)
 
-        // 当前数据库状态
+        // 已导入数据状态
         SectionCard {
             Text("当前笔画数据", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
@@ -97,19 +128,26 @@ fun StrokeDataManageScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium
                 )
-            } else if (info != null) {
-                val i = info!!
-                Text(
-                    text = "已配置笔画数据库，可访问 ${i.ziCount} 个汉字的笔画数据（共 ${i.strokeCount} 笔）。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium
-                )
             } else {
-                Text(
-                    text = "尚未配置有效的笔画数据库：汉字信息页将无法显示笔画书写动画与笔画分解图。",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                val s = status
+                val info = s?.info
+                when (s?.state) {
+                    StrokeDbState.READY -> Text(
+                        text = "已导入笔画数据，可访问 ${info!!.ziCount} 个汉字的笔画数据（共 ${info.strokeCount} 笔）。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    StrokeDbState.MISSING -> Text(
+                        text = "尚未导入笔画数据：汉字信息页将无法显示笔画书写动画与笔画分解图。",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    else -> Text(
+                        text = "笔画数据无效或已损坏，请重新导入：汉字信息页将无法显示笔画书写动画与笔画分解图。",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
             Spacer(Modifier.height(12.dp))
             Button(
@@ -117,12 +155,12 @@ fun StrokeDataManageScreen(
                     containerColor = Blue500,
                     contentColor = Color.White
                 ),
-                onClick = { pickAndConfigure() }
+                onClick = { pickAndImport() }
             ) {
-                Text("选择笔画数据库文件")
+                Text(if (status?.state == StrokeDbState.READY) "重新导入" else "导入笔画数据文件")
             }
             Text(
-                text = "下载完成后，通过系统文件选择器指定数据库的存放位置（如 Download 目录），即可直接使用，避免重复复制大文件。",
+                text = "下载完成后，通过系统文件选择器选择已下载的笔画数据库文件；选择后先校验数据有效性，经确认后导入到应用数据目录。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.padding(top = 6.dp)
@@ -137,42 +175,43 @@ fun StrokeDataManageScreen(
             }
         }
 
-        // 数据规模选择（不同图标表示不同规模）
+        // 数据规模选择（两列卡片）
         Text(
             text = "选择数据规模",
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
         )
         Text(
-            text = "可按需下载不同规模的汉字笔画数据，避免占用过多存储空间；笔画数据发布于「汉字网」GitHub Releases。",
+            text = "可按需下载不同规模的汉字笔画数据；笔画数据发布于「汉字网」GitHub Releases。",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            ScaleOption(
-                title = "1500",
-                desc = "约 1500 个高频常用汉字（小规模）",
-                onClick = { downloadScale("1500") }
+            val scales = listOf(
+                Triple("1500", "约 1500 个高频常用汉字（小规模）", "1500"),
+                Triple("3000", "约 3000 个高频汉字（中规模）", "3000"),
+                Triple("5000", "约 5000 个高频汉字（大规模）", "5000"),
+                Triple("全部（约 ${formatWan(totalZi)}）", "全部汉字的笔画数据（完整规模）", "full")
             )
-            ScaleOption(
-                title = "3000",
-                desc = "约 3000 个高频汉字（中规模）",
-                onClick = { downloadScale("3000") }
-            )
-            ScaleOption(
-                title = "5000",
-                desc = "约 5000 个高频汉字（大规模）",
-                onClick = { downloadScale("5000") }
-            )
-            ScaleOption(
-                title = "全部（约 ${formatWan(totalZi)}，与汉字实际数量相匹配）",
-                desc = "全部汉字的笔画数据（完整规模）",
-                onClick = { downloadScale("full") }
-            )
+            scales.chunked(2).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    row.forEach { (title, desc, scale) ->
+                        ScaleOption(
+                            title = title,
+                            desc = desc,
+                            onClick = { downloadScale(scale) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (row.size == 1) {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
         }
         Text(
-            text = "点击下载后将在浏览器中打开下载页，请等待下载完成后返回本页，再点击上方「选择笔画数据库文件」指定存放位置。",
+            text = "注意：点击下载后将在浏览器中打开下载页，请等待下载完成后返回本页，再点击上方「导入笔画数据文件」按钮进行导入。",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.padding(top = 12.dp)
@@ -181,6 +220,68 @@ fun StrokeDataManageScreen(
         AppFooter()
         Spacer(Modifier.height(8.dp))
     }
+
+    // 导入流程弹窗
+    dialog?.let { d ->
+        when (d) {
+            is ImportDialog.Checking -> ImportProgressDialog("正在检查数据有效性...")
+            is ImportDialog.Importing -> ImportProgressDialog("正在导入...")
+            is ImportDialog.Confirm -> AlertDialog(
+                onDismissRequest = { dialog = null },
+                title = { Text("确认导入") },
+                text = {
+                    Text(
+                        "所选文件包含 ${d.info.ziCount} 个汉字的笔画数据（共 ${d.info.strokeCount} 笔），" +
+                            "确认导入？\n\n导入完成后，原文件可安全删除。"
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { doImport(d) }) { Text("确认导入") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { dialog = null }) { Text("取消") }
+                }
+            )
+            is ImportDialog.Done -> AlertDialog(
+                onDismissRequest = { dialog = null },
+                title = { Text("导入成功") },
+                text = {
+                    Text(
+                        "已导入 ${d.info.ziCount} 个汉字的笔画数据（共 ${d.info.strokeCount} 笔）。\n\n" +
+                            "原文件已复制到应用数据目录，可安全删除。"
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { dialog = null }) { Text("好的") }
+                }
+            )
+        }
+    }
+}
+
+/** 导入流程弹窗状态 */
+private sealed interface ImportDialog {
+    data object Checking : ImportDialog
+    data class Confirm(val sourcePath: String, val info: StrokeDbInfo) : ImportDialog
+    data object Importing : ImportDialog
+    data class Done(val info: StrokeDbInfo) : ImportDialog
+}
+
+/** 等待弹窗（校验/导入中，不可取消） */
+@Composable
+private fun ImportProgressDialog(text: String) {
+    AlertDialog(
+        onDismissRequest = { /* 等待中不允许取消 */ },
+        title = { Text("导入笔画数据") },
+        text = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(modifier = Modifier.width(24.dp).height(24.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(text)
+            }
+        },
+        confirmButton = {}
+    )
 }
 
 /** 数据规模选项（卡片形式，无图标）: 自上而下为 主标题 → 描述 → 下载按钮 */
@@ -188,11 +289,12 @@ fun StrokeDataManageScreen(
 private fun ScaleOption(
     title: String,
     desc: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    SectionCard {
+    SectionCard(modifier = modifier) {
         Column {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(title, style = MaterialTheme.typography.titleSmall)
             Text(
                 text = desc,
                 style = MaterialTheme.typography.bodySmall,

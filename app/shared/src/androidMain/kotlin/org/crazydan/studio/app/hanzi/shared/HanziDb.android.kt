@@ -11,66 +11,141 @@ import java.util.zip.Inflater
  * Android 实现: 基于平台 sqlite（android.database.sqlite）只读查询，
  * 轨迹数据用 java.util.zip 解压（与 node 端 zlib.deflateSync 兼容），
  * 增量编码还原为绝对坐标后按 [StrokePoint] 返回。
- * 数据源拆分: 汉字信息库（内置 hanzi.db）+ 笔画数据库（用户指定位置，见 [configureStrokeDb]）。
+ * 数据源拆分: 汉字信息库（内置 hanzi.db）+ 笔画数据库（导入到固定位置 hanzi_stroke.db）。
  * 拼音查询索引由 [ensurePinyinIndexes] 在端侧创建（见接口注释）。
  */
 actual object HanziDbFactory {
     actual fun open(dbPath: String): HanziDb = AndroidHanziDb(dbPath)
 }
 
-private class AndroidHanziDb(dbPath: String) : HanziDb {
+private class AndroidHanziDb(private val dbPath: String) : HanziDb {
 
     // 建索引需要写权限（仅首次/数据库更新时写入，日常为只读查询）
     private val db: SQLiteDatabase =
         SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READWRITE)
 
     // 笔画数据库（独立下载，用户指定位置）: 未配置/无效时为 null
+    // 笔画数据库（独立下载，导入到固定位置）: 未导入/无效时不可查询
     private var strokeDb: SQLiteDatabase? = null
     private var strokeInfo: StrokeDbInfo? = null
+    private var strokeDbState: StrokeDbState = StrokeDbState.MISSING
 
-    override fun configureStrokeDb(path: String?) {
-        strokeDb?.close()
-        strokeDb = null
-        strokeInfo = null
-        val p = path
-        if (p == null || p.isEmpty()) return
-        val file = java.io.File(p)
-        if (!file.isFile || !file.canRead()) return
-        try {
-            val sdb = SQLiteDatabase.openDatabase(p, null, SQLiteDatabase.OPEN_READONLY)
-            // 校验表结构（strokes 必须存在）
-            val hasStrokes = sdb.rawQuery(
-                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'strokes'", null
-            ).use { it.moveToFirst() }
-            if (!hasStrokes) {
+    // 固定位置: 与内置信息库同目录的 hanzi_stroke.db
+    private fun fixedStrokeDbFile(): java.io.File =
+        java.io.File(java.io.File(dbPath).parentFile, "hanzi_stroke.db")
+
+    /** 校验库文件（表结构 + 数据量）；无效返回 null */
+    override fun validateStrokeDb(path: String): StrokeDbInfo? {
+        return try {
+            val sdb = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY)
+            try {
+                val hasStrokes = sdb.rawQuery(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'strokes'", null
+                ).use { it.moveToFirst() }
+                if (!hasStrokes) return null
+                val ziCount = sdb.rawQuery(
+                    "SELECT COUNT(*) FROM (SELECT DISTINCT zi_id FROM strokes)", null
+                ).use {
+                    it.moveToFirst()
+                    it.getInt(0)
+                }
+                val strokeCount = sdb.rawQuery("SELECT COUNT(*) FROM strokes", null).use {
+                    it.moveToFirst()
+                    it.getInt(0)
+                }
+                if (ziCount <= 0) return null
+                StrokeDbInfo(ziCount, strokeCount)
+            } finally {
                 sdb.close()
-                return
             }
-            val ziCount = sdb.rawQuery(
-                "SELECT COUNT(*) FROM (SELECT DISTINCT zi_id FROM strokes)", null
-            ).use {
-                it.moveToFirst()
-                it.getInt(0)
-            }
-            val strokeCount = sdb.rawQuery("SELECT COUNT(*) FROM strokes", null).use {
-                it.moveToFirst()
-                it.getInt(0)
-            }
-            if (ziCount <= 0) {
-                sdb.close()
-                return
-            }
-            strokeDb = sdb
-            strokeInfo = StrokeDbInfo(ziCount, strokeCount)
         } catch (e: Exception) {
-            // 数据库无效（损坏/格式不符）: 静默清除
-            strokeDb?.close()
-            strokeDb = null
-            strokeInfo = null
+            null
         }
     }
 
-    override fun strokeDbInfo(): StrokeDbInfo? = strokeInfo
+    /** 导入到固定位置: 复制 + 替换，成功后立即生效；失败返回 false */
+    override fun importStrokeDb(sourcePath: String): Boolean {
+        return try {
+            val target = fixedStrokeDbFile()
+            val tmp = java.io.File(target.parentFile, "hanzi_stroke.db.tmp")
+            java.io.File(sourcePath).inputStream().use { input ->
+                tmp.outputStream().use { output -> input.copyTo(output) }
+            }
+            // 复制后再次校验，确认导入内容有效
+            val info = validateStrokeDb(tmp.absolutePath)
+            if (info == null) {
+                tmp.delete()
+                return false
+            }
+            // 原子替换固定位置文件
+            target.delete()
+            if (!tmp.renameTo(target)) {
+                tmp.copyTo(target, overwrite = true)
+                tmp.delete()
+            }
+            // 打开新库并更新状态
+            strokeDb?.close()
+            strokeDb = null
+            strokeInfo = null
+            val sdb = SQLiteDatabase.openDatabase(target.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+            strokeDb = sdb
+            strokeInfo = info
+            strokeDbState = StrokeDbState.READY
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    override fun strokeDbStatus(): StrokeDbStatus {
+        // 目标库缺失/损坏时重新探测状态（文件可能被外部删除）
+        ensureStrokeDbOpen()
+        if (strokeDbState != StrokeDbState.READY) {
+            val file = fixedStrokeDbFile()
+            if (!file.isFile) {
+                strokeDbState = StrokeDbState.MISSING
+            } else {
+                strokeDbState = if (validateStrokeDb(file.absolutePath) != null) {
+                    reopenStrokeDb(file)
+                } else {
+                    StrokeDbState.INVALID
+                }
+            }
+        }
+        return StrokeDbStatus(strokeDbState, strokeInfo)
+    }
+
+    /** 惰性打开固定位置库（首次查询/状态检查时） */
+    private fun ensureStrokeDbOpen() {
+        if (strokeDb != null) return
+        val file = fixedStrokeDbFile()
+        if (!file.isFile) {
+            strokeDbState = StrokeDbState.MISSING
+            return
+        }
+        strokeDbState = if (validateStrokeDb(file.absolutePath) != null) {
+            reopenStrokeDb(file)
+        } else {
+            StrokeDbState.INVALID
+        }
+    }
+
+    /** 重新打开固定位置库（文件在外部变化后） */
+    private fun reopenStrokeDb(file: java.io.File): StrokeDbState {
+        return try {
+            val sdb = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+            val info = validateStrokeDb(file.absolutePath) ?: run {
+                sdb.close()
+                return StrokeDbState.INVALID
+            }
+            strokeDb?.close()
+            strokeDb = sdb
+            strokeInfo = info
+            StrokeDbState.READY
+        } catch (e: Exception) {
+            StrokeDbState.INVALID
+        }
+    }
 
     override fun queryZiCount(): Int =
         db.rawQuery("SELECT COUNT(*) FROM zi", null).use {
@@ -128,7 +203,8 @@ private class AndroidHanziDb(dbPath: String) : HanziDb {
     }
 
     override fun queryZiStrokes(unicode: Int): List<ZiStroke> {
-        val sdb = strokeDb ?: return emptyList()   // 未配置笔画数据库
+        ensureStrokeDbOpen()   // 未导入/无效时返回空列表
+        val sdb = strokeDb ?: return emptyList()
         val out = ArrayList<ZiStroke>()
         queryAll(sdb,
             "SELECT stroke_order, stroke_type, trajectory_data FROM strokes " +
