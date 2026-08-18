@@ -123,7 +123,7 @@ actual object Platform {
         val context = AppContextHolder.appContext ?: return null
         return try {
             val typeface = android.graphics.Typeface.createFromAsset(
-                context.assets, "font/ZhongYiKaiTi.ttf")
+                context.assets, "font/ZhongYiKaiTi.woff2")
             val paint = android.graphics.Paint(
                 android.graphics.Paint.ANTI_ALIAS_FLAG
             ).apply {
