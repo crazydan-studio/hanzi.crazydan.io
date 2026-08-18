@@ -6,26 +6,28 @@ import { ziService } from '../services/ziService.js'
 import { broadcastSync } from '../services/sync.js'
 import {
   createZiSchema, updateZiSchema,
-  idParamsSchema, listQuerySchema
+  idParamsSchema, ziParamSchema, listQuerySchema
 } from '../schemas/ziSchema.js'
 
 const router = Router()
+
+// 汉字不存在时抛出 404（各路由共用）
+function notFoundIfMissing(zi) {
+  if (!zi) throw new AppError(404, 'NOT_FOUND', 'Zi not found')
+  return zi
+}
 
 router.get('/', validateQuery(listQuerySchema), (req, res) => {
   const result = ziService.findAll(req.query)
   return paginated(res, result)
 })
 
-router.get('/by-zi/:zi', (req, res) => {
-  const zi = ziService.findByZi(req.params.zi)
-  if (!zi) throw new AppError(404, 'NOT_FOUND', 'Zi not found')
-  return ok(res, zi)
+router.get('/by-zi/:zi', validateParams(ziParamSchema), (req, res) => {
+  return ok(res, notFoundIfMissing(ziService.findByZi(req.params.zi)))
 })
 
 router.get('/:id', validateParams(idParamsSchema), (req, res) => {
-  const zi = ziService.findById(req.params.id)
-  if (!zi) throw new AppError(404, 'NOT_FOUND', 'Zi not found')
-  return ok(res, zi)
+  return ok(res, notFoundIfMissing(ziService.findById(req.params.id)))
 })
 
 router.post('/', validateBody(createZiSchema), (req, res) => {
@@ -34,8 +36,7 @@ router.post('/', validateBody(createZiSchema), (req, res) => {
 })
 
 router.patch('/:id', validateParams(idParamsSchema), validateBody(updateZiSchema), (req, res) => {
-  const zi = ziService.update(req.params.id, req.body)
-  if (!zi) throw new AppError(404, 'NOT_FOUND', 'Zi not found')
+  const zi = notFoundIfMissing(ziService.update(req.params.id, req.body))
   // 结构等字段修改后广播（列表页/书写页同步刷新）
   broadcastSync('zi-updated', { id: zi.id })
   return ok(res, zi)

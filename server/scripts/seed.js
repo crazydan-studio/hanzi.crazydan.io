@@ -1,6 +1,5 @@
 // server/scripts/seed.js — 从JSON导入示例汉字（可扩展为通用导入器）
 // 用法: node server/scripts/seed.js
-// 注意: 使用 fs.readFileSync 读取JSON（Node 18不支持 import ... with { type: 'json' }）
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'

@@ -3,7 +3,7 @@ import { syncZiMeta } from './staticSync.js'
 
 export const ziService = {
   // 列表: 按权重降序，支持 按字/拼音搜索 + 笔画图过滤，附带笔画（缩略图用）
-  // has_strokes: '1'/'true' 完整(cnt==total) | '2'/'partial' 仅含部分笔画图(cnt>0且不等) | '0'/'false' 无笔画图(cnt=0)
+  // has_strokes: '1' 完整(cnt==total) | '2' 仅含部分笔画图(cnt>0且不等) | '0' 无笔画图(cnt=0)
   findAll({ page = 1, limit = 20, search, has_strokes }) {
     const db = getDb()
     const conditions = ['1=1']
@@ -11,15 +11,15 @@ export const ziService = {
 
     if (search) {
       // 匹配字 或 拼音（无声调 JSON 数组）或 读音
-      conditions.push(`(c.zi LIKE ? OR c.pinyin LIKE ?)`)
+      conditions.push(`(z.zi LIKE ? OR z.pinyin LIKE ?)`)
       const term = `%${search}%`
       params.push(term, term)
     }
 
     let strokeJoin = ''
     if (has_strokes !== undefined) {
-      const wantComplete = has_strokes === '1' || has_strokes === 'true'
-      const wantPartial = has_strokes === '2' || has_strokes === 'partial'
+      const wantComplete = has_strokes === '1'
+      const wantPartial = has_strokes === '2'
       // 完整: 实际笔画记录数 == total_stroke_count
       // 仅含部分笔画图: 已有笔画记录 且 数量与预期不相等
       // 无笔画图: 笔画记录数为 0
@@ -27,12 +27,12 @@ export const ziService = {
         LEFT JOIN (
           SELECT zi_id, COUNT(*) AS cnt FROM strokes
           GROUP BY zi_id
-        ) sc ON sc.zi_id = c.id
+        ) sc ON sc.zi_id = z.id
       `
       if (wantComplete) {
-        conditions.push('sc.cnt = c.total_stroke_count')
+        conditions.push('sc.cnt = z.total_stroke_count')
       } else if (wantPartial) {
-        conditions.push('sc.cnt > 0 AND sc.cnt != c.total_stroke_count')
+        conditions.push('sc.cnt > 0 AND sc.cnt != z.total_stroke_count')
       } else {
         conditions.push('(sc.cnt IS NULL OR sc.cnt = 0)')
       }
@@ -40,14 +40,14 @@ export const ziService = {
 
     const where = `WHERE ${conditions.join(' AND ')}`
     const { total } = db.prepare(
-      `SELECT COUNT(*) AS total FROM zi c ${strokeJoin} ${where}`
+      `SELECT COUNT(*) AS total FROM zi z ${strokeJoin} ${where}`
     ).get(...params)
 
     const offset = (page - 1) * limit
     const rows = db.prepare(`
-      SELECT c.* FROM zi c
+      SELECT z.* FROM zi z
       ${strokeJoin} ${where}
-      ORDER BY c.used_weight DESC, c.id ASC
+      ORDER BY z.used_weight DESC, z.id ASC
       LIMIT ? OFFSET ?
     `).all(...params, limit, offset)
 

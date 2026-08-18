@@ -17,12 +17,20 @@ const strokesChanged = (ziId) =>
 // 注意: 必须显式声明 ziId —— Zod 的 z.object 默认剥离未声明键，
 // 若不声明，validateParams 会把 req.params 替换成 { id } 而丢掉 ziId，
 // 导致下游 SQL 绑定 undefined 报错
-const strokeIdParamsSchema = z.object({
-  id: z.coerce.number().int().positive(),
+const ziIdParamsSchema = z.object({
   ziId: z.coerce.number().int().positive()
 })
+const strokeIdParamsSchema = ziIdParamsSchema.extend({
+  id: z.coerce.number().int().positive()
+})
 
-router.get('/', (req, res) => {
+// 笔画不存在于该汉字时抛出 404（防跨字符误改）
+function strokeNotFoundIfMissing(stroke) {
+  if (!stroke) throw new AppError(404, 'NOT_FOUND', 'Stroke not found')
+  return stroke
+}
+
+router.get('/', validateParams(ziIdParamsSchema), (req, res) => {
   strokeService.assertZiExists(req.params.ziId)  // 不存在则404
   const strokes = strokeService.findByZi(req.params.ziId)
   return ok(res, strokes)
@@ -50,18 +58,16 @@ router.post('/reorder', validateBody(reorderStrokesSchema), (req, res) => {
 router.patch('/:id', validateParams(strokeIdParamsSchema),
   validateBody(updateStrokeSchema), (req, res) => {
     // 校验笔画属于该汉字（防止跨字符误改）
-    const existing = strokeService.findByIdAndZi(
-      req.params.id, req.params.ziId)
-    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Stroke not found')
+    strokeNotFoundIfMissing(strokeService.findByIdAndZi(
+      req.params.id, req.params.ziId))
     const stroke = strokeService.update(req.params.id, req.body)
     strokesChanged(req.params.ziId)
     return ok(res, stroke)
   })
 
 router.delete('/:id', validateParams(strokeIdParamsSchema), (req, res) => {
-  const existing = strokeService.findByIdAndZi(
-    req.params.id, req.params.ziId)
-  if (!existing) throw new AppError(404, 'NOT_FOUND', 'Stroke not found')
+  strokeNotFoundIfMissing(strokeService.findByIdAndZi(
+    req.params.id, req.params.ziId))
   strokeService.delete(req.params.id)
   strokesChanged(req.params.ziId)
   return ok(res, null)

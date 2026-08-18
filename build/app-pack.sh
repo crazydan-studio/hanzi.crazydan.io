@@ -31,11 +31,11 @@ ASSETS_DIR="${MODULE_DIR}/src/main/assets"
 # 版本号（单一来源 app/version.txt，与 android 构建 versionName 一致）
 VERSION_NAME="$(tr -d '[:space:]' < "${APP_DIR}/version.txt")"
 
-echo "==> [1/5] 拷贝拼音读音资源到 app 资源目录"
+echo "==> [1/6] 拷贝拼音读音资源到 app 资源目录"
 mkdir -p "${ASSETS_DIR}/audio/pinyin"
 cp -f "${ROOT}/public/assets/audio/pinyin/"*.mp3 "${ASSETS_DIR}/audio/pinyin/"
 
-echo "==> [2/5] 拷贝赞助页收款码图片到 app 资源目录"
+echo "==> [2/6] 拷贝赞助页收款码图片到 app 资源目录"
 (cd "${ROOT}" && node build/app-assets-pack.js)
 
 echo "==> [3/6] 打包中易楷体（全量，App TTF / web woff2）"

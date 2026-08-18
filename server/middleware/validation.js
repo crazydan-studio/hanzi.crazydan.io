@@ -18,12 +18,8 @@ export function validateParams(schema) {
 
 export function validateQuery(schema) {
   return (req, res, next) => {
-    // 转换字符串为数字
-    const raw = { ...req.query }
-    for (const key of ['page', 'limit', 'difficulty']) {
-      if (raw[key] !== undefined) raw[key] = Number(raw[key])
-    }
-    const result = schema.safeParse(raw)
+    // 分页/限制等数字参数转数字（z.coerce 处理）
+    const result = schema.safeParse(req.query)
     if (!result.success) return next(result.error)
     req.query = result.data
     next()

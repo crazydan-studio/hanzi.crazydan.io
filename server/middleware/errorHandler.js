@@ -28,23 +28,16 @@ export function errorHandler(err, req, res, next) {
     })
   }
 
-  // SQLite唯一约束冲突
-  // better-sqlite3: err.code === 'SQLITE_CONSTRAINT_UNIQUE'
-  // node:sqlite:    err.code === 'ERR_SQLITE_ERROR' 且 err.errcode === 2067
-  const isUnique = err.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
-    (err.code === 'ERR_SQLITE_ERROR' && err.errcode === 2067)
-  if (isUnique) {
+  // SQLite唯一约束冲突（node:sqlite: err.code === 'ERR_SQLITE_ERROR' 且 err.errcode === 2067）
+  if (err.code === 'ERR_SQLITE_ERROR' && err.errcode === 2067) {
     return res.status(409).json({
       success: false,
       error: { code: 'CONFLICT', message: 'Resource already exists', details: {} }
     })
   }
 
-  // SQLite外键约束
-  // node:sqlite errcode: 787 = SQLITE_CONSTRAINT_FOREIGNKEY
-  const isFk = err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' ||
-    (err.code === 'ERR_SQLITE_ERROR' && err.errcode === 787)
-  if (isFk) {
+  // SQLite外键约束（node:sqlite errcode: 787 = SQLITE_CONSTRAINT_FOREIGNKEY）
+  if (err.code === 'ERR_SQLITE_ERROR' && err.errcode === 787) {
     return res.status(400).json({
       success: false,
       error: { code: 'VALIDATION_ERROR', message: 'Invalid reference', details: {} }
