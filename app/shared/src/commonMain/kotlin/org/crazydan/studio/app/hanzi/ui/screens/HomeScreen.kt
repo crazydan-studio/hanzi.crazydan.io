@@ -344,14 +344,14 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.padding(top = 12.dp)
                 ) {
-                    AboutBlock("建站初心", aboutTextStyle, dark) {
+                    AboutBlock("建站初心", dark) {
                         InlineLinkText(
                             text = "本站是「筷字输入法」的衍生项目，旨在汇总汉字信息与资源，并向公共领域免费提供高质量的汉字笔画数据，方便个人学习与课堂教学使用，为汉字的广泛传播与学习、增强汉字的世界影响力贡献一份力量。",
                             links = mapOf("筷字输入法" to "https://github.com/crazydan-studio/kuaizi-ime"),
                             style = aboutTextStyle
                         )
                     }
-                    AboutBlock("许可协议", aboutTextStyle, dark) {
+                    AboutBlock("许可协议", dark) {
                         InlineLinkText(
                             text = "本站点（https://hanzi.crazydan.io）所提供的资源和源代码，仅限用于个人学习、师生教学等非商业用途；商业使用本站点所提供的汉字笔画数据，需获得商业授权。本站点所提供的汉字信息数据、拼音音频文件来源于「汉典网」（https://zdic.net/），直接使用需遵从其「使用条款」。",
                             links = mapOf(
@@ -361,7 +361,7 @@ fun HomeScreen(
                             style = aboutTextStyle
                         )
                     }
-                    AboutBlock("建议与意见", aboutTextStyle, dark) {
+                    AboutBlock("建议与意见", dark) {
                         InlineLinkText(
                             text = "若在使用过程中遇到任何问题，或有好的改进建议，欢迎在「Issues」页面提出，我们将积极回应，并尽可能解决相关疑难。",
                             links = mapOf(
@@ -370,14 +370,14 @@ fun HomeScreen(
                             style = aboutTextStyle
                         )
                     }
-                    AboutBlock("联系我们", aboutTextStyle, dark) {
+                    AboutBlock("联系我们", dark) {
                         InlineLinkText(
                             text = "如有合作或商务需求，可发送邮件至 support@studio.crazydan.org",
                             links = mapOf("support@studio.crazydan.org" to "mailto:support@studio.crazydan.org"),
                             style = aboutTextStyle
                         )
                     }
-                    AboutBlock("致谢", aboutTextStyle, dark) {
+                    AboutBlock("致谢", dark) {
                         InlineLinkText(
                             text = "感谢「汉典网」收集和提供的汉字详细信息。",
                             links = mapOf("汉典网" to "https://zdic.net/"),
@@ -393,7 +393,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun AboutBlock(title: String, textStyle: TextStyle, dark: Boolean, content: @Composable () -> Unit) {
+private fun AboutBlock(title: String, dark: Boolean, content: @Composable () -> Unit) {
     Column {
         // 子项标题: 加粗 + 颜色与 web 一致（text-gray-500 / dark:text-gray-400）
         Text(
