@@ -1,10 +1,8 @@
 package org.crazydan.studio.app.hanzi
 
 import android.content.res.Configuration
-import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
-import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -21,11 +19,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.shared.HanziDbFactory
+import org.crazydan.studio.app.hanzi.ui.AppContextHolder
 import org.crazydan.studio.app.hanzi.ui.AppNavigator
 import org.crazydan.studio.app.hanzi.ui.HanziApp
 import org.crazydan.studio.app.hanzi.ui.InitNoticeScreen
@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(Unit) {
                 // 后台准备数据库（同源检测/覆盖复制 + 索引创建，幂等）;
-                // 笔画数据库为独立库（用户下载后指定位置），启动时按保存的路径配置
+                // 笔画数据库为独立库（用户导入到固定位置），启动时按状态检查
                 val prep = async(Dispatchers.IO) {
                     val file = prepareDb()
                     val hanziDb = HanziDbFactory.open(file.absolutePath)
@@ -101,11 +101,14 @@ class MainActivity : ComponentActivity() {
                 db = prepared
 
                 // 等待首页渲染完成（首页首帧绘制后 homeRendered 置位），
-                // 随后开屏平滑淡出（首页不做淡入）；若开屏已提前淡出则跳过
-                while (!homeRendered) {
+                // 随后开屏平滑淡出（首页不做淡入）；初始化失败时直接放行
+                // （失败提示经 InitNoticeScreen 显示，避免等待永不到来的首帧）
+                while (!homeRendered && !initFailed) {
                     withFrameNanos { }
                 }
-                withFrameNanos { }   // 再等一帧，确保首页首帧已绘制
+                if (!initFailed) {
+                    withFrameNanos { }   // 再等一帧，确保首页首帧已绘制
+                }
                 if (showSplash) {
                     showSplash = false
                     delay(SPLASH_FADE_MS)
@@ -122,12 +125,11 @@ class MainActivity : ComponentActivity() {
                 } else if (initFailed) {
                     InitNoticeScreen(
                         darkTheme = savedDark,
-                        notice = true,
                         message = "数据库初始化失败，请重启应用"
                     )
                 } else if (!showSplash) {
                     // 开屏已提前淡出且数据库仍在初始化 → 在首页区域显示等待提示
-                    InitNoticeScreen(darkTheme = savedDark, notice = true)
+                    InitNoticeScreen(darkTheme = savedDark)
                 }
                 // 开屏页（仅 logo 与等待动画；首页渲染完成或初始化中提前淡出）
                 AnimatedVisibility(
@@ -152,19 +154,21 @@ class MainActivity : ComponentActivity() {
         HanziApp(
             db = db,
             navigator = navigator,
-            onExit = { finish() },
             onRendered = onRendered
         )
     }
 
-    // 窗口主题: 背景与状态栏颜色跟随已保存/系统主题
+    // 窗口主题: 背景与状态栏颜色跟随已保存/系统主题（与 themes.xml 背景色一致）
     private fun applyStartupTheme(dark: Boolean) {
-        val bg = if (dark) Color.parseColor("#111827") else Color.parseColor("#F9FAFB")   // gray-900 / gray-50
+        val bg = if (dark) getColor(R.color.window_background_dark)
+        else getColor(R.color.window_background)
         window.setBackgroundDrawable(ColorDrawable(bg))
         window.statusBarColor = bg
         window.navigationBarColor = bg
-        window.decorView.systemUiVisibility =
-            if (dark) 0 else View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        // 状态栏图标明暗（浅色背景用深色图标，暗色背景用浅色图标）
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !dark
+        }
     }
 
     private fun isSystemDark(): Boolean =
@@ -179,8 +183,8 @@ class MainActivity : ComponentActivity() {
 
         // 读取构建时记录的库 hash（见 build/app-db-pack.js），避免每次启动计算 SHA-256
         val assetHash = readAssetDbHash() ?: sha256Asset("$DB_ASSET_DIR/$DB_NAME")
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        if (assetHash != null && assetHash == prefs.getString(PREF_DB_HASH, null)) {
+        val prefs = AppContextHolder.appPrefs
+        if (prefs != null && assetHash != null && assetHash == prefs.getString(PREF_DB_HASH, null)) {
             return dest   // 同源: 直接复用（索引已建）
         }
 
@@ -192,7 +196,7 @@ class MainActivity : ComponentActivity() {
         dest.delete()
         tmp.renameTo(dest)
 
-        if (assetHash != null) {
+        if (prefs != null && assetHash != null) {
             prefs.edit().putString(PREF_DB_HASH, assetHash).apply()
         }
         return dest
@@ -234,7 +238,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val DB_NAME = "hanzi.db"
         private const val DB_ASSET_DIR = "db"
-        private const val PREFS_NAME = "hanzi_prefs"
         private const val PREF_DB_HASH = "hanzi_db_hash"
 
         /** 开屏页固定展示时间（毫秒） */

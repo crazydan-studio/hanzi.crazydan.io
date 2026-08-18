@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,7 +26,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -37,9 +34,10 @@ import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.shared.StrokeDbInfo
 import org.crazydan.studio.app.hanzi.shared.StrokeDbState
 import org.crazydan.studio.app.hanzi.shared.StrokeDbStatus
-import org.crazydan.studio.app.hanzi.ui.Blue500
 import org.crazydan.studio.app.hanzi.ui.Platform
+import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
+import org.crazydan.studio.app.hanzi.ui.components.PrimaryButton
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
 
 /**
@@ -71,8 +69,9 @@ fun StrokeDataManageScreen(
         statusChecked = true
     }
 
-    fun refreshStatus() {
-        status = db.strokeDbStatus()
+    // 刷新笔画数据状态（SQLite 查询，避免阻塞主线程）
+    suspend fun refreshStatus() {
+        status = withContext(Dispatchers.Default) { db.strokeDbStatus() }
     }
 
     fun pickAndImport() {
@@ -150,15 +149,10 @@ fun StrokeDataManageScreen(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            Button(
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Blue500,
-                    contentColor = Color.White
-                ),
+            PrimaryButton(
+                text = if (status?.state == StrokeDbState.READY) "重新导入" else "导入笔画数据文件",
                 onClick = { pickAndImport() }
-            ) {
-                Text(if (status?.state == StrokeDbState.READY) "重新导入" else "导入笔画数据文件")
-            }
+            )
             Text(
                 text = "下载完成后，通过系统文件选择器选择已下载的笔画数据库文件；选择后先校验数据有效性，经确认后导入到应用数据目录。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -188,12 +182,7 @@ fun StrokeDataManageScreen(
             modifier = Modifier.padding(bottom = 12.dp)
         )
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            val scales = listOf(
-                Triple("1500 字", "约 1500 个高频常用汉字（小规模）", "1500"),
-                Triple("3000 字", "约 3000 个高频汉字（中规模）", "3000"),
-                Triple("5000 字", "约 5000 个高频汉字（大规模）", "5000"),
-                Triple("全部（约 ${formatWan(totalZi)}）", "全部汉字的笔画数据（完整规模）", "full")
-            )
+            val scales = scaleOptions(totalZi)
             scales.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { (title, desc, scale) ->
@@ -296,28 +285,30 @@ private fun ScaleOption(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
             )
-            Button(
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Blue500,
-                    contentColor = Color.White
-                ),
+            PrimaryButton(
+                text = "点击下载",
                 onClick = onClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 12.dp)
-            ) {
-                Text("点击下载")
-            }
+            )
         }
     }
 }
 
 private fun downloadScale(scale: String) {
-    Platform.openUrl(
-        "https://github.com/crazydan-studio/hanzi.crazydan.io/releases/latest/download/" +
-            "hanzi-stroke-$scale.db"
-    )
+    Platform.openUrl("${SiteLinks.STROKE_DB_DOWNLOAD}$scale.db")
 }
+
+// 数据规模选项（与 build/export-stroke-db.js 的 --count 导出规模一致）
+private data class ScaleOption(val title: String, val desc: String, val scale: String)
+
+private fun scaleOptions(totalZi: Int): List<ScaleOption> = listOf(
+    ScaleOption("1500 字", "约 1500 个高频常用汉字（小规模）", "1500"),
+    ScaleOption("3000 字", "约 3000 个高频汉字（中规模）", "3000"),
+    ScaleOption("5000 字", "约 5000 个高频汉字（大规模）", "5000"),
+    ScaleOption("全部（约 ${formatWan(totalZi)}）", "全部汉字的笔画数据（完整规模）", "full")
+)
 
 /** 数字格式化为「万」表述（如 26223 → 2.6 万+） */
 private fun formatWan(total: Int): String {

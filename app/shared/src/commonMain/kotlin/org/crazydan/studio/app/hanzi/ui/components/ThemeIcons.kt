@@ -30,7 +30,8 @@ val DarkModeIcon: ImageVector by lazy {
     }.build()
 }
 
-val LightModeIcon: ImageVector by lazy {    ImageVector.Builder(
+val LightModeIcon: ImageVector by lazy {
+    ImageVector.Builder(
         name = "LightMode", defaultWidth = 24.dp, defaultHeight = 24.dp,
         viewportWidth = 24f, viewportHeight = 24f
     ).apply {

@@ -67,11 +67,10 @@ android {
     }
 
     dependenciesInfo {
-        // <<<< 可重复构建不能在发布包中包含依赖信息：
+        // 可重复构建不能在发布包中包含依赖信息：
         // https://f-droid.org/en/docs/Reproducible_Builds/
         includeInApk = false
         includeInBundle = false
-        // >>>>>
     }
 }
 

@@ -101,7 +101,7 @@ interface HanziDb : AutoCloseable {
     fun ensurePinyinIndexes()
 }
 
-/** 数据源工厂（Android: android.database.sqlite 实现；iOS 预留） */
+/** 数据源工厂（Android 实现基于平台 sqlite，见 androidMain/HanziDb.android.kt） */
 expect object HanziDbFactory {
     fun open(dbPath: String): HanziDb
 }

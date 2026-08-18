@@ -6,7 +6,9 @@ import android.database.sqlite.SQLiteStatement
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.util.zip.Inflater
+
 /**
  * Android 实现: 基于平台 sqlite（android.database.sqlite）只读查询，
  * 轨迹数据用 java.util.zip 解压（与 node 端 zlib.deflateSync 兼容），
@@ -24,15 +26,14 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
     private val db: SQLiteDatabase =
         SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READWRITE)
 
-    // 笔画数据库（独立下载，用户指定位置）: 未配置/无效时为 null
-    // 笔画数据库（独立下载，导入到固定位置）: 未导入/无效时不可查询
+    // 笔画数据库（导入到固定位置）: 未导入/无效时不可查询
     private var strokeDb: SQLiteDatabase? = null
     private var strokeInfo: StrokeDbInfo? = null
     private var strokeDbState: StrokeDbState = StrokeDbState.MISSING
 
     // 固定位置: 与内置信息库同目录的 hanzi_stroke.db
-    private fun fixedStrokeDbFile(): java.io.File =
-        java.io.File(java.io.File(dbPath).parentFile, "hanzi_stroke.db")
+    private fun fixedStrokeDbFile(): File =
+        File(File(dbPath).parentFile, "hanzi_stroke.db")
 
     /** 校验库文件（表结构 + 数据量）；无效返回 null */
     override fun validateStrokeDb(path: String): StrokeDbInfo? {
@@ -67,8 +68,8 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
     override fun importStrokeDb(sourcePath: String): Boolean {
         return try {
             val target = fixedStrokeDbFile()
-            val tmp = java.io.File(target.parentFile, "hanzi_stroke.db.tmp")
-            java.io.File(sourcePath).inputStream().use { input ->
+            val tmp = File(target.parentFile, "hanzi_stroke.db.tmp")
+            File(sourcePath).inputStream().use { input ->
                 tmp.outputStream().use { output -> input.copyTo(output) }
             }
             // 复制后再次校验，确认导入内容有效
@@ -131,7 +132,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
     }
 
     /** 重新打开固定位置库（文件在外部变化后） */
-    private fun reopenStrokeDb(file: java.io.File): StrokeDbState {
+    private fun reopenStrokeDb(file: File): StrokeDbState {
         return try {
             val sdb = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
             val info = validateStrokeDb(file.absolutePath) ?: run {
@@ -287,7 +288,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
         }
     }
 
-    // 填充关联表: 每字每无声调拼音仅保留首条读音（与 build/export-data.js 逻辑一致）
+    // 填充关联表: 每字每无声调拼音仅保留首条读音（与 build/export-zi.js 逻辑一致）
     private fun fillPinyinIndexes() {
         val selPinyin = db.compileStatement("SELECT id FROM pinyin WHERE value = ?")
         val insPinyin = db.compileStatement("INSERT OR IGNORE INTO pinyin(value) VALUES (?)")

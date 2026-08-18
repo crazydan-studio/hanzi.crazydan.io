@@ -10,7 +10,6 @@ import android.media.MediaPlayer
 import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.FileProvider
@@ -236,11 +235,10 @@ actual object Platform {
     }
 
     /**
-     * 应用上下文/宿主 Activity 与笔画数据库文件选择器注入
+     * 应用上下文与笔画数据库文件选择器注入
      * （MainActivity.onCreate 调用; 选择器 launcher 须在生命周期 STARTED 前注册）
      */
     fun init(activity: ComponentActivity, strokeDbPicker: ActivityResultLauncher<Array<String>>) {
-        AppContextHolder.appActivity = activity
         AppContextHolder.appContext = activity
         pickLauncher = strokeDbPicker
     }

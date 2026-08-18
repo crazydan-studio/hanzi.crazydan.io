@@ -68,23 +68,16 @@ class AppNavigator(initial: Screen = Screen.Home) {
         screen = stack.removeLast()
         return true
     }
-
-    /** 返回首页（清空返回栈） */
-    fun toHome() {
-        stack.clear()
-        screen = Screen.Home
-    }
 }
 
 /**
- * 汉字 App 根组件（原生 Compose UI，替代原 WebView 方案）
+ * 汉字 App 根组件（原生 Compose UI）
  * @param onRendered 首页完成首帧渲染后的回调（开屏据此淡出）
  */
 @Composable
 fun HanziApp(
     db: HanziDb,
     navigator: AppNavigator,
-    onExit: () -> Unit,
     onRendered: () -> Unit = {}
 ) {
     // 首页首次组合后通知宿主（开屏等待此信号再淡出）
