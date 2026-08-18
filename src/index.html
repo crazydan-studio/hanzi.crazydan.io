@@ -1,11 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>汉字 | 首页</title>
-  <link rel="icon" type="image/svg+xml" href="/logo.svg">
-  <link rel="stylesheet" href="/src/styles/main.css">
 </head>
 <body class="bg-gray-50 min-h-screen dark:bg-gray-900" x-data="homeApp()">
 
@@ -50,12 +47,8 @@
         x-data="ziGrid()" x-effect="setZis(commons)" @click="onGridClick($event)" x-html="gridHtml"
         class="zi-grid"></div>
         <!-- 加载中: 悬浮于列表区域上层 -->
-        <div x-show="commonsLoading" class="loading-overlay">
-          <span class="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span class="spinner"></span>
-            正在加载常用字…
-          </span>
-        </div>
+        <div x-show="commonsLoading" x-data="loadingOverlay('正在加载常用字…')"
+          class="loading-overlay" x-html="html"></div>
       </div>
     </section>
     <!-- 移动端 App 下载（显著位置，离线使用汉字笔画数据） -->
@@ -120,11 +113,8 @@
   </div>
 
   <!-- 本地开发模式: 首页右下角浮动入口 → 汉字笔画管理页面 -->
-  <a x-show="devButton" href="/strokes/" x-cloak
-    class="fab">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-    笔画管理
-  </a>
+  <a x-data="fabButton({ label: '笔画管理' })" x-show="devButton" href="/strokes/" x-cloak
+    class="fab" x-html="html"></a>
 
   <footer x-data="appFooter()" x-html="html"></footer>
 

@@ -28,10 +28,11 @@ import { CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Con
 Alpine.data('strokePad', (opts = {}) => ({
   width: opts.width || CANVAS_SIZE.width,
   height: opts.height || CANVAS_SIZE.height,
-  // 笔触宽度选择（像素基准，内部 500 坐标系；档位 = 基础 ×3）
-  // 移动端画布缩小显示（如 320px）后视觉宽度 = penWidth × 显示尺寸/500，
-  // 6/12/18/24 对应 细/标准/粗/特粗，默认最粗(24) 保证笔触醒目
-  PEN_WIDTHS: opts.penWidths || [6, 12, 18, 24],   // 细/标准/粗/特粗
+  // 笔触宽度档位（像素基准，内部 500 坐标系; 档位 = 基础 ×3）
+  // 移动端画布缩小显示（如 320px）后视觉宽度 = penWidth × 显示尺寸/500
+  PEN_WIDTHS: opts.penWidths || [6, 12, 18, 24],
+  // 档位名称（细/标准/粗/特粗），默认最粗(24) 保证笔触醒目
+  PEN_WIDTH_NAMES: { 6: '细', 12: '标准', 18: '粗', 24: '特粗' },
   penWidth: opts.defaultPenWidth ?? 24,
   strokeColor: opts.strokeColor || null,   // 书写笔触颜色（null → 适配主题的墨色）
   mode: 'write',                 // 'write' 书写 | 'playback' 回放

@@ -4,6 +4,8 @@ import Alpine from 'alpinejs'
 import './app.js'
 import '@components/StrokeCell.js'
 import '@components/ThemeToggle.js'
+import '@components/PageHeader.js'
+import '@components/FabButton.js'
 import '@components/AppFooter.js'
 
 Alpine.start()

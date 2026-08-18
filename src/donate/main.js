@@ -2,6 +2,7 @@
 import '/src/boot.js'
 import Alpine from 'alpinejs'
 import '@components/ThemeToggle.js'
+import '@components/PageHeader.js'
 import '@components/AppFooter.js'
 
 Alpine.start()

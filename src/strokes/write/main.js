@@ -5,6 +5,7 @@ import Alpine from 'alpinejs'
 import { registerStrokeEditor } from './strokeEditor.js'
 import '@components/StrokePad.js'
 import '@components/ThemeToggle.js'
+import '@components/PageHeader.js'
 import '@components/AppFooter.js'
 
 registerStrokeEditor()

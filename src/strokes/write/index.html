@@ -1,23 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>汉字 | 汉字书写</title>
-  <link rel="icon" type="image/svg+xml" href="/logo.svg">
-  <link rel="stylesheet" href="/src/styles/main.css">
 </head>
 <body class="bg-gray-50 min-h-screen dark:bg-gray-900">
 
   <div class="max-w-6xl mx-auto p-4 md:p-6" x-data="strokeEditor()">
-    <header class="flex flex-wrap items-center justify-between gap-2 mb-6">
-      <div class="flex items-center gap-3">
-        <!-- 返回: 回到进入前的页面（与各页面返回按钮样式一致） -->
-        <button @click="goBack()" class="btn-sm">← 返回</button>
-        <h1 class="text-xl md:text-2xl font-bold">汉字书写</h1>
-      </div>
-      <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
-    </header>
+    <div x-data="pageHeader({ backClick: 'goBack()', title: '汉字书写', wrap: true, size: 'lg', mb: 'mb-6' })" x-html="html"></div>
 
     <!-- 笔画编辑器（独立页面）: 公共书写板 strokePad 经 padOpts 回调输出数据，
          编辑器组合书写板并持有服务端状态（API 耦合仅在此层） -->
@@ -128,7 +118,7 @@
                   <button @click="setPenWidth(w)"
                     class="px-2.5 py-2 rounded border flex items-center justify-center"
                     :class="penWidth === w ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700'"
-                    :title="(w === 6 ? '细' : w === 12 ? '标准' : w === 18 ? '粗' : '特粗') + '笔触'">
+                    :title="(PEN_WIDTH_NAMES[w] || w) + '笔触'">
                     <span class="rounded-full"
                       :style="'width:' + (w / 2) + 'px;height:' + (w / 2) + 'px'"
                       :class="penWidth === w ? 'bg-white' : 'bg-gray-700'"></span>

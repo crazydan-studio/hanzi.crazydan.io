@@ -1,19 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>汉字 | 汉字信息</title>
-  <link rel="icon" type="image/svg+xml" href="/logo.svg">
-  <link rel="stylesheet" href="/src/styles/main.css">
 </head>
 <body class="bg-gray-50 min-h-screen dark:bg-gray-900" x-data="ziApp()">
 
   <div class="max-w-3xl mx-auto px-4 py-6">
-    <header class="flex items-center justify-between mb-4">
-      <a href="/" class="btn-sm">← 返回首页</a>
-      <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
-    </header>
+    <div x-data="pageHeader({ mb: 'mb-4' })" x-html="html"></div>
 
     <p x-show="loading" class="text-center text-gray-500 py-16 dark:text-gray-400">加载中...</p>
     <p x-show="error && !loading" class="text-center text-red-600 py-16" x-text="error"></p>
@@ -52,7 +46,7 @@
                     <span class="font-medium font-pinyin" x-text="symbolPinyin(p)"></span>
                     <button @click="playPinyin(p)" class="text-blue-500 hover:text-blue-700">试听</button>
                     <button @click="copy(symbolPinyin(p))" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-                      x-text="copiedValue === p ? '已复制' : '复制'"></button>
+                      x-text="copiedValue === symbolPinyin(p) ? '已复制' : '复制'"></button>
                   </span>
                 </template>
               </div>
@@ -158,12 +152,8 @@
   </div>
 
   <!-- 本地开发模式: 浮动按钮 → 跳转到该汉字的笔画书写页面（记录返回地址） -->
-  <a x-show="writeButton && meta" :href="writeUrl" @click="rememberBack()" x-cloak
-    class="fab">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-    书写该字
-  </a>
-
+  <a x-data="fabButton({ label: '书写该字' })" x-show="writeButton && meta" :href="writeUrl" @click="rememberBack()" x-cloak
+    class="fab" x-html="html"></a>
 
   <footer x-data="appFooter()" x-html="html"></footer>
 
