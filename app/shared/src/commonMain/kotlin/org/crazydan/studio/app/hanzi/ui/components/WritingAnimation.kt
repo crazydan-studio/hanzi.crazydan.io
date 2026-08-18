@@ -444,20 +444,15 @@ private fun DrawScope.drawDashedLine(
     }
 }
 
-/** 背景字布局信息: 墨迹盒（画布坐标）+ 文本布局左上角与缩放（光栅盒换算用） */
-private class CharLayout(
-    val box: CharBox,
-    val textLeft: Float,
-    val textTop: Float,
-    val scale: Float,
-    val fontSizePx: Float
-)
+/** 背景字布局信息: 光栅实测墨迹盒（画布坐标，笔画坐标还原基准） */
+private class CharLayout(val box: CharBox)
 
 /**
  * 背景汉字绘制（与 web drawCharRef 一致，光栅实测坐标系）:
- *  - 字号为画布短边（正方形）的 92%（所有字相同）
+ *  - 字号为画布短边（正方形）的 92%（所有字相同）;
+ *    实测墨迹盒超出田字格时按比例缩小字号，保证盒不超出且四周留有空白
  *  - 盒: 直接实际渲染该字并扫描像素，得到真实墨迹盒（假定字体始终包含该字，
- *    不提供回退; 允许墨迹盒坐标超出画布边界）
+ *    不提供回退; 仅笔画轨迹坐标允许超出盒边界）
  *  - 布局: 以实测墨迹盒为基准做 x/y 双向平移，使墨迹中心对齐田字格中心
  *    （留出四周边距、收紧中宫中心、顺应结构重心）
  *  - 田字格边框仅作装饰绘制于画布边缘，不参与汉字/笔画的坐标定位
@@ -469,29 +464,39 @@ private fun DrawScope.drawCharRef(
     textMeasurer: TextMeasurer
 ): CharLayout? {
     if (character.isEmpty()) return null
+    val emPx = 92.sp.toPx()
+    val baseScale = (size.width * 0.92f) / emPx
+
+    // 光栅实测墨迹盒（相对文本对齐点: 水平左缘 + 基线）: 无回退
+    val raster = Platform.rasterCharBox(character, emPx) ?: return null
+
+    // 墨迹盒不得超出田字格且四周留白（各侧 4% 画布）: 必要时按比例缩小字号
+    val margin = size.width * 0.04f
+    val fit = minOf(
+        1f,
+        (size.width - margin * 2f) / ((raster[2] - raster[0]) * baseScale),
+        (size.height - margin * 2f) / ((raster[3] - raster[1]) * baseScale)
+    )
+    val effPx = emPx * fit
+    val effRaster = if (fit < 1f) (Platform.rasterCharBox(character, effPx) ?: raster) else raster
     val style = TextStyle(
-        fontSize = 92.sp,
+        fontSize = (92f * fit).sp,
         fontFamily = KaiTiFontFamily,
         color = color,
         textAlign = TextAlign.Center
     )
-    val emPx = 92.sp.toPx()
-    val scale = (size.width * 0.92f) / emPx
-
-    // 光栅实测墨迹盒（相对文本对齐点: 水平左缘 + 基线）: 无回退
-    val raster = Platform.rasterCharBox(character, emPx) ?: return null
 
     val layout = textMeasurer.measure(text = character, style = style)
     val lineBaseline = layout.getLineBaseline(0)
 
     // 布局: 实测墨迹中心对齐画布中心（x/y 双向平移，未缩放坐标）;
     // 墨迹盒以文本对齐点（左缘 + 基线）度量
-    val boxCX = (raster[0] + raster[2]) / 2f
-    val boxCY = (raster[1] + raster[3]) / 2f
+    val boxCX = (effRaster[0] + effRaster[2]) / 2f
+    val boxCY = (effRaster[1] + effRaster[3]) / 2f
     val textLeft = size.width / 2f - boxCX
     val textTop = size.height / 2f - lineBaseline - boxCY
 
-    scale(scale, scale, pivot = Offset(size.width / 2f, size.height / 2f)) {
+    scale(baseScale, baseScale, pivot = Offset(size.width / 2f, size.height / 2f)) {
         drawText(
             textLayoutResult = layout,
             topLeft = Offset(textLeft, textTop)
@@ -501,17 +506,13 @@ private fun DrawScope.drawCharRef(
     // 墨迹盒（画布坐标）: 光栅盒经与绘制完全相同的 缩放+平移 变换
     val cx = size.width / 2f
     val cy = size.height / 2f
-    val x0 = cx + (textLeft + raster[0] - cx) * scale
-    val y0 = cy + (textTop + lineBaseline + raster[1] - cy) * scale
-    val x1 = cx + (textLeft + raster[2] - cx) * scale
-    val y1 = cy + (textTop + lineBaseline + raster[3] - cy) * scale
+    val x0 = cx + (textLeft + effRaster[0] - cx) * baseScale
+    val y0 = cy + (textTop + lineBaseline + effRaster[1] - cy) * baseScale
+    val x1 = cx + (textLeft + effRaster[2] - cx) * baseScale
+    val y1 = cy + (textTop + lineBaseline + effRaster[3] - cy) * baseScale
     val w = x1 - x0
     val h = y1 - y0
-    return if (w > 0f && h > 0f) {
-        CharLayout(CharBox(x0, y0, w, h), textLeft, textTop, scale, emPx)
-    } else {
-        null
-    }
+    return if (w > 0f && h > 0f) CharLayout(CharBox(x0, y0, w, h)) else null
 }
 
 /** 盒相对归一化坐标 → 画布坐标（x 按盒宽、y 按盒高分别缩放） */

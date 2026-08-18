@@ -46,9 +46,10 @@ export async function ensureKaiFont() {
 // 楷体半透明参考字核心绘制（书写模式参考字与回放/动画背景共用）
 // 背景汉字以半透明形式绘制于田字格上层，颜色适配主题
 // 设计原则: 所有汉字使用【统一字号】+【光栅实测盒中心对齐】。
-//   - 字号: 画布尺寸的固定比例（同一字体 em 框一致 → 所有字一样大）
+//   - 字号: 画布尺寸的固定比例（同一字体 em 框一致 → 所有字一样大）;
+//     实测墨迹盒超出田字格时按比例缩小字号，保证盒不超出且四周留有空白
 //   - 盒: 直接实际渲染该字并扫描像素（alpha>0），得到真实墨迹盒
-//     （假定字体始终包含该字，不提供回退; 允许墨迹盒坐标超出画布边界）
+//     （假定字体始终包含该字，不提供回退; 仅笔画轨迹坐标允许超出盒边界）
 //   - 布局: 以实测墨迹盒为基准做 x/y 双向平移，使墨迹中心对齐田字格中心
 //     （留出四周边距、收紧中宫中心、顺应结构重心）
 export function drawCharRef(ctx, width, height, char, color = charRefColor()) {
@@ -71,12 +72,22 @@ export function drawCharRef(ctx, width, height, char, color = charRefColor()) {
 // 返回 { font, drawX, drawY, box }（drawX/drawY 为绘制对齐点，box 为墨迹盒）
 function charBoxLayout(width, height, char) {
   // 统一字号: 画布短边的 92%（留边距防溢出），所有字相同
-  const fontSize = Math.round(Math.min(width, height) * 0.92)
-  const font = `${fontSize}px ${KAI_FONT_FAMILY}`
+  const margin = Math.min(width, height) * 0.04   // 四周留白（画布的 4%）
+  const baseSize = Math.max(1, Math.round(Math.min(width, height) * 0.92))
+  const font = `${baseSize}px ${KAI_FONT_FAMILY}`
 
   // 光栅实测: 该字实际渲染像素的墨迹盒（相对对齐点; 无渲染像素时 null）
-  const rel = rasterCharBoxRel(font, fontSize, char)
-  if (!rel) return null
+  const baseRel = rasterCharBoxRel(font, baseSize, char)
+  if (!baseRel) return null
+
+  // 墨迹盒不得超出田字格且四周留白: 必要时按比例缩小字号
+  const fit = Math.min(1,
+    (width - margin * 2) / baseRel.w,
+    (height - margin * 2) / baseRel.h)
+  const fontSize = Math.max(1, Math.round(baseSize * fit))
+  const rel = fit < 1
+    ? rasterCharBoxRel(`${fontSize}px ${KAI_FONT_FAMILY}`, fontSize, char) ?? baseRel
+    : baseRel
 
   // 布局: 墨迹中心对齐田字格中心（x/y 双向平移）
   const drawX = width / 2 - (rel.l + rel.r) / 2
@@ -89,7 +100,7 @@ function charBoxLayout(width, height, char) {
     w: rel.r - rel.l,
     h: rel.b - rel.t
   }
-  return { font, drawX, drawY, box }
+  return { font: `${fontSize}px ${KAI_FONT_FAMILY}`, drawX, drawY, box }
 }
 
 // 光栅实测墨迹盒（相对对齐点）: 离屏实际渲染（textAlign center + textBaseline middle，
@@ -139,7 +150,8 @@ function rasterCharBoxRel(font, fontSize, char) {
 
 // 背景汉字墨迹盒（内部坐标系像素，汉字笔画书写坐标系）: { x0, y0, x1, y1, w, h }
 // 基于光栅实测（实际渲染像素），与 drawCharRef 所绘字型严格一致;
-// 假定字体始终包含该字，不提供回退; 盒可超出画布边界（坐标允许负值）
+// 保证盒不超出田字格且四周留有空白（必要时缩小字号）;
+// 假定字体始终包含该字，不提供回退; 仅笔画轨迹坐标允许超出盒边界
 export function charInkBox(width, height, char) {
   if (!char) return null
   return charBoxLayout(width, height, char)?.box ?? null
