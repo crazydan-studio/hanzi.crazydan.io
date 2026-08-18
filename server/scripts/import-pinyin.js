@@ -11,7 +11,7 @@
 //           按 used_weight_ 降序排序（该汉字读音的排序结果）
 //   - 权重: 该汉字带声调拼音组合 used_weight_ 的最大值
 //   - 结构: glyph_struct_ 按数字编码存储（前端映射展示名与示例）
-// 存储: characters 表（id = 汉字 unicode 数值）；已存在记录更新（保留已有笔画）
+// 存储: zi 表（id = 汉字 unicode 数值）；已存在记录更新（保留已有笔画）
 // 字体覆盖检查: 导入前检查自带中易楷体是否包含该字，缺失则不导入并输出告警
 import { DatabaseSync } from 'node:sqlite'
 import * as fontkit from 'fontkit'
@@ -125,13 +125,13 @@ async function main() {
     kaiFont ? kaiFont.glyphForCodePoint(word.codePointAt(0)).id !== 0 : true
 
   const upsert = dst.prepare(`
-    INSERT INTO characters (id, character, pinyin, used_weight, structure, radical, total_stroke_count)
+    INSERT INTO zi (id, zi, pinyin, used_weight, structure, radical, total_stroke_count)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       pinyin = excluded.pinyin,
       used_weight = excluded.used_weight,
-      structure = CASE WHEN excluded.structure != 0 THEN excluded.structure ELSE characters.structure END,
-      radical = CASE WHEN excluded.radical != '' THEN excluded.radical ELSE characters.radical END,
+      structure = CASE WHEN excluded.structure != 0 THEN excluded.structure ELSE zi.structure END,
+      radical = CASE WHEN excluded.radical != '' THEN excluded.radical ELSE zi.radical END,
       total_stroke_count = excluded.total_stroke_count
   `)
 
@@ -162,11 +162,22 @@ async function main() {
     console.log(`已导入 ${count}/${entries.length}`)
   }
 
-  // 告警: 字体未覆盖的汉字（不导入）
+  // 告警: 字体未覆盖的汉字（不导入），并从静态数据（public/assets/zi/{unicode}/）
+  // 中删除（web 端无法以楷体显示该字，且光栅实测盒需字体真实渲染）
   if (missing.length > 0) {
+    const ziDir = path.join(ROOT, 'public', 'assets', 'zi')
+    let removed = 0
+    for (const word of missing) {
+      const dir = path.join(ziDir, String(word.codePointAt(0)))
+      if (fs.existsSync(dir)) {
+        fs.rmSync(dir, { recursive: true, force: true })
+        removed++
+      }
+    }
     const sample = missing.slice(0, 20).join('')
     const more = missing.length > 20 ? ` 等 ${missing.length} 个` : ''
-    console.warn(`[告警] 自带中易楷体未包含 ${missing.length} 个汉字，已跳过导入: ${sample}${more}`)
+    console.warn(`[告警] 自带中易楷体未包含 ${missing.length} 个汉字，已跳过导入并删除其静态数据: ${sample}${more}`)
+    if (removed > 0) console.log(`已从 public/assets/zi/ 删除 ${removed} 个汉字的数据目录`)
   }
 
   // 清理: 新词典中不存在的汉字标记删除（保持与数据源一致）
@@ -176,7 +187,7 @@ async function main() {
     if (isCovered(w)) keep.run(w.codePointAt(0))
   }
   const { changes } = dst.prepare(
-    'DELETE FROM characters WHERE id NOT IN (SELECT id FROM _keep)'
+    'DELETE FROM zi WHERE id NOT IN (SELECT id FROM _keep)'
   ).run()
   dst.exec('DROP TABLE _keep')
   if (changes > 0) console.log(`已清理词典外汉字: ${changes} 个`)
