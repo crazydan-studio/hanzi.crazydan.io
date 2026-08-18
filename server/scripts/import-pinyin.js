@@ -12,7 +12,9 @@
 //   - 权重: 该汉字带声调拼音组合 used_weight_ 的最大值
 //   - 结构: glyph_struct_ 按数字编码存储（前端映射展示名与示例）
 // 存储: characters 表（id = 汉字 unicode 数值）；已存在记录更新（保留已有笔画）
+// 字体覆盖检查: 导入前检查自带中易楷体是否包含该字，缺失则不导入并输出告警
 import { DatabaseSync } from 'node:sqlite'
+import fontkit from 'fontkit'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
@@ -22,6 +24,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..', '..')
 const DEFAULT_SRC = path.join(ROOT, 'data', 'pinyin-dict.sqlite')
 const DEFAULT_DST = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
+// 自带中易楷体（web 端显示字体）: 不在其中的汉字不做导入
+const KAI_FONT_PATH = path.join(ROOT, 'public', 'fonts', 'ZhongYiKaiTi_mini.woff2')
 
 // 解析命令行参数: --source/--db 选项 + 位置参数（相对 CWD 解析）
 function parseArgs() {
@@ -42,6 +46,20 @@ function parseArgs() {
   return {
     source: source ? path.resolve(source) : DEFAULT_SRC,
     target: target ? path.resolve(target) : DEFAULT_DST
+  }
+}
+
+// 加载自带中易楷体（缺失时告警并跳过检查）
+function loadKaiFont() {
+  if (!fs.existsSync(KAI_FONT_PATH)) {
+    console.warn(`[告警] 未找到自带中易楷体（${KAI_FONT_PATH}），跳过字体覆盖检查`)
+    return null
+  }
+  try {
+    return fontkit.openSync(KAI_FONT_PATH)
+  } catch (err) {
+    console.warn(`[告警] 中易楷体解析失败（${err.message}），跳过字体覆盖检查`)
+    return null
   }
 }
 
@@ -100,7 +118,12 @@ async function main() {
       .map(([pinyin]) => pinyin)
   }
 
-  // 写入 hanzi_stroke.db（upsert，保留已有笔画）
+  // 写入 hanzi_stroke.db（upsert，保留已有笔画）;
+  // 字体覆盖检查: 自带中易楷体不含该字 → 不导入并输出告警
+  const kaiFont = loadKaiFont()
+  const isCovered = (word) =>
+    kaiFont ? kaiFont.glyphForCodePoint(word.codePointAt(0)).id !== 0 : true
+
   const upsert = dst.prepare(`
     INSERT INTO characters (id, character, pinyin, used_weight, structure, radical, total_stroke_count)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -115,11 +138,16 @@ async function main() {
   const BATCH = 500
   const entries = [...agg.entries()]
   let count = 0
+  const missing = []
   for (let i = 0; i < entries.length; i += BATCH) {
     dst.exec('BEGIN')
     try {
       for (let k = i; k < Math.min(i + BATCH, entries.length); k++) {
         const [word, e] = entries[k]
+        if (!isCovered(word)) {
+          missing.push(word)
+          continue
+        }
         const unicode = word.codePointAt(0)
         upsert.run(unicode, word,
           JSON.stringify(e.readings),
@@ -134,10 +162,19 @@ async function main() {
     console.log(`已导入 ${count}/${entries.length}`)
   }
 
+  // 告警: 字体未覆盖的汉字（不导入）
+  if (missing.length > 0) {
+    const sample = missing.slice(0, 20).join('')
+    const more = missing.length > 20 ? ` 等 ${missing.length} 个` : ''
+    console.warn(`[告警] 自带中易楷体未包含 ${missing.length} 个汉字，已跳过导入: ${sample}${more}`)
+  }
+
   // 清理: 新词典中不存在的汉字标记删除（保持与数据源一致）
   dst.exec('CREATE TEMP TABLE _keep(id INTEGER PRIMARY KEY)')
   const keep = dst.prepare('INSERT OR IGNORE INTO _keep(id) VALUES (?)')
-  for (const w of agg.keys()) keep.run(w.codePointAt(0))
+  for (const w of agg.keys()) {
+    if (isCovered(w)) keep.run(w.codePointAt(0))
+  }
   const { changes } = dst.prepare(
     'DELETE FROM characters WHERE id NOT IN (SELECT id FROM _keep)'
   ).run()
