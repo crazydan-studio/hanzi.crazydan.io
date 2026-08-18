@@ -428,21 +428,20 @@ private fun WritingPanel(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.padding(top = 12.dp)
             ) {
-                // 播放中仅禁用按钮，不切换标签（避免按钮尺寸变化）
+                // 播放/暂停切换（合并按钮两种状态）
                 SmallButton(
-                    text = if (player.state == WritingPlayer.State.COMPLETED) "重播" else "播放",
-                    enabled = player.state != WritingPlayer.State.PLAYING,
-                    primary = true,
+                    text = when (player.state) {
+                        WritingPlayer.State.PLAYING -> "暂停"
+                        WritingPlayer.State.COMPLETED -> "重播"
+                        else -> "播放"
+                    },
+                    primary = player.state != WritingPlayer.State.PLAYING,
                     onClick = {
                         Platform.stopPinyin()
                         player.singleStroke = false
-                        player.play()
+                        if (player.state == WritingPlayer.State.PLAYING) player.pause()
+                        else player.play()
                     }
-                )
-                SmallButton(
-                    text = "暂停",
-                    enabled = player.state == WritingPlayer.State.PLAYING,
-                    onClick = { player.pause() }
                 )
                 SmallButton(text = "重置", onClick = {
                     player.singleStroke = false

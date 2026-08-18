@@ -163,6 +163,12 @@ Alpine.data('ziApp', () => ({
     this.playing = this.engine.state === 'PLAYING'
   },
 
+  // 播放/暂停切换（合并按钮的两种状态）
+  togglePlay() {
+    if (this.playing) this.pause()
+    else this.play()
+  },
+
   resetPlay() {
     if (!this.engine) return
     this.engine.reset()

@@ -98,10 +98,11 @@
               </div>
             </div>
           </div>
-          <!-- 播放控制: 播放 / 暂停 / 重置 + 倍速 -->
+          <!-- 播放控制: 播放/暂停切换 + 重置 + 倍速 -->
           <div class="mt-3 flex flex-wrap items-center justify-center gap-2" x-show="hasStrokes">
-            <button @click="play()" :disabled="playing" class="btn btn-primary disabled:opacity-50">播放</button>
-            <button @click="pause()" :disabled="!playing" class="btn bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50">暂停</button>
+            <button @click="togglePlay()"
+              :class="playing ? 'btn bg-gray-500 text-white hover:bg-gray-600' : 'btn btn-primary'"
+              x-text="playing ? '暂停' : '播放'"></button>
             <button @click="resetPlay()" class="btn btn-gray">重置</button>
             <span class="flex items-center gap-1">
               <span class="text-sm text-gray-500 dark:text-gray-400">倍速</span>

@@ -100,7 +100,7 @@ fun StrokeDataManageScreen(
             } else if (info != null) {
                 val i = info!!
                 Text(
-                    text = "已配置笔画数据库，可访问 **${i.ziCount}** 个汉字的笔画数据（共 ${i.strokeCount} 笔）。",
+                    text = "已配置笔画数据库，可访问 ${i.ziCount} 个汉字的笔画数据（共 ${i.strokeCount} 笔）。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium
                 )

@@ -83,10 +83,12 @@ class WritingPlayer(private val strokes: List<ZiStroke>) {
 
     fun play() {
         if (strokes.isEmpty()) return
-        if (state == State.COMPLETED || currentIndex >= strokes.size) reset()
-        if (state != State.PLAYING) {
+        // 已完成/播完 → 从头开始；暂停中 → 从暂停处继续（不清进度，避免闪跳）
+        if (state == State.COMPLETED || currentIndex >= strokes.size) {
+            reset()
             state = State.PLAYING
-            progress = 0f
+        } else if (state != State.PLAYING) {
+            state = State.PLAYING
         }
     }
 
