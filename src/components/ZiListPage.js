@@ -85,11 +85,13 @@ function createZiListPage(config) {
     },
 
     // 点击汉字: 就地更新 url 参数记录选中字，并跳转汉字信息页
+    // 注意: 保留现有全部查询参数并以尾斜杠结尾，避免回退时触发
+    // 无尾斜杠的 302 重定向（其 Location 不带查询串，导致参数丢失）
     openZi(c) {
-      const params = new URLSearchParams()
-      if (this.p) params.set(config.valueParam, this.p)
+      const params = new URLSearchParams(location.search)
+      if (config.valueParam) params.set(config.valueParam, this.p)
       params.set(config.selectedParam, c[0])
-      history.replaceState(null, '', `${config.pagePath}?${params.toString()}`)
+      history.replaceState(null, '', `${config.pagePath}/?${params.toString()}`)
       location.href = `/zi/?v=${encodeURIComponent(c[0])}`
     },
 

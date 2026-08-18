@@ -34,9 +34,10 @@ function apiPort() {
 const DIR_PAGES = PAGES.map(p => '/' + p)
 
 function dirIndexRewrite(req, res, next) {
-  const pathname = req.url.split('?')[0]
+  const [pathname, query] = req.url.split('?')
   if (DIR_PAGES.includes(pathname)) {
-    res.writeHead(302, { Location: pathname + '/' })
+    // 保留查询串: 无尾斜杠的 302 若不携带查询，回退时路由参数会丢失
+    res.writeHead(302, { Location: pathname + '/' + (query ? `?${query}` : '') })
     res.end()
   } else {
     next()
