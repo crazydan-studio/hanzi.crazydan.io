@@ -25,7 +25,7 @@ const ROOT = path.join(__dirname, '..', '..')
 const DEFAULT_SRC = path.join(ROOT, 'data', 'pinyin-dict.sqlite')
 const DEFAULT_DST = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
 // 自带中易楷体（web 端显示字体）: 不在其中的汉字不做导入
-const KAI_FONT_PATH = path.join(ROOT, 'public', 'fonts', 'ZhongYiKaiTi_mini.woff2')
+const KAI_FONT_PATH = path.join(ROOT, 'public', 'fonts', 'ZhongYiKaiTi.woff2')
 
 // 解析命令行参数: --source/--db 选项 + 位置参数（相对 CWD 解析）
 function parseArgs() {

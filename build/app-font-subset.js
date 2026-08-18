@@ -1,8 +1,12 @@
-// 精简 App 携带的中易楷体: 仅保留汉字库（characters 表）内的汉字并转为 woff2，
-// 降低字体文件大小
-// 数据源: server/data/hanzi_stroke.db（characters 表，id = 汉字 unicode 数值）
-// 产物:   app/android/src/main/assets/font/ZhongYiKaiTi.woff2
-//         （Android 8.0+ createFromAsset 支持 woff2；App 加载见 Theme.android.kt）
+// 精简中易楷体: 仅保留汉字库（characters 表）内的汉字，降低字体文件大小
+// 数据源:
+//   - server/data/hanzi_stroke.db（characters 表，id = 汉字 unicode 数值）
+//   - build/fonts/ZhongYiKaiTi.ttf（全量中易楷体，构建资源，不随 App 打包）
+// 产物:
+//   - app/android/src/main/assets/font/ZhongYiKaiTi.ttf（App 内置子集;
+//     createFromAsset 对 TTF 支持最可靠）
+//   - public/fonts/ZhongYiKaiTi.woff2（web 端静态字体，覆盖库内全部汉字，
+//     消除回退字体导致的测量/渲染异常）
 // 用法:
 //   pnpm app:font
 // 说明: 字体本身不含的汉字（极少数生僻字）与库外汉字由系统字体回退渲染
@@ -17,8 +21,11 @@ const subsetFont = subsetFontPkg   // CJS 默认导出（模块本身即为子�
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..')
 const SRC_DB = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
-const SRC_FONT = path.join(ROOT, 'app', 'android', 'src', 'main', 'assets', 'font', 'ZhongYiKaiTi.ttf')
-const DST_FONT = path.join(ROOT, 'app', 'android', 'src', 'main', 'assets', 'font', 'ZhongYiKaiTi.woff2')
+const SRC_FONT = path.join(ROOT, 'build', 'fonts', 'ZhongYiKaiTi.ttf')
+const DSTS = [
+  { file: path.join(ROOT, 'app', 'android', 'src', 'main', 'assets', 'font', 'ZhongYiKaiTi.ttf'), format: 'truetype' },
+  { file: path.join(ROOT, 'public', 'fonts', 'ZhongYiKaiTi.woff2'), format: 'woff2' }
+]
 
 async function main() {
   if (!fs.existsSync(SRC_DB)) {
@@ -37,15 +44,20 @@ async function main() {
   const chars = rows.map(r => r.character).join('')
   console.log(`汉字库汉字数量: ${chars.length}`)
 
-  // 2. 字体子集 + 压缩（harfbuzz hb-subset，保留字形轮廓与 cmap）→ woff2
+  // 2. 字体子集（harfbuzz hb-subset，保留字形轮廓与 cmap）: App 用 TTF、web 用 woff2
   const original = fs.readFileSync(SRC_FONT)
-  const subset = await subsetFont(original, chars, { targetFormat: 'woff2' })
+  for (const { file, format } of DSTS) {
+    const subset = await subsetFont(original, chars, { targetFormat: format })
+    fs.writeFileSync(file, subset)
+  }
 
-  // 3. 写入产物（幂等: 内容一致时不影响 git 差异）
-  fs.writeFileSync(DST_FONT, subset)
+  // 3. 报告
   const size = (a) => (a / 1024 / 1024).toFixed(2)
-  console.log(`已精简中易楷体 → ${DST_FONT}`)
-  console.log(`  文件大小: ${size(original.length)} MB → ${size(subset.length)} MB（-${Math.round(100 * (1 - subset.length / original.length))}%）`)
+  for (const { file, format } of DSTS) {
+    const out = fs.statSync(file).size
+    console.log(`已精简中易楷体（${format}）→ ${path.relative(ROOT, file)}（${size(out)} MB）`)
+  }
+  console.log(`  源字体: ${size(original.length)} MB`)
 }
 
 main()

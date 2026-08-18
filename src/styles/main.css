@@ -2,10 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 中易楷体: 统一使用自带静态字体资源（不使用系统字体，保证各设备度量一致） */
+/* 中易楷体: 统一使用自带静态字体资源（全汉字库子集，覆盖库内全部汉字） */
 @font-face {
   font-family: 'ZhongYiKaiTi';
-  src: url('/fonts/ZhongYiKaiTi_mini.woff2') format('woff2');
+  src: url('/fonts/ZhongYiKaiTi.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
