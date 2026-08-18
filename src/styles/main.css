@@ -55,6 +55,13 @@ body {
   font-family: 'ZhongYiKaiTi', serif;
 }
 
+
+/* 拼音/拉丁文本: 使用系统字体（楷体拉丁字形（含带声调拼音）间距过大） */
+.font-pinyin {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+}
+
 @layer components {
   .btn {
     @apply px-4 py-2 rounded font-medium transition-colors;

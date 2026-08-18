@@ -30,7 +30,7 @@
           <div>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
               <span class="text-4xl font-bold font-kaiti" x-text="zi.zi"></span>
-              <span class="text-gray-700 dark:text-gray-200" x-text="`读音: ${zi.pinyin.map(p => symbolPinyin(p)).join('、')}`"></span>
+              <span class="text-gray-700 font-pinyin dark:text-gray-200" x-text="`读音: ${zi.pinyin.map(p => symbolPinyin(p)).join('、')}`"></span>
               <span class="text-gray-500 text-sm dark:text-gray-400" x-text="`笔画数: ${zi.total_stroke_count}`"></span>
               <!-- 部首/结构/笔顺参考: 靠右侧布局 -->
               <div class="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">

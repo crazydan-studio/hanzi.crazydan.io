@@ -60,7 +60,7 @@
                   <span class="text-xs text-gray-400 font-normal ml-1 dark:text-gray-500"
                     x-text="'(' + c.total_stroke_count + ' 笔)'"></span>
                 </td>
-                <td class="px-3 py-2" x-text="c.pinyin.map(p => symbolPinyin(p)).join('、')"></td>
+                <td class="px-3 py-2 font-pinyin" x-text="c.pinyin.map(p => symbolPinyin(p)).join('、')"></td>
                 <td class="px-3 py-2">
                   <span x-text="structureLabel(c.structure)"></span>
                 </td>

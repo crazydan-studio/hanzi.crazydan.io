@@ -17,7 +17,7 @@ Alpine.data('ziGrid', (zis = []) => ({
   get gridHtml() {
     return this.zis.map(c =>
       `<button type="button" data-zi="${c[0]}" class="${CELL_CLASS}">` +
-        `<span class="text-xs text-gray-400 dark:text-gray-400">${numberToSymbolTonePinyin(c[1])}</span>` +
+        `<span class="text-xs text-gray-400 font-pinyin dark:text-gray-400">${numberToSymbolTonePinyin(c[1])}</span>` +
         `<span class="text-3xl font-kaiti leading-none">${c[0]}</span>` +
       `</button>`).join('')
   },
