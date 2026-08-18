@@ -135,6 +135,9 @@ actual object Platform {
             val fm = paint.fontMetrics
             val size = (fontSizePx * 1.6f).toInt().coerceAtLeast(4)
             val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+            // 显式清零: createBitmap 的内存不保证为零（可能残留旧像素），
+            // 否则扫描会拾取垃圾像素导致盒位置/尺寸与所绘字型不符
+            bmp.eraseColor(android.graphics.Color.TRANSPARENT)
             val canvas = android.graphics.Canvas(bmp)
             // 字形垂直居中: 基线 = 顶部留白 + ascent 高度（fm.ascent 为负值）
             val glyphHeight = fm.descent - fm.ascent
