@@ -5,7 +5,7 @@
 # 步骤:
 #   1. 拷贝拼音读音资源 public/assets/audio/pinyin → app/android/src/main/assets/audio/pinyin
 #   2. 拷贝赞助页收款码图片 → app/android/src/main/assets/donate（缺失时从站点下载）
-#   3. 精简内置中易楷体（仅汉字库内汉字，woff2）
+#   3. 打包中易楷体（全量，不精简; App 用 TTF，web 用 woff2）
 #   4. 打包开发数据库 server/data/hanzi_stroke.db → app/android/src/main/assets/db/hanzi.db
 #   5. 构建 Android App（Gradle，Compose Multiplatform 原生 UI）
 #   6. 安装包移至 public/assets/app/android/（保留最新构建的安装包）
@@ -38,8 +38,8 @@ cp -f "${ROOT}/public/assets/audio/pinyin/"*.mp3 "${ASSETS_DIR}/audio/pinyin/"
 echo "==> [2/5] 拷贝赞助页收款码图片到 app 资源目录"
 (cd "${ROOT}" && node build/app-assets-pack.js)
 
-echo "==> [3/6] 精简内置中易楷体（仅保留汉字库内汉字，转为 woff2）"
-(cd "${ROOT}" && node build/app-font-subset.js)
+echo "==> [3/6] 打包中易楷体（全量，App TTF / web woff2）"
+(cd "${ROOT}" && node build/app-font-pack.js)
 
 echo "==> [4/6] 打包数据库到 app 资源目录"
 (cd "${ROOT}" && node build/app-db-pack.js)

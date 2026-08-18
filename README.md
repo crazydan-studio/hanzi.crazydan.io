@@ -25,7 +25,7 @@
 ### 开发前准备：字体与数据
 
 1. **中易楷体（全量 TTF）**：将全量中易楷体放置于 `build/fonts/ZhongYiKaiTi.ttf`（构建资源，不随 App 打包）。
-   该字体为 App 内置字体与 web 端显示字体的子集源（见下方 `app:font`）。
+   该字体为 App 内置字体与 web 端显示字体的来源（不做精简，保证全部字形可用）。
 2. **汉字词典数据源**：将 `pinyin-dict.sqlite` 放置于 `data/` 目录（含表 `pinyin_zi`：读音/权重/结构/部首/笔画数）。
 
 ### 数据准备
@@ -39,15 +39,15 @@
    导入时校验中易楷体（`public/fonts/ZhongYiKaiTi.woff2`）是否包含每个汉字：字体不包含的汉字不导入，
    并从静态数据（`public/assets/zi/`）中删除对应数据目录。
 
-2. 生成中易楷体子集（仅保留汉字库内汉字）：
+2. 打包中易楷体（全量，不做精简以避免页面乱码）：
 
    ```bash
    pnpm app:font
    ```
 
    产物：
-   - `app/android/src/main/assets/font/ZhongYiKaiTi.ttf`：App 内置字体（TTF 子集，`createFromAsset` 直读）
-   - `public/fonts/ZhongYiKaiTi.woff2`：web 端显示字体（woff2 子集，覆盖库内全部汉字，避免回退字体）
+   - `app/android/src/main/assets/font/ZhongYiKaiTi.ttf`：App 内置字体（全量 TTF，`createFromAsset` 直读）
+   - `public/fonts/ZhongYiKaiTi.woff2`：web 端显示字体（全量 TTF 转 woff2，仅格式转换，保留全部字形）
 
 3. 导出前端静态数据（常用字列表、拼音字列表、汉字信息与笔画数据，数据直接取自后端数据库）：
 
@@ -102,7 +102,7 @@ pnpm start
 ### 目录结构
 
 ```
-├── build/          # 构建相关脚本（字体子集、数据库打包、静态数据导出等）
+├── build/          # 构建相关脚本（字体打包、数据库打包、静态数据导出等）
 │   └── fonts/      # 中易楷体全量 TTF（子集源，不随 App 打包）
 ├── data/           # 本地开发数据库（汉字词典数据源）
 ├── public/         # 静态资源（字体、logo、导出的数据）
