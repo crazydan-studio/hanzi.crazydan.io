@@ -1,9 +1,9 @@
 // 生成 App 版本信息文件（public/assets/app/version，单行 JSON）:
-//   {"version":"1.0.0","notes":"更新日志","apks":{"android":{"pure":"sha256:...","net":"sha256:..."}}}
+//   {"version":"1.0.0","changelog":"更新日志","checksum":{"android":{"pure":"sha256:...","net":"sha256:..."}}}
 // 供联网变体（net）启动检查更新: 版本号/更新日志展示、安装包 sha256 完整性校验
 // 输入:
 //   - app/version.txt      版本号（与构建 versionName 单一来源一致）
-//   - app/notes.txt        更新日志（可选，缺失时 notes 为空）
+//   - app/notes.txt        更新日志（可选，缺失时 changelog 为空）
 //   - 安装包 hanzi-{variant}-{os}-{version}.apk / hanzi-{variant}-debug.apk，
 //     扫描 public/assets/app/android（debug 产物）与 dist/assets/app（release 产物）
 // 输出: public/assets/app/version（dist/assets/app 已存在时同步写入）
@@ -17,7 +17,7 @@ const APP_DIR = path.join(ROOT, 'app')
 const VERSION = fs.readFileSync(path.join(APP_DIR, 'version.txt'), 'utf8').trim()
 
 const NOTES_FILE = path.join(APP_DIR, 'notes.txt')
-const NOTES = fs.existsSync(NOTES_FILE)
+const CHANGELOG = fs.existsSync(NOTES_FILE)
   ? fs.readFileSync(NOTES_FILE, 'utf8').trim()
   : ''
 
@@ -42,18 +42,18 @@ const apkMetaOf = (name) => {
 }
 
 // 各系统各变体安装包 sha256（同名变体 dist 产物优先于 public 产物）
-const apks = {}
+const checksum = {}
 for (const dir of APK_DIRS) {
   if (!fs.existsSync(dir)) continue
   for (const name of fs.readdirSync(dir)) {
     if (!name.endsWith('.apk')) continue
     const { os, variant } = apkMetaOf(name)
-    apks[os] = apks[os] || {}
-    apks[os][variant] = 'sha256:' + sha256(path.join(dir, name))
+    checksum[os] = checksum[os] || {}
+    checksum[os][variant] = 'sha256:' + sha256(path.join(dir, name))
   }
 }
 
-const content = JSON.stringify({ version: VERSION, notes: NOTES, apks }) + '\n'
+const content = JSON.stringify({ version: VERSION, changelog: CHANGELOG, checksum }) + '\n'
 
 const targets = [path.join(PUBLIC_DIR, 'assets', 'app', 'version')]
 if (fs.existsSync(path.join(DIST_DIR, 'assets', 'app'))) {

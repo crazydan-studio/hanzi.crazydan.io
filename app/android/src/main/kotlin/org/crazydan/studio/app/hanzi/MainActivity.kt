@@ -187,7 +187,7 @@ class MainActivity : ComponentActivity() {
     /** 站点发布的最新版本信息（version 文件为单行 JSON，见 build/app-version-pack.js） */
     private data class UpdateInfo(
         val version: String,
-        val notes: String,
+        val changelog: String,
         val sha256: String?   // 当前变体安装包 sha256（用于完整性校验）
     )
 
@@ -262,8 +262,8 @@ class MainActivity : ComponentActivity() {
                         Text(
                             buildString {
                                 append("当前版本 v${BuildConfig.VERSION_NAME}，可升级到 v${info.version}。")
-                                if (info.notes.isNotEmpty()) {
-                                    append("\n\n更新内容：\n${info.notes}")
+                                if (info.changelog.isNotEmpty()) {
+                                    append("\n\n更新内容：\n${info.changelog}")
                                 }
                                 append("\n\n升级将自动下载安装包并触发系统安装。")
                             }
@@ -311,16 +311,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 解析 version 单行 JSON: {"version":"1.0.0","notes":"...","apks":{"android":{"pure":"...","net":"..."}}}
+    // 解析 version 单行 JSON: {"version":"1.0.0","changelog":"...","checksum":{"android":{"pure":"...","net":"..."}}}
     private fun parseUpdateInfo(json: String, variant: String): UpdateInfo? {
         return try {
             val root = JSONObject(json)
             val version = root.getString("version")
-            val notes = root.optString("notes", "")
-            val sha256 = root.optJSONObject("apks")
+            val changelog = root.optString("changelog", "")
+            val sha256 = root.optJSONObject("checksum")
                 ?.optJSONObject("android")
                 ?.optString(variant, null)
-            UpdateInfo(version, notes, sha256)
+            UpdateInfo(version, changelog, sha256)
         } catch (e: Exception) {
             null
         }
