@@ -26,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -37,6 +38,7 @@ import org.crazydan.studio.app.hanzi.shared.StrokeDbStatus
 import org.crazydan.studio.app.hanzi.ui.Platform
 import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
+import org.crazydan.studio.app.hanzi.ui.components.InlineLinkText
 import org.crazydan.studio.app.hanzi.ui.components.PrimaryButton
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
 
@@ -169,21 +171,30 @@ fun StrokeDataManageScreen(
             }
         }
 
-        // 数据规模选择（两列卡片）
+        // 数据规模选择（按屏幕宽度流式布局: 窄屏 1 列 / 常规 2 列 / 宽屏 4 列）
         Text(
             text = "选择数据规模",
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
         )
-        Text(
-            text = "可按需下载不同规模的汉字笔画数据；笔画数据发布于「汉字网」GitHub Releases。",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(bottom = 12.dp)
+        InlineLinkText(
+            text = "可按需下载不同规模的汉字笔画数据；笔画数据发布于「汉字网」GitHub Releases（可选择其他规模数据库）。",
+            links = mapOf(
+                "GitHub Releases" to "https://github.com/crazydan-studio/hanzi.crazydan.io/releases/latest"
+            ),
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            ),
+            modifier = Modifier.padding(bottom = 8.dp)
         )
+        val columns = when {
+            LocalConfiguration.current.screenWidthDp >= 700 -> 4
+            LocalConfiguration.current.screenWidthDp >= 400 -> 2
+            else -> 1
+        }
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val scales = scaleOptions(totalZi)
-            scales.chunked(2).forEach { row ->
+            scales.chunked(columns).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { (title, desc, scale) ->
                         ScaleOption(
@@ -193,7 +204,7 @@ fun StrokeDataManageScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    if (row.size == 1) {
+                    repeat(columns - row.size) {
                         Spacer(Modifier.weight(1f))
                     }
                 }
