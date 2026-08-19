@@ -10,24 +10,46 @@ const ANDROID_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24
 // App 版本号（构建时注入，见 vite.config.js: __HANZI_APP_VERSION__，与 app/version.txt 一致）
 const APP_VERSION = __HANZI_APP_VERSION__
 
-// App 下载平台（系统图标按钮）: 目前仅支持 android
+// App 下载平台与变体（系统图标按钮）: 目前仅支持 android
 // 安装包由 build/app-pack.sh 生成:
-//   - development: 本地 public/assets/app/android/hanzi-debug.apk
-//   - production:  release 安装包命名 hanzi-{os}-{version}.apk（如 hanzi-android-1.0.0.apk），
-//     随 GitHub Releases 发布（tag 为 v{version}），下载地址与 app-pack.sh 命名约定一致
+//   - development: 本地 public/assets/app/android/hanzi-debug.apk（pure 变体）
+//   - production:  纯净版（pure，无任何权限）与可联网变体（online，支持检查更新与
+//     在线下载笔画数据），命名 hanzi-{variant}-android-{version}.apk，随 GitHub
+//     Releases 发布（tag 为 v{version}），下载地址与 app-pack.sh 命名约定一致
 const IS_DEV = import.meta.env.DEV
-const APP_PLATFORMS = [
-  {
-    id: 'android',
-    name: 'Android',
-    icon: ANDROID_ICON,
-    file: IS_DEV ? 'hanzi-debug.apk' : `hanzi-android-${APP_VERSION}.apk`,
-    version: IS_DEV ? `${APP_VERSION}-debug` : APP_VERSION,
-    url: IS_DEV
-      ? '/assets/app/android/hanzi-debug.apk'
-      : `${GITHUB_RELEASES}/v${APP_VERSION}/hanzi-android-${APP_VERSION}.apk`
-  }
-]
+const APP_PLATFORMS = IS_DEV
+  ? [{
+      id: 'android',
+      variant: 'pure',
+      name: 'Android',
+      icon: ANDROID_ICON,
+      file: 'hanzi-debug.apk',
+      version: `${APP_VERSION}-debug`,
+      desc: '纯净版（开发构建）',
+      url: '/assets/app/android/hanzi-debug.apk'
+    }]
+  : [
+      {
+        id: 'android',
+        variant: 'pure',
+        name: 'Android 纯净版',
+        icon: ANDROID_ICON,
+        file: `hanzi-pure-android-${APP_VERSION}.apk`,
+        version: APP_VERSION,
+        desc: '无任何权限，仅使用内置数据',
+        url: `${GITHUB_RELEASES}/v${APP_VERSION}/hanzi-pure-android-${APP_VERSION}.apk`
+      },
+      {
+        id: 'android',
+        variant: 'online',
+        name: 'Android 联网版',
+        icon: ANDROID_ICON,
+        file: `hanzi-online-android-${APP_VERSION}.apk`,
+        version: APP_VERSION,
+        desc: '可联网：支持检查更新、在线下载笔画数据',
+        url: `${GITHUB_RELEASES}/v${APP_VERSION}/hanzi-online-android-${APP_VERSION}.apk`
+      }
+    ]
 
 Alpine.data('homeApp', () => ({
   commons: [],
