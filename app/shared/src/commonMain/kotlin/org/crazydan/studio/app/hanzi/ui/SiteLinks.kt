@@ -14,4 +14,14 @@ object SiteLinks {
 
     /** 笔画数据下载前缀（产物命名与 build/export-stroke-db.js 一致: hanzi-stroke-{规模}.db） */
     const val STROKE_DB_DOWNLOAD = "$REPO/releases/latest/download/hanzi-stroke-"
+
+    /** App 最新版本号（构建脚本写入 public/assets/app/version，web 端托管） */
+    const val APP_VERSION_CHECK = "https://hanzi.crazydan.io/assets/app/version"
+
+    /**
+     * App 安装包下载地址: {version}/hanzi-{variant}-{os}-{version}.{suffix}
+     * （命名与 build/app-pack.sh 产物一致，随 GitHub Releases 发布）
+     */
+    fun apkDownloadUrl(version: String, variant: String): String =
+        "$REPO/releases/download/v$version/hanzi-$variant-android-$version.apk"
 }

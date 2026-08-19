@@ -16,6 +16,8 @@ import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import java.io.File
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * Android 平台能力实现
@@ -238,12 +240,88 @@ actual object Platform {
         }
     }
 
+    actual fun isOnlineVariant(): Boolean = AppContextHolder.onlineVariant
+
+    actual fun downloadToFile(url: String, destFileName: String): String? {
+        val context = AppContextHolder.appContext ?: return null
+        return try {
+            val dir = File(context.filesDir, "downloads").apply { mkdirs() }
+            val dest = File(dir, destFileName)
+            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 15_000
+                readTimeout = 30_000
+                instanceFollowRedirects = true
+            }
+            try {
+                if (conn.responseCode !in 200..299) return null
+                conn.inputStream.use { input ->
+                    dest.outputStream().use { output -> input.copyTo(output) }
+                }
+                dest.absolutePath
+            } finally {
+                conn.disconnect()
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    actual fun deleteDownloadedFile(path: String) {
+        try {
+            File(path).delete()
+        } catch (e: Exception) {
+            // 清理失败不影响主流程
+        }
+    }
+
+    actual fun fetchText(url: String): String? {
+        return try {
+            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 10_000
+                readTimeout = 10_000
+            }
+            try {
+                if (conn.responseCode !in 200..299) return null
+                conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText().trim() }
+            } finally {
+                conn.disconnect()
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    actual fun installApk(apkPath: String): Boolean {
+        val context = AppContextHolder.appContext ?: return false
+        return try {
+            val file = File(apkPath)
+            if (!file.isFile) return false
+            val uri = FileProvider.getUriForFile(
+                context, "${context.packageName}.fileprovider", file
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     /**
-     * 应用上下文与笔画数据库文件选择器注入
+     * 应用上下文/宿主 Activity 与笔画数据库文件选择器注入
      * （MainActivity.onCreate 调用; 选择器 launcher 须在生命周期 STARTED 前注册）
      */
-    fun init(activity: ComponentActivity, strokeDbPicker: ActivityResultLauncher<Array<String>>) {
+    fun init(
+        activity: ComponentActivity,
+        strokeDbPicker: ActivityResultLauncher<Array<String>>,
+        onlineVariant: Boolean
+    ) {
         AppContextHolder.appContext = activity
+        AppContextHolder.onlineVariant = onlineVariant
         pickLauncher = strokeDbPicker
     }
 }

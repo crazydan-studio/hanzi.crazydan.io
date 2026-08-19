@@ -11,11 +11,16 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -23,15 +28,20 @@ import androidx.core.view.WindowCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.shared.HanziDbFactory
 import org.crazydan.studio.app.hanzi.ui.AppContextHolder
 import org.crazydan.studio.app.hanzi.ui.AppNavigator
 import org.crazydan.studio.app.hanzi.ui.HanziApp
+import org.crazydan.studio.app.hanzi.ui.HanziTheme
 import org.crazydan.studio.app.hanzi.ui.InitNoticeScreen
 import org.crazydan.studio.app.hanzi.ui.Platform
+import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.SplashScreen
 import org.crazydan.studio.app.hanzi.ui.ThemeStore
+import org.crazydan.studio.app.hanzi.ui.components.FullscreenWait
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
@@ -58,7 +68,7 @@ class MainActivity : ComponentActivity() {
         ) { uri ->
             Platform.onStrokeDbPicked(uri)
         }
-        Platform.init(this, strokeDbPicker)
+        Platform.init(this, strokeDbPicker, BuildConfig.ONLINE_VARIANT)
         // 主题（开屏淡出前加载完毕，首页直接应用）
         val savedDark = ThemeStore.load() ?: isSystemDark()
         // 开屏为暗色品牌页: 窗口背景先置为暗色
@@ -69,6 +79,7 @@ class MainActivity : ComponentActivity() {
             var homeRendered by remember { mutableStateOf(false) }
             var db by remember { mutableStateOf<HanziDb?>(null) }
             var initFailed by remember { mutableStateOf(false) }
+            val scope = rememberCoroutineScope()
 
             LaunchedEffect(Unit) {
                 // 后台准备数据库（同源检测/覆盖复制 + 索引创建，幂等）;
@@ -139,6 +150,12 @@ class MainActivity : ComponentActivity() {
                     SplashScreen()
                 }
             }
+            // 联网变体: 启动检查更新（覆盖全页面，含下载遮罩与结果提示）
+            if (BuildConfig.ONLINE_VARIANT) {
+                HanziTheme(darkTheme = savedDark) {
+                    AppUpdateOverlay(scope = scope)
+                }
+            }
         }
     }
 
@@ -156,6 +173,82 @@ class MainActivity : ComponentActivity() {
             navigator = navigator,
             onRendered = onRendered
         )
+    }
+
+    /**
+     * 更新检查与升级覆盖层（仅联网变体）:
+     * 启动时对比站点最新版本（https://hanzi.crazydan.io/assets/app/version），
+     * 当前版本较旧且未被用户忽略时弹窗提示；选择升级则自动下载安装包并触发系统安装
+     */
+    @Composable
+    private fun AppUpdateOverlay(scope: kotlinx.coroutines.CoroutineScope) {
+        var updateVersion by remember { mutableStateOf<String?>(null) }
+        var downloading by remember { mutableStateOf(false) }
+        var updateError by remember { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(Unit) {
+            val remote = withContext(Dispatchers.IO) {
+                Platform.fetchText(SiteLinks.APP_VERSION_CHECK)
+            } ?: return@LaunchedEffect
+            if (remote.isBlank()) return@LaunchedEffect
+            if (compareVersions(remote, BuildConfig.VERSION_NAME) > 0 &&
+                remote != ignoredUpdateVersion()
+            ) {
+                updateVersion = remote
+            }
+        }
+
+        updateVersion?.let { v ->
+            AlertDialog(
+                onDismissRequest = { /* 必须选择升级或忽略 */ },
+                title = { Text("发现新版本") },
+                text = {
+                    Text(
+                        "当前版本 v${BuildConfig.VERSION_NAME}，可升级到 v$v。\n\n" +
+                            "升级将自动下载安装包并触发系统安装。"
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        updateVersion = null
+                        scope.launch {
+                            downloading = true
+                            val apk = withContext(Dispatchers.IO) {
+                                Platform.downloadToFile(
+                                    SiteLinks.apkDownloadUrl(v, VARIANT_NAME),
+                                    "hanzi-$VARIANT_NAME-android-$v.apk"
+                                )
+                            }
+                            downloading = false
+                            if (apk != null) {
+                                Platform.installApk(apk)
+                            } else {
+                                updateError = "新版本下载失败，请检查网络后重试"
+                            }
+                        }
+                    }) { Text("升级") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        ignoreUpdateVersion(v)
+                        updateVersion = null
+                    }) { Text("忽略") }
+                }
+            )
+        }
+        if (downloading) {
+            FullscreenWait("正在下载新版本…")
+        }
+        updateError?.let { msg ->
+            AlertDialog(
+                onDismissRequest = { updateError = null },
+                title = { Text("升级失败") },
+                text = { Text(msg) },
+                confirmButton = {
+                    TextButton(onClick = { updateError = null }) { Text("好的") }
+                }
+            )
+        }
     }
 
     // 窗口主题: 背景与状态栏颜色跟随已保存/系统主题（与 themes.xml 背景色一致）
@@ -240,10 +333,34 @@ class MainActivity : ComponentActivity() {
         private const val DB_ASSET_DIR = "db"
         private const val PREF_DB_HASH = "hanzi_db_hash"
 
+        /** 用户忽略升级的版本号（存 SharedPreferences，忽略后不再提示该版本） */
+        private const val PREF_IGNORED_UPDATE = "ignored_update_version"
+
+        /** 当前变体名（与 app-pack.sh 安装包命名约定一致） */
+        private val VARIANT_NAME = if (BuildConfig.ONLINE_VARIANT) "online" else "pure"
+
         /** 开屏页固定展示时间（毫秒） */
         private const val SPLASH_MIN_MS = 900L
 
         /** 开屏淡出/首页淡入时长（毫秒） */
         private const val SPLASH_FADE_MS = 300L
+    }
+
+    private fun ignoredUpdateVersion(): String? =
+        AppContextHolder.appPrefs?.getString(PREF_IGNORED_UPDATE, null)
+
+    private fun ignoreUpdateVersion(v: String) {
+        AppContextHolder.appPrefs?.edit()?.putString(PREF_IGNORED_UPDATE, v)?.apply()
+    }
+
+    // 版本号数字分段比较（如 1.0.0 < 1.0.1）；a > b 返回正数
+    private fun compareVersions(a: String, b: String): Int {
+        val pa = a.split('.').map { it.toIntOrNull() ?: 0 }
+        val pb = b.split('.').map { it.toIntOrNull() ?: 0 }
+        for (i in 0 until maxOf(pa.size, pb.size)) {
+            val diff = pa.getOrElse(i) { 0 } - pb.getOrElse(i) { 0 }
+            if (diff != 0) return diff
+        }
+        return 0
     }
 }

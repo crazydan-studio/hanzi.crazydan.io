@@ -13,6 +13,9 @@ object AppContextHolder {
             field = value?.applicationContext
         }
 
+    /** 当前构建是否为可联网变体（MainActivity 经 Platform.init 注入） */
+    var onlineVariant: Boolean = false
+
     /** 应用共享偏好（主题/内置库 hash 等，单一来源 "hanzi_prefs"） */
     val appPrefs: SharedPreferences?
         get() = appContext?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

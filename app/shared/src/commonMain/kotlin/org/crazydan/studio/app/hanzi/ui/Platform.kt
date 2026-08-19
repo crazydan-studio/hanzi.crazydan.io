@@ -45,4 +45,22 @@ expect object Platform {
      * 无法解析时复制到应用私有目录。回调返回可用路径或 null（取消/无效）
      */
     fun pickStrokeDb(onPicked: (path: String?) -> Unit)
+
+    /** 当前构建是否为可联网变体（纯净版为 false; 用于检查更新/在线下载笔画数据） */
+    fun isOnlineVariant(): Boolean
+
+    /**
+     * 下载 URL 到应用私有下载目录（流式写入）:
+     * 成功返回文件绝对路径；失败返回 null
+     */
+    fun downloadToFile(url: String, destFileName: String): String?
+
+    /** 删除下载的文件（导入/安装完成后清理临时文件） */
+    fun deleteDownloadedFile(path: String)
+
+    /** 获取 URL 文本内容（更新版本号检查），失败返回 null */
+    fun fetchText(url: String): String?
+
+    /** 触发系统安装 APK（经 FileProvider；用户需在系统安装界面确认），失败返回 false */
+    fun installApk(apkPath: String): Boolean
 }
