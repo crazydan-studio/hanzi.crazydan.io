@@ -337,7 +337,7 @@ fun HomeScreen(
                     }
                     AboutBlock("联系我们", dark) {
                         InlineLinkText(
-                            text = "如有合作或商务需求，可发送邮件至 support@studio.crazydan.org",
+                            text = "如有合作或商务需求，可发送邮件至 support@studio.crazydan.org。",
                             links = mapOf("support@studio.crazydan.org" to "mailto:${SiteLinks.SUPPORT_EMAIL}"),
                             style = aboutTextStyle
                         )
