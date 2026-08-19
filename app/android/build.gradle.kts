@@ -25,21 +25,19 @@ android {
         versionCode = hanziVersion.replace(".", "").toIntOrNull() ?: 1
     }
 
-    // 变体拆分:
-    //   pure   - 纯净版（无任何权限），仅使用内置数据
-    //   online - 可联网变体（INTERNET/安装应用权限，见 src/online/AndroidManifest.xml），
-    //            支持启动检查更新、在线下载笔画数据
+    // 变体拆分（两变体 applicationId 一致，可互相覆盖安装且保留数据）:
+    //   pure - 纯净版（无任何权限），仅使用内置数据
+    //   net  - 可联网变体（INTERNET/安装应用权限，见 src/net/AndroidManifest.xml），
+    //          支持启动检查更新、在线下载笔画数据
     flavorDimensions += "variant"
     productFlavors {
         create("pure") {
             dimension = "variant"
-            buildConfigField("boolean", "ONLINE_VARIANT", "false")
+            buildConfigField("boolean", "NET_VARIANT", "false")
         }
-        create("online") {
+        create("net") {
             dimension = "variant"
-            // 与纯净版使用不同 applicationId，可同时安装
-            applicationIdSuffix = ".online"
-            buildConfigField("boolean", "ONLINE_VARIANT", "true")
+            buildConfigField("boolean", "NET_VARIANT", "true")
         }
     }
 
