@@ -15,7 +15,7 @@ object SiteLinks {
     /** 笔画数据下载前缀（产物命名与 build/export-stroke-db.js 一致: hanzi-stroke-{规模}.db） */
     const val STROKE_DB_DOWNLOAD = "$REPO/releases/latest/download/hanzi-stroke-"
 
-    /** App 最新版本号（构建脚本写入 public/assets/app/version，web 端托管） */
+    /** App 最新版本信息（构建脚本写入 public/assets/app/version，单行 JSON） */
     const val APP_VERSION_CHECK = "https://hanzi.crazydan.io/assets/app/version"
 
     /**

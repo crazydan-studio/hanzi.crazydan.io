@@ -18,6 +18,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 
 /**
  * Android 平台能力实现
@@ -242,8 +243,9 @@ actual object Platform {
 
     actual fun isOnlineVariant(): Boolean = AppContextHolder.onlineVariant
 
-    actual fun downloadToFile(url: String, destFileName: String): String? {
-        val context = AppContextHolder.appContext ?: return null
+    actual fun downloadToFile(url: String, destFileName: String): DownloadResult {
+        val context = AppContextHolder.appContext
+            ?: return DownloadResult.Failure("应用上下文不可用")
         return try {
             val dir = File(context.filesDir, "downloads").apply { mkdirs() }
             val dest = File(dir, destFileName)
@@ -253,16 +255,18 @@ actual object Platform {
                 instanceFollowRedirects = true
             }
             try {
-                if (conn.responseCode !in 200..299) return null
+                if (conn.responseCode !in 200..299) {
+                    return DownloadResult.Failure("服务器返回异常（HTTP ${conn.responseCode}）")
+                }
                 conn.inputStream.use { input ->
                     dest.outputStream().use { output -> input.copyTo(output) }
                 }
-                dest.absolutePath
+                DownloadResult.Success(dest.absolutePath)
             } finally {
                 conn.disconnect()
             }
         } catch (e: Exception) {
-            null
+            DownloadResult.Failure(e.message ?: "网络异常")
         }
     }
 
@@ -286,6 +290,23 @@ actual object Platform {
             } finally {
                 conn.disconnect()
             }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    actual fun sha256Hex(path: String): String? {
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            File(path).inputStream().use { input ->
+                val buf = ByteArray(8192)
+                while (true) {
+                    val n = input.read(buf)
+                    if (n < 0) break
+                    digest.update(buf, 0, n)
+                }
+            }
+            digest.digest().joinToString("") { "%02x".format(it) }
         } catch (e: Exception) {
             null
         }

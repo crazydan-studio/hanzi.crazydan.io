@@ -51,16 +51,25 @@ expect object Platform {
 
     /**
      * 下载 URL 到应用私有下载目录（流式写入）:
-     * 成功返回文件绝对路径；失败返回 null
+     * 成功返回文件绝对路径；失败返回具体原因
      */
-    fun downloadToFile(url: String, destFileName: String): String?
+    fun downloadToFile(url: String, destFileName: String): DownloadResult
 
     /** 删除下载的文件（导入/安装完成后清理临时文件） */
     fun deleteDownloadedFile(path: String)
 
-    /** 获取 URL 文本内容（更新版本号检查），失败返回 null */
+    /** 获取 URL 文本内容（更新版本信息检查），失败返回 null */
     fun fetchText(url: String): String?
+
+    /** 计算文件 SHA-256（十六进制小写；用于安装包完整性校验），失败返回 null */
+    fun sha256Hex(path: String): String?
 
     /** 触发系统安装 APK（经 FileProvider；用户需在系统安装界面确认），失败返回 false */
     fun installApk(apkPath: String): Boolean
+}
+
+/** 下载结果（成功携带文件路径；失败携带具体原因） */
+sealed interface DownloadResult {
+    data class Success(val path: String) : DownloadResult
+    data class Failure(val reason: String) : DownloadResult
 }

@@ -10,6 +10,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -34,14 +35,17 @@ import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.shared.HanziDbFactory
 import org.crazydan.studio.app.hanzi.ui.AppContextHolder
 import org.crazydan.studio.app.hanzi.ui.AppNavigator
+import org.crazydan.studio.app.hanzi.ui.DownloadResult
 import org.crazydan.studio.app.hanzi.ui.HanziApp
 import org.crazydan.studio.app.hanzi.ui.HanziTheme
 import org.crazydan.studio.app.hanzi.ui.InitNoticeScreen
 import org.crazydan.studio.app.hanzi.ui.Platform
+import org.crazydan.studio.app.hanzi.ui.Screen
 import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.SplashScreen
 import org.crazydan.studio.app.hanzi.ui.ThemeStore
 import org.crazydan.studio.app.hanzi.ui.components.FullscreenWait
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
@@ -68,7 +72,7 @@ class MainActivity : ComponentActivity() {
         ) { uri ->
             Platform.onStrokeDbPicked(uri)
         }
-        Platform.init(this, strokeDbPicker, BuildConfig.ONLINE_VARIANT)
+        Platform.init(this, strokeDbPicker, BuildConfig.NET_VARIANT)
         // 主题（开屏淡出前加载完毕，首页直接应用）
         val savedDark = ThemeStore.load() ?: isSystemDark()
         // 开屏为暗色品牌页: 窗口背景先置为暗色
@@ -80,6 +84,8 @@ class MainActivity : ComponentActivity() {
             var db by remember { mutableStateOf<HanziDb?>(null) }
             var initFailed by remember { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
+            // 导航器提升到宿主层: 更新检查需感知当前页面（仅在首页时弹窗）
+            val navigator = remember { AppNavigator() }
 
             LaunchedEffect(Unit) {
                 // 后台准备数据库（同源检测/覆盖复制 + 索引创建，幂等）;
@@ -132,7 +138,11 @@ class MainActivity : ComponentActivity() {
                 // 首页区域（在开屏之下直接渲染，不做淡入）
                 val currentDb = db
                 if (currentDb != null) {
-                    AppContent(db = currentDb, onRendered = { homeRendered = true })
+                    AppContent(
+                        db = currentDb,
+                        navigator = navigator,
+                        onRendered = { homeRendered = true }
+                    )
                 } else if (initFailed) {
                     InitNoticeScreen(
                         darkTheme = savedDark,
@@ -150,18 +160,17 @@ class MainActivity : ComponentActivity() {
                     SplashScreen()
                 }
             }
-            // 联网变体: 启动检查更新（覆盖全页面，含下载遮罩与结果提示）
-            if (BuildConfig.ONLINE_VARIANT) {
+            // 联网变体: 后台检查更新，仅在首页时弹窗提示（含下载遮罩与结果提示）
+            if (BuildConfig.NET_VARIANT) {
                 HanziTheme(darkTheme = savedDark) {
-                    AppUpdateOverlay(scope = scope)
+                    AppUpdateOverlay(scope = scope, navigator = navigator)
                 }
             }
         }
     }
 
     @Composable
-    private fun AppContent(db: HanziDb, onRendered: () -> Unit) {
-        val navigator = remember { AppNavigator() }
+    private fun AppContent(db: HanziDb, navigator: AppNavigator, onRendered: () -> Unit) {
         // 返回键: 页面内返回；无上一页时退出
         BackHandler {
             if (!navigator.back()) {
@@ -175,79 +184,145 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    /** 站点发布的最新版本信息（version 文件为单行 JSON，见 build/app-version-pack.js） */
+    private data class UpdateInfo(
+        val version: String,
+        val notes: String,
+        val sha256: String?   // 当前变体安装包 sha256（用于完整性校验）
+    )
+
     /**
      * 更新检查与升级覆盖层（仅联网变体）:
-     * 启动时对比站点最新版本（https://hanzi.crazydan.io/assets/app/version），
-     * 当前版本较旧且未被用户忽略时弹窗提示；选择升级则自动下载安装包并触发系统安装
+     * 后台检查站点最新版本（https://hanzi.crazydan.io/assets/app/version），检查失败静默忽略；
+     * 仅当存在可更新版本且当前处于首页时弹窗，提供 升级/忽略/延迟到下次 三个选择
      */
     @Composable
-    private fun AppUpdateOverlay(scope: kotlinx.coroutines.CoroutineScope) {
-        var updateVersion by remember { mutableStateOf<String?>(null) }
+    private fun AppUpdateOverlay(scope: kotlinx.coroutines.CoroutineScope, navigator: AppNavigator) {
+        var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
         var downloading by remember { mutableStateOf(false) }
-        var updateError by remember { mutableStateOf<String?>(null) }
+        var failedUpgrade by remember { mutableStateOf<UpdateInfo?>(null) }
+        var failedReason by remember { mutableStateOf<String?>(null) }
 
+        // 后台检查更新（成功且版本较旧且未被忽略时才提示；失败静默忽略）
         LaunchedEffect(Unit) {
-            val remote = withContext(Dispatchers.IO) {
+            val json = withContext(Dispatchers.IO) {
                 Platform.fetchText(SiteLinks.APP_VERSION_CHECK)
             } ?: return@LaunchedEffect
-            if (remote.isBlank()) return@LaunchedEffect
-            if (compareVersions(remote, BuildConfig.VERSION_NAME) > 0 &&
-                remote != ignoredUpdateVersion()
+            val info = parseUpdateInfo(json, VARIANT_NAME) ?: return@LaunchedEffect
+            if (compareVersions(info.version, BuildConfig.VERSION_NAME) > 0 &&
+                info.version != ignoredUpdateVersion()
             ) {
-                updateVersion = remote
+                updateInfo = info
             }
         }
 
-        updateVersion?.let { v ->
-            AlertDialog(
-                onDismissRequest = { /* 必须选择升级或忽略 */ },
-                title = { Text("发现新版本") },
-                text = {
-                    Text(
-                        "当前版本 v${BuildConfig.VERSION_NAME}，可升级到 v$v。\n\n" +
-                            "升级将自动下载安装包并触发系统安装。"
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        updateVersion = null
-                        scope.launch {
-                            downloading = true
-                            val apk = withContext(Dispatchers.IO) {
-                                Platform.downloadToFile(
-                                    SiteLinks.apkDownloadUrl(v, VARIANT_NAME),
-                                    "hanzi-$VARIANT_NAME-android-$v.apk"
-                                )
-                            }
-                            downloading = false
-                            if (apk != null) {
-                                Platform.installApk(apk)
-                            } else {
-                                updateError = "新版本下载失败，请检查网络后重试"
-                            }
-                        }
-                    }) { Text("升级") }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        ignoreUpdateVersion(v)
-                        updateVersion = null
-                    }) { Text("忽略") }
+        // 升级: 全屏遮罩等待下载 → 完整性校验 → 触发系统安装；失败给出具体原因
+        fun upgrade(info: UpdateInfo) {
+            val url = SiteLinks.apkDownloadUrl(info.version, VARIANT_NAME)
+            scope.launch {
+                downloading = true
+                updateInfo = null
+                val result = withContext(Dispatchers.IO) {
+                    Platform.downloadToFile(url, "hanzi-$VARIANT_NAME-android-${info.version}.apk")
                 }
-            )
+                val apk = when (result) {
+                    is DownloadResult.Success -> result.path
+                    is DownloadResult.Failure -> {
+                        downloading = false
+                        failedUpgrade = info
+                        failedReason = "安装包下载失败：${result.reason}"
+                        return@launch
+                    }
+                }
+                // 完整性校验（version 文件提供当前变体安装包 sha256）
+                val expected = info.sha256
+                val actual = withContext(Dispatchers.IO) { Platform.sha256Hex(apk) }
+                if (expected != null && (actual == null || !actual.equals(expected, ignoreCase = true))) {
+                    downloading = false
+                    failedUpgrade = info
+                    failedReason = "安装包完整性校验失败（SHA-256 不匹配），请重试或改在浏览器中下载"
+                    return@launch
+                }
+                downloading = false
+                if (!Platform.installApk(apk)) {
+                    failedUpgrade = info
+                    failedReason = "无法启动系统安装，请在浏览器中下载后手动安装"
+                }
+            }
+        }
+
+        // 仅在首页时提示（后台检查结果等待用户回到首页）
+        val onHome = navigator.screen is Screen.Home
+        updateInfo?.let { info ->
+            if (onHome) {
+                AlertDialog(
+                    onDismissRequest = { /* 必须选择升级/忽略/延迟 */ },
+                    title = { Text("发现新版本 v${info.version}") },
+                    text = {
+                        Text(
+                            buildString {
+                                append("当前版本 v${BuildConfig.VERSION_NAME}，可升级到 v${info.version}。")
+                                if (info.notes.isNotEmpty()) {
+                                    append("\n\n更新内容：\n${info.notes}")
+                                }
+                                append("\n\n升级将自动下载安装包并触发系统安装。")
+                            }
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { upgrade(info) }) { Text("升级") }
+                    },
+                    dismissButton = {
+                        Row {
+                            // 延迟到下次: 本次不提示（不记录，下次启动仍会检查）
+                            TextButton(onClick = { updateInfo = null }) { Text("延迟到下次") }
+                            TextButton(onClick = {
+                                ignoreUpdateVersion(info.version)
+                                updateInfo = null
+                            }) { Text("忽略") }
+                        }
+                    }
+                )
+            }
         }
         if (downloading) {
             FullscreenWait("正在下载新版本…")
         }
-        updateError?.let { msg ->
+        failedUpgrade?.let { info ->
             AlertDialog(
-                onDismissRequest = { updateError = null },
+                onDismissRequest = { failedUpgrade = null },
                 title = { Text("升级失败") },
-                text = { Text(msg) },
+                text = { Text(failedReason ?: "未知错误") },
                 confirmButton = {
-                    TextButton(onClick = { updateError = null }) { Text("好的") }
+                    TextButton(onClick = {
+                        failedUpgrade = null
+                        failedReason = null
+                        upgrade(info)
+                    }) { Text("重试") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        failedUpgrade = null
+                        failedReason = null
+                        Platform.openUrl(SiteLinks.apkDownloadUrl(info.version, VARIANT_NAME))
+                    }) { Text("浏览器下载") }
                 }
             )
+        }
+    }
+
+    // 解析 version 单行 JSON: {"version":"1.0.0","notes":"...","apks":{"android":{"pure":"...","net":"..."}}}
+    private fun parseUpdateInfo(json: String, variant: String): UpdateInfo? {
+        return try {
+            val root = JSONObject(json)
+            val version = root.getString("version")
+            val notes = root.optString("notes", "")
+            val sha256 = root.optJSONObject("apks")
+                ?.optJSONObject("android")
+                ?.optString(variant, null)
+            UpdateInfo(version, notes, sha256)
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -337,7 +412,7 @@ class MainActivity : ComponentActivity() {
         private const val PREF_IGNORED_UPDATE = "ignored_update_version"
 
         /** 当前变体名（与 app-pack.sh 安装包命名约定一致） */
-        private val VARIANT_NAME = if (BuildConfig.ONLINE_VARIANT) "online" else "pure"
+        private val VARIANT_NAME = if (BuildConfig.NET_VARIANT) "net" else "pure"
 
         /** 开屏页固定展示时间（毫秒） */
         private const val SPLASH_MIN_MS = 900L

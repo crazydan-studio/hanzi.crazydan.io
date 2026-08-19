@@ -49,15 +49,18 @@ object StrokeDbDownloader {
         if (state is State.Working) return
         scope.launch {
             state = State.Working(Phase.DOWNLOADING, scale)
-            val file = withContext(Dispatchers.IO) {
+            val result = withContext(Dispatchers.IO) {
                 Platform.downloadToFile(
                     "${SiteLinks.STROKE_DB_DOWNLOAD}$scale.db",
                     "hanzi-stroke-$scale.db"
                 )
             }
-            if (file == null) {
-                state = State.Failed("笔画数据下载失败，请检查网络后重试")
-                return@launch
+            val file = when (result) {
+                is DownloadResult.Success -> result.path
+                is DownloadResult.Failure -> {
+                    state = State.Failed("笔画数据下载失败：${result.reason}")
+                    return@launch
+                }
             }
             state = State.Working(Phase.IMPORTING, scale)
             val ok = withContext(Dispatchers.Default) { db.importStrokeDb(file) }
