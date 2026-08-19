@@ -37,7 +37,9 @@ import org.crazydan.studio.app.hanzi.shared.StrokeDbState
 import org.crazydan.studio.app.hanzi.shared.StrokeDbStatus
 import org.crazydan.studio.app.hanzi.ui.Platform
 import org.crazydan.studio.app.hanzi.ui.SiteLinks
+import org.crazydan.studio.app.hanzi.ui.StrokeDbDownloader
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
+import org.crazydan.studio.app.hanzi.ui.components.FullscreenWait
 import org.crazydan.studio.app.hanzi.ui.components.InlineLinkText
 import org.crazydan.studio.app.hanzi.ui.components.PrimaryButton
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
@@ -45,8 +47,9 @@ import org.crazydan.studio.app.hanzi.ui.components.SectionCard
 /**
  * 笔画数据管理页:
  *  - 显示已导入笔画数据的状态（可访问汉字数量/笔画总数；未导入或数据损坏时提示）
- *  - 按需下载不同规模（1500/3000/5000/全部）的笔画数据（跳转浏览器下载），
- *    选择文件后校验数据有效性、二次确认后导入到应用数据目录
+ *  - 数据规模卡片: 联网变体点击后后台自动下载并导入（全屏等待遮罩，跨页面保持）；
+ *    纯净版跳转浏览器下载页面
+ *  - 手动选择本地文件导入（两变体均支持）: 校验数据有效性、二次确认后导入
  */
 @Composable
 fun StrokeDataManageScreen(
@@ -60,6 +63,7 @@ fun StrokeDataManageScreen(
     var totalZi by remember { mutableStateOf(0) }
     var notice by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val onlineVariant = Platform.isOnlineVariant()
 
     // 导入流程弹窗: 校验中 → 确认 → 导入中 → 成功
     var dialog by remember { mutableStateOf<ImportDialog?>(null) }
@@ -200,7 +204,16 @@ fun StrokeDataManageScreen(
                         ScaleOption(
                             title = title,
                             desc = desc,
-                            onClick = { downloadScale(scale) },
+                            buttonText = if (onlineVariant) "下载并导入" else "点击下载",
+                            onClick = {
+                                // 联网变体: 后台自动下载并导入（全屏任务遮罩）；
+                                // 纯净版: 跳转浏览器下载页面
+                                if (onlineVariant) {
+                                    StrokeDbDownloader.start(scale, db)
+                                } else {
+                                    downloadScale(scale)
+                                }
+                            },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -252,6 +265,44 @@ fun StrokeDataManageScreen(
             )
         }
     }
+
+    // 联网变体在线下载/导入任务（全局状态，退出页面再进入仍持续显示）
+    when (val s = StrokeDbDownloader.state) {
+        is StrokeDbDownloader.State.Working -> FullscreenWait(
+            text = when (s.phase) {
+                StrokeDbDownloader.Phase.DOWNLOADING ->
+                    "正在下载笔画数据（${scaleTitle(s.scale)}）…"
+                StrokeDbDownloader.Phase.IMPORTING -> "正在导入笔画数据…"
+            }
+        )
+        is StrokeDbDownloader.State.Done -> AlertDialog(
+            onDismissRequest = {},
+            title = { Text("导入成功") },
+            text = {
+                Text(
+                    "已下载并导入 ${s.info.ziCount} 个汉字的笔画数据（共 ${s.info.strokeCount} 笔）。"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    StrokeDbDownloader.dismiss()
+                    scope.launch { refreshStatus() }
+                }) { Text("好的") }
+            }
+        )
+        is StrokeDbDownloader.State.Failed -> AlertDialog(
+            onDismissRequest = {},
+            title = { Text("导入失败") },
+            text = { Text(s.message) },
+            confirmButton = {
+                TextButton(onClick = {
+                    StrokeDbDownloader.dismiss()
+                    scope.launch { refreshStatus() }
+                }) { Text("好的") }
+            }
+        )
+        StrokeDbDownloader.State.Idle -> Unit
+    }
 }
 
 /** 导入流程弹窗状态 */
@@ -284,6 +335,7 @@ private fun ImportProgressDialog(text: String) {
 private fun ScaleOption(
     title: String,
     desc: String,
+    buttonText: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -297,7 +349,7 @@ private fun ScaleOption(
                 modifier = Modifier.padding(top = 4.dp)
             )
             PrimaryButton(
-                text = "点击下载",
+                text = buttonText,
                 onClick = onClick,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -320,6 +372,12 @@ private fun scaleOptions(totalZi: Int): List<ScaleOption> = listOf(
     ScaleOption("5000 字", "约 5000 个高频汉字（大规模）", "5000"),
     ScaleOption("全部（约 ${formatWan(totalZi)}）", "全部汉字的笔画数据（完整规模）", "full")
 )
+
+/** 规模标识 → 展示名（下载遮罩文案用） */
+private fun scaleTitle(scale: String): String = when (scale) {
+    "full" -> "全部"
+    else -> scaleOptions(Int.MAX_VALUE).firstOrNull { it.scale == scale }?.title ?: scale
+}
 
 /** 数字格式化为「万」表述（如 26223 → 2.6 万+） */
 private fun formatWan(total: Int): String {
