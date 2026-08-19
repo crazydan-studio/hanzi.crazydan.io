@@ -8,17 +8,18 @@
 #   3. 打包中易楷体（全量，不精简; App 用 TTF，web 用 woff2；目标文件已存在则跳过）
 #   4. 打包开发数据库 server/data/hanzi_stroke.db → app/android/src/main/assets/db/hanzi.db
 #   5. 构建 Android App（Gradle，Compose Multiplatform 原生 UI）
-#   6. 移动安装包（保留最新构建的安装包）
-#      - debug:   public/assets/app/android/hanzi-debug.apk（web dev 环境本地下载）
-#      - release: dist/assets/app/hanzi-{os}-{versionName}.apk（如 hanzi-android-1.0.0.apk，
-#                 随 GitHub Releases 发布，web 端 release 版本据此下载）
+#   6. 移动安装包并写入最新版本号
+#      - debug:   public/assets/app/android/hanzi-debug.apk（pure 变体，web dev 本地下载）
+#      - release: dist/assets/app/hanzi-{variant}-android-{versionName}.apk
+#        （pure=纯净版无权限 / online=可联网变体，随 GitHub Releases 发布）
+#      版本号写入 public/assets/app/version（联网变体据此检查更新）
 set -euo pipefail
 
 # ---- 解析构建类型 ----
 BUILD_TYPE="${1:-debug}"
 case "${BUILD_TYPE}" in
-  release) TASK="assembleRelease"; APK_TYPE="release" ;;
-  debug)   TASK="assembleDebug";   APK_TYPE="debug" ;;
+  release) APK_TYPE="release" ;;
+  debug)   APK_TYPE="debug" ;;
   *)
     echo "用法: $0 [release|debug]（缺省 debug）" >&2
     exit 1
@@ -34,6 +35,23 @@ VERSION_NAME="$(tr -d '[:space:]' < "${APP_DIR}/version.txt")"
 # 目标平台（当前仅支持 Android; release 安装包命名含该标识）
 OS="android"
 
+# 复制指定变体的构建产物 APK 到目标目录（仅保留最新构建的安装包）
+cp_apk() {
+  local flavor="$1" apk_type="$2" dest_dir="$3" dest_file="$4"
+  local apk_dir="${MODULE_DIR}/build/outputs/apk/${flavor}/${apk_type}"
+  local apk
+  apk="$(find "${apk_dir}" -maxdepth 1 -type f -name "*.apk" \
+    ! -name "*-unsigned.apk" ! -name "*-aligned.apk" \
+    -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)"
+  if [[ -z "${apk}" ]]; then
+    echo "错误: 未找到构建产物 APK（${apk_dir}）" >&2
+    exit 1
+  fi
+  mkdir -p "${dest_dir}"
+  find "${dest_dir}" -maxdepth 1 -type f -name "hanzi-*.apk" -delete
+  cp -f "${apk}" "${dest_dir}/${dest_file}"
+}
+
 echo "==> [1/6] 拷贝拼音读音资源到 app 资源目录"
 mkdir -p "${ASSETS_DIR}/audio/pinyin"
 cp -f "${ROOT}/public/assets/audio/pinyin/"*.mp3 "${ASSETS_DIR}/audio/pinyin/"
@@ -48,28 +66,35 @@ echo "==> [4/6] 打包数据库到 app 资源目录"
 (cd "${ROOT}" && node build/app-db-pack.js)
 
 echo "==> [5/6] 构建 Android App（${BUILD_TYPE}，版本 ${VERSION_NAME}）"
-(cd "${APP_DIR}" && ./gradlew ":android:${TASK}")
-
-echo "==> [6/6] 移动安装包到 public/assets/app/android/"
-APK_DIR="${MODULE_DIR}/build/outputs/apk/${APK_TYPE}"
-APK="$(find "${APK_DIR}" -maxdepth 1 -type f -name "*.apk" \
-  ! -name "*-unsigned.apk" ! -name "*-aligned.apk" \
-  -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)"
-if [[ -z "${APK}" ]]; then
-  echo "错误: 未找到构建产物 APK（${APK_DIR}）" >&2
-  exit 1
+if [[ "${BUILD_TYPE}" == "debug" ]]; then
+  # 本地开发: 仅构建纯净变体（public/assets/app/android/hanzi-debug.apk）
+  (cd "${APP_DIR}" && ./gradlew ":android:assemblePureDebug")
+else
+  # 发布: 同时构建纯净版与可联网变体
+  (cd "${APP_DIR}" && ./gradlew ":android:assemblePureRelease" ":android:assembleOnlineRelease")
 fi
 
-# 安装包位置与命名（debug 本地开发用；release 随 GitHub Releases 发布，命名与
-# web 端 src/app.js 的下载地址约定一致: hanzi-{os}-{version}.{suffix}）
+echo "==> [6/6] 移动安装包到 dist/assets/app/ 并写入最新版本号"
+
+# 安装包位置与命名（release 命名 hanzi-{variant}-{os}-{version}.apk，与 web 端下载地址约定一致）
 if [[ "${BUILD_TYPE}" == "debug" ]]; then
   DEST_DIR="${ROOT}/public/assets/app/android"
-  DEST_FILE="hanzi-debug.apk"
+  cp_apk "pure" "${APK_TYPE}" "${DEST_DIR}" "hanzi-debug.apk"
+  echo "==> 完成: ${DEST_DIR}/hanzi-debug.apk（debug）"
 else
   DEST_DIR="${ROOT}/dist/assets/app"
-  DEST_FILE="hanzi-${OS}-${VERSION_NAME}.apk"
+  cp_apk "pure"   "${APK_TYPE}" "${DEST_DIR}" "hanzi-pure-${OS}-${VERSION_NAME}.apk"
+  cp_apk "online" "${APK_TYPE}" "${DEST_DIR}" "hanzi-online-${OS}-${VERSION_NAME}.apk"
+  echo "==> 完成: ${DEST_DIR}/hanzi-pure-${OS}-${VERSION_NAME}.apk（纯净版）"
+  echo "           ${DEST_DIR}/hanzi-online-${OS}-${VERSION_NAME}.apk（联网版）"
+
+  # 最新版本号（联网变体启动检查更新: https://hanzi.crazydan.io/assets/app/version）
+  # 写入 public/（vite 构建时复制到 dist），dist 已存在时同步写入
+  VERSION_FILE="${ROOT}/public/assets/app/version"
+  mkdir -p "$(dirname "${VERSION_FILE}")"
+  printf '%s\n' "${VERSION_NAME}" > "${VERSION_FILE}"
+  if [[ -d "${ROOT}/dist/assets/app" ]]; then
+    printf '%s\n' "${VERSION_NAME}" > "${ROOT}/dist/assets/app/version"
+  fi
+  echo "==> 最新版本号: ${VERSION_NAME} → ${VERSION_FILE}"
 fi
-mkdir -p "${DEST_DIR}"
-find "${DEST_DIR}" -maxdepth 1 -type f -name "hanzi-*.apk" -delete
-cp -f "${APK}" "${DEST_DIR}/${DEST_FILE}"
-echo "==> 完成: ${DEST_DIR}/${DEST_FILE}（${BUILD_TYPE}）"

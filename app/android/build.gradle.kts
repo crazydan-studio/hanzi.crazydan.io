@@ -25,6 +25,24 @@ android {
         versionCode = hanziVersion.replace(".", "").toIntOrNull() ?: 1
     }
 
+    // 变体拆分:
+    //   pure   - 纯净版（无任何权限），仅使用内置数据
+    //   online - 可联网变体（INTERNET/安装应用权限，见 src/online/AndroidManifest.xml），
+    //            支持启动检查更新、在线下载笔画数据
+    flavorDimensions += "variant"
+    productFlavors {
+        create("pure") {
+            dimension = "variant"
+            buildConfigField("boolean", "ONLINE_VARIANT", "false")
+        }
+        create("online") {
+            dimension = "variant"
+            // 与纯净版使用不同 applicationId，可同时安装
+            applicationIdSuffix = ".online"
+            buildConfigField("boolean", "ONLINE_VARIANT", "true")
+        }
+    }
+
     signingConfigs {
         create("release") {
             val keystorePropertiesFile = rootProject.file("keystore/release.properties")
@@ -64,6 +82,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     dependenciesInfo {
@@ -83,9 +102,10 @@ kotlin {
 dependencies {
     implementation(project(":shared"))
     implementation(libs.androidx.activity.compose)
-    // 宿主界面所需 Compose 依赖（开屏/淡入淡出动画、布局等）
+    // 宿主界面所需 Compose 依赖（开屏/淡入淡出动画、更新弹窗等）
     implementation(compose.animation)
     implementation(compose.foundation)
+    implementation(compose.material3)
     implementation(compose.runtime)
     implementation(compose.ui)
 }
