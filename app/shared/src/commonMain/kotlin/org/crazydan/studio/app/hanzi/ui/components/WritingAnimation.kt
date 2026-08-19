@@ -527,8 +527,8 @@ private fun DrawScope.drawZiBoxDebug(layout: ZiLayout?, unit: Float) {
     val b = layout.box
     drawRect(
         color = Blue500.copy(alpha = 0.6f),   // 与前端调试色一致（blue-500 半透明）
-        topLeft = Offset(b.x0 * unit, b.y0 * unit),
-        size = androidx.compose.ui.geometry.Size(b.w * unit, b.h * unit),
+        topLeft = Offset(b.x0, b.y0),
+        size = androidx.compose.ui.geometry.Size(b.w, b.h),
         style = Stroke(width = 1.5f)
     )
 }
