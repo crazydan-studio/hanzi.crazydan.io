@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -391,10 +392,17 @@ private fun WritingPanel(
         modifier = Modifier.fillMaxWidth()
     ) {
         // 田字格容器: 笔画名提示以悬浮层置于田字格上方（不占布局，不引起位置/尺寸抖动）
+        // 尺寸上限兼顾展示与字体缓存: 背景字光栅尺寸 = 画布×0.92，超出 Skia 字体缓存
+        // （约 1024px）会报 "Font size too large to fit in cache" 导致背景字不显示
+        // （尤其高密度/横屏下）; 上限 1065px（980/0.92）按密度换算为 dp，
+        // 尽量贴近 web 的 500dp 展示尺寸（高密度下稍小，笔画随之等比缩放）
+        // 注意: widthIn 须在 fillMaxWidth 之前（fill 会强制取完整可用宽度，覆盖内部上限）
+        val density = LocalDensity.current.density
+        val maxCanvas = (1065f / density).coerceAtMost(500f).dp
         Box(
             modifier = Modifier
+                .widthIn(max = maxCanvas)
                 .fillMaxWidth()
-                .widthIn(max = 500.dp)
         ) {
             WritingAnimationCanvas(
                 strokes = strokes,

@@ -292,8 +292,9 @@ fun WritingAnimationCanvas(
             .clip(RectangleShape)
             .background(if (dark) Gray900 else Color.White)
     ) {
-        val unit = size.width / StrokeFormat.INTERNAL_SIZE   // 前端 500×500 内部坐标系缩放
-        // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
+        // 田字格线宽按画布基准缩放（内部 500 坐标系 → 画布像素），
+        // 背景字与笔画坐标/宽度均为画布像素（见 drawZiRef/brushBaseWidth），不再乘 unit
+        val unit = size.width / StrokeFormat.INTERNAL_SIZE
         drawTianZiGe(border, unit)
         val layout = drawZiRef(zi, ref, textMeasurer)
         drawZiBoxDebug(layout, unit)
@@ -301,12 +302,12 @@ fun WritingAnimationCanvas(
 
         val completed = if (player != null) player.currentIndex.coerceIn(0, strokes.size) else strokes.size
         for (i in 0 until completed) {
-            drawFullStroke(strokes[i], ink, unit, box)
+            drawFullStroke(strokes[i], ink, box)
         }
         if (player != null && player.currentIndex < strokes.size) {
             val p = player.progress
             if (p > 0f && p < 1f) {
-                drawPartialStroke(strokes[player.currentIndex], p, highlight, unit, box)
+                drawPartialStroke(strokes[player.currentIndex], p, highlight, box)
             }
         }
     }
@@ -340,20 +341,19 @@ fun StrokeCellCanvas(
             .background(if (dark) Gray900 else Color.White)
     ) {
         val unit = size.width / StrokeFormat.INTERNAL_SIZE
-        // 与 web 一致: 田字格在下，浅色非半透明背景字在上；背景字墨迹盒为笔画坐标基准
         drawTianZiGe(border, unit)
         val layout = drawZiRef(zi, ref, textMeasurer)
         drawZiBoxDebug(layout, unit)
         val box = layout?.box
         // 此前笔画墨色已绘
         for (i in 0 until index) {
-            drawFullStroke(strokes[i], ink, unit, box)
+            drawFullStroke(strokes[i], ink, box)
         }
         // 当前笔画红色（静态满红示位 / 动画按进度绘制）
         val p = progress
         when {
-            p == null || p >= 1f -> drawFullStroke(stroke, highlight, unit, box)
-            p > 0f -> drawPartialStroke(stroke, p, highlight, unit, box)
+            p == null || p >= 1f -> drawFullStroke(stroke, highlight, box)
+            p > 0f -> drawPartialStroke(stroke, p, highlight, box)
         }
     }
 }
@@ -513,12 +513,16 @@ private fun DrawScope.toCanvas(p: StrokePoint, box: ZiBox): Offset {
     )
 }
 
-/** 笔刷面积比 → 当前盒上的基准笔宽（内部坐标系像素，面积比不变则与背景字相对大小一致） */
-private fun brushBaseWidth(brush: Int, box: ZiBox): Float {
-    val area = box.w * box.h
-    if (area <= 0f) return StrokeFormat.BASE_WIDTH
+/**
+ * 基准笔宽（画布像素）: 以「书写笔宽 × 画布/500」语义还原，与墨迹盒测量解耦。
+ * 相对厚度 = √(笔刷面积比)（笔宽相对字身的比例，数据自带、与播放端测量无关）;
+ * 字身 = 画布 × 0.92（与背景字布局一致）→ 基准笔宽 = √面积比 × 0.92 × 画布。
+ * 相比盒面积还原: 消除盒测量波动对笔宽的传导（1.25 系数现象），粗细只随画布缩放
+ */
+private fun DrawScope.brushBaseWidth(brush: Int): Float {
     val ratio = brush.toFloat() / StrokeFormat.BRUSH_SCALE
-    return if (ratio > 0f) kotlin.math.sqrt(ratio * area) else StrokeFormat.BASE_WIDTH
+    if (ratio <= 0f) return StrokeFormat.BASE_WIDTH * (size.width / StrokeFormat.INTERNAL_SIZE)
+    return kotlin.math.sqrt(ratio) * (size.width * 0.92f)
 }
 
 /** 调试用（仅 debug 构建）: 绘制背景字墨迹盒边界（光栅实测盒，即笔画坐标系的基准） */
@@ -529,16 +533,16 @@ private fun DrawScope.drawZiBoxDebug(layout: ZiLayout?, unit: Float) {
         color = Blue500.copy(alpha = 0.6f),   // 与前端调试色一致（blue-500 半透明）
         topLeft = Offset(b.x0, b.y0),
         size = androidx.compose.ui.geometry.Size(b.w, b.h),
-        style = Stroke(width = 1.5f)
+        style = Stroke(width = 1.5f * unit)
     )
 }
 
 /** 完整笔画（墨色） */
-private fun DrawScope.drawFullStroke(stroke: ZiStroke, color: Color, unit: Float, box: ZiBox?) {
+private fun DrawScope.drawFullStroke(stroke: ZiStroke, color: Color, box: ZiBox?) {
     val pts = stroke.points
     if (pts.isEmpty() || box == null) return
-    val widths = brushWidths(pts, brushBaseWidth(stroke.brush, box))
-    drawStrokePath(pts, widths, 1f, color, unit, box)
+    val widths = brushWidths(pts, brushBaseWidth(stroke.brush))
+    drawStrokePath(pts, widths, 1f, color, box)
 }
 
 /** 部分笔画（进度 0..1，按时间戳插值到当前点） */
@@ -546,7 +550,6 @@ private fun DrawScope.drawPartialStroke(
     stroke: ZiStroke,
     progress: Float,
     color: Color,
-    unit: Float,
     box: ZiBox?
 ) {
     val pts = stroke.points
@@ -556,16 +559,16 @@ private fun DrawScope.drawPartialStroke(
         (pts.last().timestamp - pts.first().timestamp) * progress.coerceIn(0f, 1f)
     val head = pts.takeWhile { it.timestamp <= targetTime }
     if (head.isEmpty()) return
-    val widths = brushWidths(pts, brushBaseWidth(stroke.brush, box))
+    val widths = brushWidths(pts, brushBaseWidth(stroke.brush))
     if (head.size < pts.size) {
         val interp = interpolatePoint(pts, targetTime) ?: return
         drawStrokePath(
             head + interp,
             widths.take(head.size) + listOf(widths[head.size.coerceAtMost(widths.size - 1)]),
-            1f, color, unit, box
+            1f, color, box
         )
     } else {
-        drawStrokePath(pts, widths, 1f, color, unit, box)
+        drawStrokePath(pts, widths, 1f, color, box)
     }
 }
 
@@ -575,13 +578,12 @@ private fun DrawScope.drawStrokePath(
     widths: List<Float>,
     progress: Float,
     color: Color,
-    unit: Float,
     box: ZiBox
 ) {
     if (points.size < 2) {
         if (points.size == 1) {
             val p = toCanvas(points[0], box)
-            val r = (widths[0] * unit / 2f).coerceAtLeast(0.5f) * progress.coerceAtLeast(0.1f)
+            val r = (widths[0] / 2f).coerceAtLeast(0.5f) * progress.coerceAtLeast(0.1f)
             drawCircle(color, radius = r, center = p)
         }
         return
@@ -590,8 +592,9 @@ private fun DrawScope.drawStrokePath(
     for (i in 1 until count) {
         val a = toCanvas(points[i - 1], box)
         val b = toCanvas(points[i], box)
-        val wa = widths[i - 1] * unit
-        val wb = widths[i] * unit
+        // 宽度已为画布像素（brushBaseWidth 画布锚定），直接绘制
+        val wa = widths[i - 1]
+        val wb = widths[i]
         drawLine(
             color = color,
             start = a,

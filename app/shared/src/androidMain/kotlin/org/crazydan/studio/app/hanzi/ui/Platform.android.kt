@@ -124,21 +124,24 @@ actual object Platform {
         return try {
             val typeface = android.graphics.Typeface.createFromAsset(
                 context.assets, "fonts/ZhongYiKaiTi.ttf")
+            // 2× 渲染后除以倍率: 提高墨迹盒测量精度（与 web 的 dpr 光栅相当，
+            // 1× 位图 AA 量化会使盒偏小、还原笔宽随之稍细）
+            val renderScale = 2f
             val paint = android.graphics.Paint(
                 android.graphics.Paint.ANTI_ALIAS_FLAG
             ).apply {
                 this.typeface = typeface
-                textSize = fontSizePx
+                textSize = fontSizePx * renderScale
                 textAlign = android.graphics.Paint.Align.CENTER
             }
             val fm = paint.fontMetrics
-            val size = (fontSizePx * 1.6f).toInt().coerceAtLeast(4)
+            val size = (fontSizePx * 1.6f * renderScale).toInt().coerceAtLeast(8)
             val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
             // 显式清零: createBitmap 的内存不保证为零（可能残留旧像素），
             // 否则扫描会拾取垃圾像素导致盒位置/尺寸与所绘字型不符
             bmp.eraseColor(android.graphics.Color.TRANSPARENT)
             val canvas = android.graphics.Canvas(bmp)
-            // 字形垂直居中: 基线 = 顶部留白 + ascent 高度（fm.ascent 为负值）
+            // 字形垂直居中: 基线 = 顶部留白 + ascent 高度（fm.ascent 为负值，按渲染倍率缩放）
             val glyphHeight = fm.descent - fm.ascent
             val baseline = (size - glyphHeight) / 2f - fm.ascent
             canvas.drawText(zi, size / 2f, baseline, paint)
@@ -163,15 +166,16 @@ actual object Platform {
             // 合理性上限: 墨迹盒超出字身 1.3 倍（回退字体/异常渲染的特征）→ 视为无效
             val w = maxX - minX
             val h = maxY - minY
-            if (w > fontSizePx * 1.3f || h > fontSizePx * 1.3f) return null
+            if (w > fontSizePx * 1.3f * renderScale || h > fontSizePx * 1.3f * renderScale) return null
 
-            // 相对文本对齐点（水平左缘 + 基线）: 布局左缘 = 中心 - 文字宽/2
+            // 相对文本对齐点（水平左缘 + 基线）: 布局左缘 = 中心 - 文字宽/2;
+            // 结果除以渲染倍率还原为 1× 坐标
             val textLeft = size / 2f - paint.measureText(zi) / 2f
             return floatArrayOf(
-                minX - textLeft,
-                minY - baseline,
-                maxX - textLeft,
-                maxY - baseline
+                (minX - textLeft) / renderScale,
+                (minY - baseline) / renderScale,
+                (maxX - textLeft) / renderScale,
+                (maxY - baseline) / renderScale
             )
         } catch (e: Exception) {
             null
