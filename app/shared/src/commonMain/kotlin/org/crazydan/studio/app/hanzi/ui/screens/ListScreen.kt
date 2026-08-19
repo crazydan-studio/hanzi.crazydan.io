@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +33,7 @@ import kotlinx.coroutines.withContext
 import org.crazydan.studio.app.hanzi.shared.ZiEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
+import org.crazydan.studio.app.hanzi.ui.components.LoadingBox
 import org.crazydan.studio.app.hanzi.ui.components.ZiCell
 
 /** 页面顶部栏（返回 + 标题 + 主题切换图标） */
@@ -106,14 +106,11 @@ fun ZiListScreen(
 
         when {
             loading -> item(span = { GridItemSpan(maxLineSpan) }) {
-                Box(
-                    contentAlignment = Alignment.Center,
+                LoadingBox(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp)
-                ) {
-                    CircularProgressIndicator()
-                }
+                )
             }
             error != null -> item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(

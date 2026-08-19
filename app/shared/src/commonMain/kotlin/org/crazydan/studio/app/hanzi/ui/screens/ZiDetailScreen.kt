@@ -61,6 +61,7 @@ import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
 import org.crazydan.studio.app.hanzi.ui.Platform
 import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
+import org.crazydan.studio.app.hanzi.ui.components.LoadingBox
 import org.crazydan.studio.app.hanzi.ui.components.BugReportIcon
 import org.crazydan.studio.app.hanzi.ui.components.OpenInNewIcon
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
@@ -138,10 +139,7 @@ fun ZiDetailScreen(
         TopBar(title = "汉字信息", dark = dark, onToggleTheme = onToggleTheme, onBack = onBack)
 
         when {
-            loading -> Text(
-                text = "加载中...",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
+            loading -> LoadingBox(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 32.dp)
