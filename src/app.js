@@ -2,6 +2,7 @@
 // 功能: 汉字/拼音查询（URL 参数路由）+ 常用字速览
 import Alpine from 'alpinejs'
 import { loadCommons } from '@services/data.js'
+import { GITHUB_RELEASES } from './config.js'
 
 // Android 系统图标（App 下载按钮）
 const ANDROID_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6 text-green-500"><path d="M17.5 8.5c-.9 0-1.7.4-2.3 1H8.8c-.6-.6-1.4-1-2.3-1C4.6 8.5 3 10.1 3 12v3.5h18V12c0-1.9-1.6-3.5-3.5-3.5zM6.5 11.5c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zm11 0c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zM8.8 9.5 7 6.3c-.3-.5 0-1.1.5-1.3.5-.3 1.1 0 1.3.5l1.8 3.1c.5-.1 1-.2 1.4-.2s.9.1 1.4.2l1.8-3.1c.3-.5.8-.8 1.3-.5.5.3.8.8.5 1.3l-1.8 3.2h-6.4zm-3.3 7.5H4V19.5c0 .6.4 1 1 1s1-.4 1-1V17zm13 0h-1.5v2.5c0 .6.4 1 1 1s1-.4 1-1V17z"/></svg>'
@@ -10,17 +11,21 @@ const ANDROID_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24
 const APP_VERSION = __HANZI_APP_VERSION__
 
 // App 下载平台（系统图标按钮）: 目前仅支持 android
-// 安装包由 build/app-pack.sh 生成并输出到 public/assets/app/{平台}/:
-//   - development 环境仅提供 debug 版本（hanzi-debug.apk）
-//   - production 环境仅提供 release 最新版本（hanzi-{versionName}.apk）
-const APP_FILE = import.meta.env.DEV ? 'hanzi-debug.apk' : `hanzi-${APP_VERSION}.apk`
+// 安装包由 build/app-pack.sh 生成:
+//   - development: 本地 public/assets/app/android/hanzi-debug.apk
+//   - production:  release 安装包命名 hanzi-{os}-{version}.apk（如 hanzi-android-1.0.0.apk），
+//     随 GitHub Releases 发布（tag 为 v{version}），下载地址与 app-pack.sh 命名约定一致
+const IS_DEV = import.meta.env.DEV
 const APP_PLATFORMS = [
   {
     id: 'android',
     name: 'Android',
     icon: ANDROID_ICON,
-    file: APP_FILE,
-    version: import.meta.env.DEV ? `${APP_VERSION}-debug` : APP_VERSION
+    file: IS_DEV ? 'hanzi-debug.apk' : `hanzi-android-${APP_VERSION}.apk`,
+    version: IS_DEV ? `${APP_VERSION}-debug` : APP_VERSION,
+    url: IS_DEV
+      ? '/assets/app/android/hanzi-debug.apk'
+      : `${GITHUB_RELEASES}/v${APP_VERSION}/hanzi-android-${APP_VERSION}.apk`
   }
 ]
 

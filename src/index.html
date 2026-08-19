@@ -60,7 +60,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <template x-for="p in APP_PLATFORMS" :key="p.id">
-            <a :href="`/assets/app/${p.id}/${p.file}`" download
+            <a :href="p.url" download
               class="flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-4 py-2.5 shadow-sm hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700">
               <span x-html="p.icon"></span>
               <span class="text-sm font-medium" x-text="p.name"></span>

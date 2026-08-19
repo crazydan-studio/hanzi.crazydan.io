@@ -23,6 +23,13 @@ async function main() {
     process.exit(1)
   }
 
+  // 目标字体文件已存在 → 跳过转换与复制（字体为只读资源，重复打包无意义）
+  const alreadyPacked = DSTS.every(dst => fs.existsSync(dst))
+  if (alreadyPacked) {
+    console.log('目标字体文件已存在，跳过中易楷体打包（如需重新生成请删除对应文件）')
+    return
+  }
+
   const original = fs.readFileSync(SRC_FONT)
   // web 端: 全量 TTF → woff2（仅格式转换，保留全部字形）
   const woff2 = await fontverter.convert(original, 'woff2', 'truetype')

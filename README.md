@@ -107,7 +107,7 @@ pnpm start
 ├── data/           # 本地开发数据库（汉字词典数据源）
 ├── public/         # 静态资源（字体、logo、导出的数据）
 ├── server/         # 本地开发后端服务（REST API + 静态数据同步）
-├── dist/           # 前端构建产物与笔画数据库导出位置（export:stroke-db 默认输出）
+├── dist/           # 前端构建产物、笔画数据库与 App release 安装包导出位置
 └── src/            # 前端页面与共享组件
     ├── index.html        # 首页
     ├── zi/               # 汉字信息页

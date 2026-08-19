@@ -5,12 +5,13 @@
 # 步骤:
 #   1. 拷贝拼音读音资源 public/assets/audio/pinyin → app/android/src/main/assets/audio/pinyin
 #   2. 拷贝赞助页收款码图片 → app/android/src/main/assets/donate（缺失时从站点下载）
-#   3. 打包中易楷体（全量，不精简; App 用 TTF，web 用 woff2）
+#   3. 打包中易楷体（全量，不精简; App 用 TTF，web 用 woff2；目标文件已存在则跳过）
 #   4. 打包开发数据库 server/data/hanzi_stroke.db → app/android/src/main/assets/db/hanzi.db
 #   5. 构建 Android App（Gradle，Compose Multiplatform 原生 UI）
-#   6. 安装包移至 public/assets/app/android/（保留最新构建的安装包）
-#      - debug:    hanzi-debug.apk
-#      - release:  hanzi-{versionName}.apk（如 hanzi-1.0.0.apk）
+#   6. 移动安装包（保留最新构建的安装包）
+#      - debug:   public/assets/app/android/hanzi-debug.apk（web dev 环境本地下载）
+#      - release: dist/assets/app/hanzi-{os}-{versionName}.apk（如 hanzi-android-1.0.0.apk，
+#                 随 GitHub Releases 发布，web 端 release 版本据此下载）
 set -euo pipefail
 
 # ---- 解析构建类型 ----
@@ -30,6 +31,8 @@ MODULE_DIR="${APP_DIR}/android"
 ASSETS_DIR="${MODULE_DIR}/src/main/assets"
 # 版本号（单一来源 app/version.txt，与 android 构建 versionName 一致）
 VERSION_NAME="$(tr -d '[:space:]' < "${APP_DIR}/version.txt")"
+# 目标平台（当前仅支持 Android; release 安装包命名含该标识）
+OS="android"
 
 echo "==> [1/6] 拷贝拼音读音资源到 app 资源目录"
 mkdir -p "${ASSETS_DIR}/audio/pinyin"
@@ -57,14 +60,16 @@ if [[ -z "${APK}" ]]; then
   exit 1
 fi
 
-DEST_DIR="${ROOT}/public/assets/app/android"
-mkdir -p "${DEST_DIR}"
-# 仅保留最新构建的安装包（debug 固定 hanzi-debug.apk；release 为 hanzi-{versionName}.apk）
+# 安装包位置与命名（debug 本地开发用；release 随 GitHub Releases 发布，命名与
+# web 端 src/app.js 的下载地址约定一致: hanzi-{os}-{version}.{suffix}）
 if [[ "${BUILD_TYPE}" == "debug" ]]; then
+  DEST_DIR="${ROOT}/public/assets/app/android"
   DEST_FILE="hanzi-debug.apk"
 else
-  DEST_FILE="hanzi-${VERSION_NAME}.apk"
+  DEST_DIR="${ROOT}/dist/assets/app"
+  DEST_FILE="hanzi-${OS}-${VERSION_NAME}.apk"
 fi
+mkdir -p "${DEST_DIR}"
 find "${DEST_DIR}" -maxdepth 1 -type f -name "hanzi-*.apk" -delete
 cp -f "${APK}" "${DEST_DIR}/${DEST_FILE}"
 echo "==> 完成: ${DEST_DIR}/${DEST_FILE}（${BUILD_TYPE}）"

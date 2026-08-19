@@ -8,6 +8,7 @@ export const THEME_KEY = 'hanzi:theme'
 export const SITE_URL = 'https://hanzi.crazydan.io'
 export const GITHUB_REPO = 'https://github.com/crazydan-studio/hanzi.crazydan.io'
 export const GITHUB_ISSUES = `${GITHUB_REPO}/issues`
+export const GITHUB_RELEASES = `${GITHUB_REPO}/releases/download`
 export const KUAII_IME_URL = 'https://github.com/crazydan-studio/kuaizi-ime'
 export const ZDIC_URL = 'https://zdic.net/'
 export const ZDIC_TERMS_URL = 'https://zdic.net/terms/'
