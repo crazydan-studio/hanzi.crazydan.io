@@ -2,8 +2,14 @@
 // 页面结构（顶部栏 + 列表面板）经 x-html 渲染，状态与交互（加载/失败/空态互斥、
 // 格子点击跳转、选中字高亮/定位）在此统一实现
 // 页面用法: <div x-data="pinyinApp()" class="max-w-4xl mx-auto px-4 py-6" x-html="html"></div>
+// 依赖的公共组件（pageHeader/themeToggle/ziGrid/loadingOverlay）随本模块副作用注册，
+// 使用页面无需重复导入
 import Alpine from 'alpinejs'
 import { loadCommons, loadPinyinList } from '@services/data.js'
+import './PageHeader.js'
+import './ThemeToggle.js'
+import './ZiGrid.js'
+import './LoadingOverlay.js'
 
 // 列表面板模板: 状态互斥 + 汉字网格（ziGrid 自注册组件）+ 加载悬浮层
 const PANEL_HTML = `
