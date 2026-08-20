@@ -6,7 +6,7 @@ import ziRouter from './routes/zi.js'
 import strokesRouter from './routes/strokes.js'
 import syncRouter from './routes/sync.js'
 import { errorHandler } from './middleware/errorHandler.js'
-import { DIST_DIR, PAGES } from '../paths.js'
+import { BACKEND_PORT, DIST_DIR, PAGES } from '../paths.js'
 
 const app = express()
 
@@ -20,7 +20,7 @@ function resolvePort() {
   }
   const env = Number(process.env.PORT)
   if (Number.isInteger(env) && env > 0 && env < 65536) return env
-  return 3001
+  return BACKEND_PORT
 }
 const PORT = resolvePort()
 

@@ -72,14 +72,11 @@ function createZiListPage(config) {
     },
 
     get html() {
+      // titleHtml 经 x-data 属性传入: 双引号按 HTML 属性转义（&quot;），
+      // 动态部分（拼音值/计数）用 x-text 绑定宿主作用域属性，避免拼接用户输入
+      const title = config.title(this.p).replace(/"/g, '&quot;')
       return `
-        <header class="flex items-center justify-between mb-4">
-          <a href="/" class="btn-sm">← 返回首页</a>
-          <h1 class="text-lg md:text-xl font-bold">
-            ${config.title(this.p)}<span class="text-sm text-gray-400 font-normal dark:text-gray-500" x-text="countText"></span>
-          </h1>
-          <button x-data="themeToggle()" @click="toggle()" class="icon-btn" :title="tip" x-html="icon"></button>
-        </header>
+        <div x-data="pageHeader({ titleHtml: '${title}', mb: 'mb-4' })" x-html="html"></div>
         ${PANEL_HTML}
       `
     },

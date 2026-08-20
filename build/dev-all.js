@@ -2,6 +2,7 @@
 //   node build/dev-all.js --frontend-port 5173 --backend-port 3001 --host 0.0.0.0
 //   pnpm dev:all -- --frontend-port 5174 --backend-port 3100 -H 127.0.0.1
 import { spawn } from 'child_process'
+import { BACKEND_PORT, FRONTEND_PORT } from '../paths.js'
 
 function argValue(names) {
   const idx = process.argv.findIndex(a => names.includes(a))
@@ -19,8 +20,8 @@ function argString(names) {
   return null
 }
 
-const frontendPort = argValue(['--frontend-port', '-f']) ?? 5173
-const backendPort = argValue(['--backend-port', '-b']) ?? 3001
+const frontendPort = argValue(['--frontend-port', '-f']) ?? FRONTEND_PORT
+const backendPort = argValue(['--backend-port', '-b']) ?? BACKEND_PORT
 // 前端监听地址: 默认 0.0.0.0（所有网络接口，支持局域网/容器访问）
 const host = argString(['--host', '-H']) ?? '0.0.0.0'
 

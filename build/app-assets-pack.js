@@ -6,12 +6,11 @@
 //   node build/app-assets-pack.js
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
+import { ROOT } from '../paths.js'
+import { STUDIO_URL } from '../src/config.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = path.join(__dirname, '..')
 const DST_DIR = path.join(ROOT, 'app', 'android', 'src', 'main', 'assets', 'donate')
-const BASE_URL = 'https://studio.crazydan.org/donate'
+const BASE_URL = `${STUDIO_URL}donate`
 const IMAGES = ['alipay.jpg', 'wechat.png', 'hanzi-site.png']
 
 async function main() {

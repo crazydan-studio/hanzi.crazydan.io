@@ -11,7 +11,7 @@
 import fs from 'fs'
 import path from 'path'
 import { createHash } from 'node:crypto'
-import { ROOT, PUBLIC_DIR, DIST_DIR } from '../paths.js'
+import { ROOT, APP_DEBUG_APK_DIR, APP_RELEASE_APK_DIR, APP_VERSION_FILE, DIST_DIR } from '../paths.js'
 
 const APP_DIR = path.join(ROOT, 'app')
 const NAME = fs.readFileSync(path.join(APP_DIR, 'version.txt'), 'utf8').trim()
@@ -22,10 +22,7 @@ const CHANGELOG = fs.existsSync(NOTES_FILE)
   : ''
 
 // 安装包所在目录（debug 产物在 public/，release 产物在 dist/）
-const APK_DIRS = [
-  path.join(PUBLIC_DIR, 'assets', 'app', 'android'),
-  path.join(DIST_DIR, 'assets', 'app')
-]
+const APK_DIRS = [APP_DEBUG_APK_DIR, APP_RELEASE_APK_DIR]
 
 function sha256(file) {
   const hash = createHash('sha256')
@@ -71,7 +68,7 @@ const checksumOut = Object.fromEntries(
 
 const content = JSON.stringify({ name: NAME, changelog: CHANGELOG, checksum: checksumOut }) + '\n'
 
-const targets = [path.join(PUBLIC_DIR, 'assets', 'app', 'version')]
+const targets = [APP_VERSION_FILE]
 if (fs.existsSync(path.join(DIST_DIR, 'assets', 'app'))) {
   targets.push(path.join(DIST_DIR, 'assets', 'app', 'version'))
 }

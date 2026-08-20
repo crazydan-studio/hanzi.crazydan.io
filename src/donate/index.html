@@ -4,7 +4,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>汉字 | 友情赞助</title>
 </head>
-<body class="bg-gray-50 min-h-screen dark:bg-gray-900">
+<body class="bg-gray-50 min-h-screen dark:bg-gray-900" x-data="donateApp()">
 
   <div class="max-w-3xl mx-auto px-4 py-6">
     <div x-data="pageHeader({ title: '友情赞助', mb: 'mb-6' })" x-html="html"></div>
@@ -24,17 +24,17 @@
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div class="flex flex-col items-center gap-2 rounded-lg border border-gray-200 p-4 dark:border-gray-600">
           <span class="text-sm font-bold text-blue-600">支付宝</span>
-          <img src="https://studio.crazydan.org/donate/alipay.jpg" alt="支付宝收款码"
+          <img :src="qrUrl('alipay.jpg')" alt="支付宝收款码"
             class="w-full max-w-[160px] rounded border border-gray-200 dark:border-gray-600">
         </div>
         <div class="flex flex-col items-center gap-2 rounded-lg border border-gray-200 p-4 dark:border-gray-600">
           <span class="text-sm font-bold text-green-600">微信</span>
-          <img src="https://studio.crazydan.org/donate/wechat.png" alt="微信收款码"
+          <img :src="qrUrl('wechat.png')" alt="微信收款码"
             class="w-full max-w-[160px] rounded border border-gray-200 dark:border-gray-600">
         </div>
         <div class="flex flex-col items-center gap-2 rounded-lg border border-gray-200 p-4 dark:border-gray-600">
           <span class="text-sm font-bold text-indigo-600">PayPal</span>
-          <img src="https://studio.crazydan.org/donate/hanzi-site.png" alt="PayPal 收款码"
+          <img :src="qrUrl('hanzi-site.png')" alt="PayPal 收款码"
             class="w-full max-w-[160px] rounded border border-gray-200 dark:border-gray-600">
         </div>
       </div>
@@ -43,7 +43,7 @@
         再次感谢您的热心支持！
       </p>
       <p class="mt-2 text-center">
-        <a href="https://github.com/crazydan-studio/hanzi.crazydan.io/blob/master/docs/donate/index.md"
+        <a :href="donateListUrl"
           target="_blank" rel="noopener" class="btn-sm">友情赞助清单 →</a>
       </p>
     </section>

@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { DIST_DIR, PAGES } from './paths.js'
+import { BACKEND_PORT, DIST_DIR, FRONTEND_PORT, PAGES } from './paths.js'
 import { THEME_KEY } from './src/config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -26,7 +26,7 @@ function apiPort() {
   }
   const env = Number(process.env.VITE_API_PORT)
   if (Number.isInteger(env) && env > 0 && env < 65536) return env
-  return 3001
+  return BACKEND_PORT
 }
 
 // 目录式页面: 跳转只指定目录，自动定位到目录下的 index.html
@@ -202,7 +202,7 @@ export default defineConfig({
     // 绑定所有网络接口（0.0.0.0），支持局域网/容器访问
     // 仅本机访问可传 --host localhost 覆盖
     host: true,
-    port: 5173,   // 前端端口: 可用 `pnpm dev --port <n>` 覆盖
+    port: FRONTEND_PORT,   // 前端端口: 可用 `pnpm dev --port <n>` 覆盖
     proxy: {
       '/api': {
         target: `http://localhost:${apiPort()}`,

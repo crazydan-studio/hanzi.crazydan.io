@@ -14,6 +14,10 @@ export const ZDIC_URL = 'https://zdic.net/'
 export const ZDIC_TERMS_URL = 'https://zdic.net/terms/'
 export const STUDIO_URL = 'https://studio.crazydan.org/'
 export const SUPPORT_EMAIL = 'support@studio.crazydan.org'
+// 友情赞助清单（GitHub 仓库内文档）
+export const DONATE_LIST_URL = `${GITHUB_REPO}/blob/master/docs/donate/index.md`
+// 笔顺参考图（外部图源，{cp} 为汉字 Unicode 码点）
+export const STROKE_ORDER_URL = 'https://www.strokeorder.com/assets/bishun/stroke/{cp}.png'
 
 // 拼音读音音频目录（静态资源，{数字声调拼音}.mp3）
 export const PINYIN_AUDIO_DIR = '/assets/audio/pinyin'
