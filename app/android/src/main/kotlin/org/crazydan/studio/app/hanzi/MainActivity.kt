@@ -3,6 +3,7 @@ package org.crazydan.studio.app.hanzi
 import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -111,6 +112,7 @@ class MainActivity : ComponentActivity() {
                 val prepared = try {
                     prep.await()
                 } catch (e: Exception) {
+                    Log.e(TAG, "数据库初始化失败", e)
                     initFailed = true
                     null
                 }
@@ -322,6 +324,7 @@ class MainActivity : ComponentActivity() {
                 ?.optString(variant, null)
             UpdateInfo(version, changelog, sha256)
         } catch (e: Exception) {
+            Log.w(TAG, "解析版本信息失败: $json", e)
             null
         }
     }
@@ -375,6 +378,7 @@ class MainActivity : ComponentActivity() {
         return try {
             assets.open("$DB_ASSET_DIR/$DB_NAME.sha256").bufferedReader().use { it.readLine()?.trim() }
         } catch (e: Exception) {
+            Log.w(TAG, "读取内置库 hash 文件失败", e)
             null
         }
     }
@@ -393,6 +397,7 @@ class MainActivity : ComponentActivity() {
             }
             digest.digest().joinToString("") { "%02x".format(it) }
         } catch (e: Exception) {
+            Log.w(TAG, "计算内置库 SHA-256 失败: $assetPath", e)
             null   // 计算失败时不记录 hash，下次启动重新检测
         }
     }
@@ -404,6 +409,8 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        private const val TAG = "HanziApp"
+
         private const val DB_NAME = "hanzi.db"
         private const val DB_ASSET_DIR = "db"
         private const val PREF_DB_HASH = "hanzi_db_hash"

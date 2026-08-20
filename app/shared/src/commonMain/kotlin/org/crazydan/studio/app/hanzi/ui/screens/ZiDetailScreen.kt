@@ -59,6 +59,7 @@ import org.crazydan.studio.app.hanzi.shared.unicodePointAt
 import org.crazydan.studio.app.hanzi.ui.Blue500
 import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
 import org.crazydan.studio.app.hanzi.ui.Platform
+import org.crazydan.studio.app.hanzi.ui.logError
 import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
 import org.crazydan.studio.app.hanzi.ui.components.LoadingBox
@@ -106,6 +107,7 @@ fun ZiDetailScreen(
             meta = m
             strokes = s
         } catch (e: Exception) {
+            logError("ZiDetailScreen", "查询汉字信息失败: $zi", e)
             error = "数据加载失败"
         }
         loading = false

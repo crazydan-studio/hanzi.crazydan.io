@@ -71,6 +71,9 @@ expect object Platform {
     fun installApk(apkPath: String): Boolean
 }
 
+/** 打印错误日志到平台日志系统（Android: logcat），供开发测试排查问题 */
+expect fun logError(tag: String, message: String, throwable: Throwable)
+
 /** 下载结果（成功携带文件路径；失败携带具体原因） */
 sealed interface DownloadResult {
     data class Success(val path: String) : DownloadResult

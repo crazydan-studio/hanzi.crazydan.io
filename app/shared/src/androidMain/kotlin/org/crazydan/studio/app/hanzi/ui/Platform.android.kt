@@ -8,6 +8,7 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.media.MediaPlayer
 import android.net.Uri
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.ui.graphics.ImageBitmap
@@ -19,6 +20,13 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
+
+private const val TAG = "HanziPlatform"
+
+/** 错误日志输出到 logcat（供开发测试排查问题） */
+actual fun logError(tag: String, message: String, throwable: Throwable) {
+    Log.e(tag, message, throwable)
+}
 
 /**
  * Android 平台能力实现
@@ -52,13 +60,16 @@ actual object Platform {
             player = p
             true
         } catch (e: Exception) {
+            Log.w(TAG, "播放拼音失败: $pinyin", e)
             false   // 音频文件不存在或播放失败
         }
     }
 
     actual fun stopPinyin() {
         player?.let {
-            try { it.stop() } catch (_: Exception) {}
+            try { it.stop() } catch (e: Exception) {
+                Log.w(TAG, "停止拼音播放失败", e)
+            }
             it.release()
         }
         player = null
@@ -78,7 +89,7 @@ actual object Platform {
         try {
             context.startActivity(intent)
         } catch (e: ActivityNotFoundException) {
-            // 无可用应用处理该链接，忽略
+            Log.w(TAG, "无可用应用处理链接: $url", e)
         }
     }
 
@@ -89,6 +100,7 @@ actual object Platform {
                 BitmapFactory.decodeStream(stream)?.asImageBitmap()
             }
         } catch (e: Exception) {
+            Log.w(TAG, "加载资源图片失败: $assetPath", e)
             null
         }
     }
@@ -117,7 +129,7 @@ actual object Platform {
             }
             context.startActivity(chooserIntent)
         } catch (e: Exception) {
-            // 分享失败（如无可用应用），忽略
+            Log.w(TAG, "分享图片失败: $assetPath", e)
         }
     }
 
@@ -187,6 +199,7 @@ actual object Platform {
                 (maxY - baseline) / renderScale
             )
         } catch (e: Exception) {
+            Log.w(TAG, "光栅测量墨迹盒失败: $zi", e)
             null
         }
     }
@@ -202,6 +215,7 @@ actual object Platform {
         try {
             launcher.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "*/*"))
         } catch (e: Exception) {
+            Log.e(TAG, "启动文件选择器失败", e)
             pickCallback = null
             onPicked(null)
         }
@@ -243,6 +257,7 @@ actual object Platform {
             }
             dest.absolutePath
         } catch (e: Exception) {
+            Log.w(TAG, "解析所选笔画库文件失败: $uri", e)
             null
         }
     }
@@ -274,6 +289,7 @@ actual object Platform {
                 conn.disconnect()
             }
         } catch (e: Exception) {
+            Log.w(TAG, "下载失败: $url", e)
             DownloadResult.Failure(e.message ?: "网络异常")
         }
     }
@@ -282,7 +298,7 @@ actual object Platform {
         try {
             File(path).delete()
         } catch (e: Exception) {
-            // 清理失败不影响主流程
+            Log.w(TAG, "删除下载文件失败: $path", e)
         }
     }
 
@@ -299,6 +315,7 @@ actual object Platform {
                 conn.disconnect()
             }
         } catch (e: Exception) {
+            Log.w(TAG, "获取远程文本失败: $url", e)
             null
         }
     }
@@ -316,6 +333,7 @@ actual object Platform {
             }
             digest.digest().joinToString("") { "%02x".format(it) }
         } catch (e: Exception) {
+            Log.w(TAG, "计算文件 SHA-256 失败: $path", e)
             null
         }
     }
@@ -336,6 +354,7 @@ actual object Platform {
             context.startActivity(intent)
             true
         } catch (e: Exception) {
+            Log.w(TAG, "触发系统安装失败: $apkPath", e)
             false
         }
     }

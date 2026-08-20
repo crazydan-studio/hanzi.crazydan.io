@@ -3,11 +3,14 @@ package org.crazydan.studio.app.hanzi.shared
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteStatement
+import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.Inflater
+
+private const val TAG = "HanziDb"
 
 /**
  * Android 实现: 基于平台 sqlite（android.database.sqlite）只读查询，
@@ -60,6 +63,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                 sdb.close()
             }
         } catch (e: Exception) {
+            Log.w(TAG, "校验笔画库失败: $path", e)
             null
         }
     }
@@ -94,6 +98,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
             strokeDbState = StrokeDbState.READY
             true
         } catch (e: Exception) {
+            Log.e(TAG, "导入笔画库失败: $sourcePath", e)
             false
         }
     }
@@ -144,6 +149,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
             strokeInfo = info
             StrokeDbState.READY
         } catch (e: Exception) {
+            Log.w(TAG, "打开笔画库失败: ${file.absolutePath}", e)
             StrokeDbState.INVALID
         }
     }
@@ -215,7 +221,8 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
             val traj = try {
                 decompress(cursor.getBlob(2))
             } catch (e: Exception) {
-                return@queryAll   // 数据损坏则跳过该笔画
+                Log.w(TAG, "解压笔画轨迹失败（数据损坏，跳过该笔画）: unicode=$unicode", e)
+                return@queryAll
             }
             val points = traj.getJSONArray("points")
             val list = ArrayList<StrokePoint>(points.length())

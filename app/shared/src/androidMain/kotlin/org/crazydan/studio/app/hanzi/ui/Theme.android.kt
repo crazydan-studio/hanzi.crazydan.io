@@ -1,6 +1,7 @@
 package org.crazydan.studio.app.hanzi.ui
 
 import android.graphics.Typeface
+import android.util.Log
 import androidx.compose.ui.text.font.FontFamily
 
 /**
@@ -13,6 +14,7 @@ actual fun platformKaiTiFontFamily(): FontFamily {
         try {
             FontFamily(Typeface.createFromAsset(context.assets, "fonts/ZhongYiKaiTi.ttf"))
         } catch (e: Exception) {
+            Log.w(TAG, "加载中易楷体失败，回退系统字体", e)
             FontFamily.Default
         }
     } else {
@@ -22,4 +24,5 @@ actual fun platformKaiTiFontFamily(): FontFamily {
     return family
 }
 
+private const val TAG = "HanziTheme"
 private var cachedFontFamily: FontFamily? = null

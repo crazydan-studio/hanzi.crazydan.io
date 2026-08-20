@@ -35,6 +35,7 @@ import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
 import org.crazydan.studio.app.hanzi.ui.components.LoadingBox
 import org.crazydan.studio.app.hanzi.ui.components.ZiCell
+import org.crazydan.studio.app.hanzi.ui.logError
 
 /** 页面顶部栏（返回 + 标题 + 主题切换图标） */
 @Composable
@@ -171,6 +172,7 @@ fun CommonsScreen(
             entries = try {
                 withContext(Dispatchers.Default) { db.queryCommons(1500) }
             } catch (e: Exception) {
+                logError("ListScreen", "查询常用字列表失败", e)
                 error = "常用字数据加载失败"
                 null
             }
@@ -216,6 +218,7 @@ fun PinyinListScreen(
             entries = try {
                 withContext(Dispatchers.Default) { db.queryPinyinList(pinyin) }
             } catch (e: Exception) {
+                logError("ListScreen", "查询拼音字列表失败: $pinyin", e)
                 error = "拼音「$pinyin」数据加载失败"
                 null
             }
