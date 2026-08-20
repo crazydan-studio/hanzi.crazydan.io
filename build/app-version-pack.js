@@ -36,24 +36,40 @@ function sha256(file) {
 // 安装包文件名 → 变体（net/pure）与系统（当前仅 android）:
 //   hanzi-debug.apk / hanzi-net-debug.apk（debug）
 //   hanzi-pure-android-1.0.0.apk / hanzi-net-android-1.0.0.apk（release）
+// 旧命名遗留（如 hanzi-android-1.0.0.apk，无变体标识）忽略
 const apkMetaOf = (name) => {
   const parts = name.replace(/^hanzi-/, '').replace(/\.apk$/, '').split('-')
-  return { variant: parts[0] === 'net' ? 'net' : 'pure', os: 'android' }
+  const variant = parts[0] === 'net' ? 'net'
+    : (parts[0] === 'pure' || parts[0] === 'debug') ? 'pure'
+    : null
+  return { variant, os: 'android' }
 }
 
-// 各系统各变体安装包 sha256（同名变体 dist 产物优先于 public 产物）
+// 各系统各变体安装包 sha256（同一变体存在多份产物时取修改时间最新的）
 const checksum = {}
 for (const dir of APK_DIRS) {
   if (!fs.existsSync(dir)) continue
   for (const name of fs.readdirSync(dir)) {
     if (!name.endsWith('.apk')) continue
     const { os, variant } = apkMetaOf(name)
+    if (!variant) continue
+    const file = path.join(dir, name)
+    const mtime = fs.statSync(file).mtimeMs
     checksum[os] = checksum[os] || {}
-    checksum[os][variant] = 'sha256:' + sha256(path.join(dir, name))
+    const prev = checksum[os][variant]
+    if (!prev || prev.mtime < mtime) {
+      checksum[os][variant] = { mtime, hash: 'sha256:' + sha256(file) }
+    }
   }
 }
+const checksumOut = Object.fromEntries(
+  Object.entries(checksum).map(([os, variants]) => [
+    os,
+    Object.fromEntries(Object.entries(variants).map(([v, e]) => [v, e.hash]))
+  ])
+)
 
-const content = JSON.stringify({ name: NAME, changelog: CHANGELOG, checksum }) + '\n'
+const content = JSON.stringify({ name: NAME, changelog: CHANGELOG, checksum: checksumOut }) + '\n'
 
 const targets = [path.join(PUBLIC_DIR, 'assets', 'app', 'version')]
 if (fs.existsSync(path.join(DIST_DIR, 'assets', 'app'))) {
