@@ -44,6 +44,7 @@ import org.crazydan.studio.app.hanzi.ui.Platform
 import org.crazydan.studio.app.hanzi.ui.Screen
 import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.SplashScreen
+import org.crazydan.studio.app.hanzi.ui.StrokeDbDownloader
 import org.crazydan.studio.app.hanzi.ui.ThemeStore
 import org.crazydan.studio.app.hanzi.ui.components.FullscreenWait
 import org.json.JSONObject
@@ -87,6 +88,12 @@ class MainActivity : ComponentActivity() {
             val scope = rememberCoroutineScope()
             // 导航器提升到宿主层: 更新检查需感知当前页面（仅在首页时弹窗）
             val navigator = remember { AppNavigator() }
+            // 当前主题（单一状态源为 HanziApp; 此处同步窗口/系统栏与更新弹窗主题）
+            var appDark by remember { mutableStateOf(savedDark) }
+            val onThemeChanged: (Boolean) -> Unit = { dark ->
+                appDark = dark
+                applyStartupTheme(dark)
+            }
 
             LaunchedEffect(Unit) {
                 // 后台准备数据库（同源检测/覆盖复制 + 索引创建，幂等）;
@@ -143,16 +150,17 @@ class MainActivity : ComponentActivity() {
                     AppContent(
                         db = currentDb,
                         navigator = navigator,
+                        onThemeChanged = onThemeChanged,
                         onRendered = { homeRendered = true }
                     )
                 } else if (initFailed) {
                     InitNoticeScreen(
-                        darkTheme = savedDark,
+                        darkTheme = appDark,
                         message = "数据库初始化失败，请重启应用"
                     )
                 } else if (!showSplash) {
                     // 开屏已提前淡出且数据库仍在初始化 → 在首页区域显示等待提示
-                    InitNoticeScreen(darkTheme = savedDark)
+                    InitNoticeScreen(darkTheme = appDark)
                 }
                 // 开屏页（仅 logo 与等待动画；首页渲染完成或初始化中提前淡出）
                 AnimatedVisibility(
@@ -164,7 +172,7 @@ class MainActivity : ComponentActivity() {
             }
             // 联网变体: 后台检查更新，仅在首页时弹窗提示（含下载遮罩与结果提示）
             if (BuildConfig.NET_VARIANT) {
-                HanziTheme(darkTheme = savedDark) {
+                HanziTheme(darkTheme = appDark) {
                     AppUpdateOverlay(scope = scope, navigator = navigator)
                 }
             }
@@ -172,9 +180,15 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun AppContent(db: HanziDb, navigator: AppNavigator, onRendered: () -> Unit) {
+    private fun AppContent(
+        db: HanziDb,
+        navigator: AppNavigator,
+        onThemeChanged: (Boolean) -> Unit,
+        onRendered: () -> Unit
+    ) {
         // 返回键: 页面内返回；无上一页时退出
-        BackHandler {
+        // 联网变体笔画数据下载/导入任务进行中禁止返回（任务跨页面保持，防止退出中断）
+        BackHandler(enabled = !StrokeDbDownloader.isWorking) {
             if (!navigator.back()) {
                 finish()
             }
@@ -182,6 +196,7 @@ class MainActivity : ComponentActivity() {
         HanziApp(
             db = db,
             navigator = navigator,
+            onThemeChanged = onThemeChanged,
             onRendered = onRendered
         )
     }
@@ -190,7 +205,7 @@ class MainActivity : ComponentActivity() {
     private data class UpdateInfo(
         val version: String,
         val changelog: String,
-        val sha256: String?   // 当前变体安装包 sha256（用于完整性校验）
+        val sha256: String?   // 当前变体安装包 sha256（十六进制，用于完整性校验）
     )
 
     /**
@@ -313,15 +328,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 解析 version 单行 JSON: {"name":"1.0.0","changelog":"...","checksum":{"android":{"pure":"...","net":"..."}}}
+    // 解析 version 单行 JSON: {"name":"1.0.0","changelog":"...","checksum":{"android":{"pure":"sha256:...","net":"sha256:..."}}}
     private fun parseUpdateInfo(json: String, variant: String): UpdateInfo? {
         return try {
             val root = JSONObject(json)
             val version = root.getString("name")
             val changelog = root.optString("changelog", "")
+            // 取出的 hash 带 "sha256:" 前缀，比较前剥离
             val sha256 = root.optJSONObject("checksum")
                 ?.optJSONObject("android")
                 ?.optString(variant, null)
+                ?.removePrefix("sha256:")
             UpdateInfo(version, changelog, sha256)
         } catch (e: Exception) {
             Log.w(TAG, "解析版本信息失败: $json", e)

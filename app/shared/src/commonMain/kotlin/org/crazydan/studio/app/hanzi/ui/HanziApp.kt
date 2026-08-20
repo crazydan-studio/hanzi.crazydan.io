@@ -72,12 +72,14 @@ class AppNavigator(initial: Screen = Screen.Home) {
 
 /**
  * 汉字 App 根组件（原生 Compose UI）
+ * @param onThemeChanged 主题切换回调（宿主据此同步窗口/系统栏等）
  * @param onRendered 首页完成首帧渲染后的回调（开屏据此淡出）
  */
 @Composable
 fun HanziApp(
     db: HanziDb,
     navigator: AppNavigator,
+    onThemeChanged: (Boolean) -> Unit = {},
     onRendered: () -> Unit = {}
 ) {
     // 首页首次组合后通知宿主（开屏等待此信号再淡出）
@@ -86,11 +88,12 @@ fun HanziApp(
     }
 
     val systemDark = isSystemInDarkTheme()
-    // 主题持久化: 已保存的设置为准，未设置时跟随系统
+    // 主题持久化: 已保存的设置为准，未设置时跟随系统（唯一状态源）
     var darkTheme by remember { mutableStateOf(ThemeStore.load() ?: systemDark) }
     val toggleTheme: () -> Unit = {
         darkTheme = !darkTheme
         ThemeStore.save(darkTheme)
+        onThemeChanged(darkTheme)
     }
 
     HanziTheme(darkTheme = darkTheme) {
@@ -104,8 +107,15 @@ fun HanziApp(
                     dark = darkTheme,
                     onToggleTheme = toggleTheme,
                     onOpenZi = { navigator.open(Screen.ZiDetail(it)) },
-                    onOpenCommons = { navigator.open(Screen.Commons) },
-                    onOpenPinyin = { navigator.open(Screen.PinyinList(it)) },
+                    onOpenCommons = {
+                        // 从首页进入列表: 无跳转来源，清除上次的选中高亮
+                        navigator.commonsSelected = ""
+                        navigator.open(Screen.Commons)
+                    },
+                    onOpenPinyin = {
+                        navigator.pinyinSelected = ""
+                        navigator.open(Screen.PinyinList(it))
+                    },
                     onOpenStrokeManage = { navigator.open(Screen.StrokeDataManage) },
                     onOpenDonate = { navigator.open(Screen.Donate) },
                     initialCommons = navigator.homeCommons,

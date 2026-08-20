@@ -25,7 +25,7 @@ actual object HanziDbFactory {
 
 private class AndroidHanziDb(private val dbPath: String) : HanziDb {
 
-    // 建索引需要写权限（仅首次/数据库更新时写入，日常为只读查询）
+    // 以读写方式打开: 建拼音索引需要写权限（仅首次/数据库更新时写入，日常查询只读）
     private val db: SQLiteDatabase =
         SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READWRITE)
 
@@ -104,10 +104,17 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
     }
 
     override fun strokeDbStatus(): StrokeDbStatus {
-        // 目标库缺失/损坏时重新探测状态（文件可能被外部删除）
+        // 目标库缺失/损坏时重新探测状态（文件可能被外部删除）;
+        // READY 后文件被删除时同样回退探测（廉价的文件存在性检查）
+        val file = fixedStrokeDbFile()
+        if (strokeDbState == StrokeDbState.READY && !file.isFile) {
+            strokeDb = null
+            strokeInfo = null
+            strokeDbState = StrokeDbState.MISSING
+            return StrokeDbStatus(strokeDbState, strokeInfo)
+        }
         ensureStrokeDbOpen()
         if (strokeDbState != StrokeDbState.READY) {
-            val file = fixedStrokeDbFile()
             if (!file.isFile) {
                 strokeDbState = StrokeDbState.MISSING
             } else {
@@ -359,7 +366,9 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
     }
 
     // 数字声调拼音 → 无声调拼音（去掉尾部声调数字）
-    private fun stripTone(pinyin: String): String = pinyin.replace(Regex("\\d+$"), "")
+    private val STRIP_TONE_REGEX = Regex("\\d+$")
+
+    private fun stripTone(pinyin: String): String = pinyin.replace(STRIP_TONE_REGEX, "")
 
     // zlib 解压（node 端 zlib.deflateSync 压缩的轨迹 JSON {version, points}）
     private fun decompress(data: ByteArray): JSONObject {
@@ -370,7 +379,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
             val buf = ByteArray(8192)
             while (!inflater.finished()) {
                 val n = inflater.inflate(buf)
-                if (n == 0 && inflater.needsInput()) break
+                if (n == 0) break   // 数据异常（截断/需字典等）不再推进时退出，避免死循环
                 out.write(buf, 0, n)
             }
             return JSONObject(String(out.toByteArray(), Charsets.UTF_8))

@@ -66,6 +66,8 @@ import org.crazydan.studio.app.hanzi.ui.components.LoadingBox
 import org.crazydan.studio.app.hanzi.ui.components.BugReportIcon
 import org.crazydan.studio.app.hanzi.ui.components.OpenInNewIcon
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
+import org.crazydan.studio.app.hanzi.ui.components.ThemeIconButton
+import org.crazydan.studio.app.hanzi.ui.components.TopBar
 import org.crazydan.studio.app.hanzi.ui.components.StrokeCellCanvas
 import org.crazydan.studio.app.hanzi.ui.components.WritingAnimationCanvas
 import org.crazydan.studio.app.hanzi.ui.components.WritingPlayer
@@ -648,14 +650,17 @@ private fun DividerDot() {
     )
 }
 
+// 复制成功提示: 1.5s 后清除；连续复制时取消前一次定时（避免提前清除后一次的「已复制」）
+private var copiedFlashJob: kotlinx.coroutines.Job? = null
+
 private fun flashCopied(scope: CoroutineScope, key: String, set: (String?) -> Unit) {
     set(key)
-    scope.launch {
+    copiedFlashJob?.cancel()
+    copiedFlashJob = scope.launch {
         delay(1500)
         set(null)
     }
 }
-
 private fun encodeUrl(text: String): String {
     return buildString {
         text.forEach { ch ->

@@ -15,7 +15,7 @@ import org.crazydan.studio.app.hanzi.shared.StrokeDbInfo
  * 笔画数据在线下载/导入任务（仅联网变体使用）:
  *  - 全局单例持有任务状态，页面退出再进入时任务不中断，遮罩与结果提示持续生效
  *  - 点击数据规模卡片后自动下载对应笔画数据库并经 [HanziDb.importStrokeDb] 导入；
- *    任务期间禁止其他操作，成功/失败后由页面提示
+ *    任务期间禁止返回导航（见 MainActivity），成功/失败后由页面提示
  */
 object StrokeDbDownloader {
 
@@ -40,15 +40,16 @@ object StrokeDbDownloader {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    /** 当前是否有进行中的任务（退出页面再进入时据此恢复遮罩） */
+    /** 当前是否有进行中的任务（页面据此禁止返回导航/显示遮罩） */
     val isWorking: Boolean
         get() = state is State.Working
 
     /** 开始下载并导入指定规模的笔画数据库（任务中重复调用忽略） */
     fun start(scale: String, db: HanziDb) {
         if (state is State.Working) return
+        // 同步置位后再启动协程，避免同一帧内重复调用并发启动两个任务
+        state = State.Working(Phase.DOWNLOADING, scale)
         scope.launch {
-            state = State.Working(Phase.DOWNLOADING, scale)
             val result = withContext(Dispatchers.IO) {
                 Platform.downloadToFile(
                     SiteLinks.strokeDbDownloadUrl(Platform.appVersion(), scale),
@@ -64,13 +65,17 @@ object StrokeDbDownloader {
             }
             state = State.Working(Phase.IMPORTING, scale)
             val ok = withContext(Dispatchers.Default) { db.importStrokeDb(file) }
-            state = if (ok) {
-                // 导入成功后清理下载的临时文件
-                withContext(Dispatchers.IO) { Platform.deleteDownloadedFile(file) }
-                val info = withContext(Dispatchers.Default) { db.strokeDbStatus().info }
-                State.Done(info ?: StrokeDbInfo(0, 0))
+            if (!ok) {
+                state = State.Failed("笔画数据导入失败，请重试")
+                return@launch
+            }
+            // 导入成功后清理下载的临时文件
+            withContext(Dispatchers.IO) { Platform.deleteDownloadedFile(file) }
+            val info = withContext(Dispatchers.Default) { db.strokeDbStatus().info }
+            if (info == null) {
+                state = State.Failed("笔画数据已导入，但状态校验异常，请检查后重试")
             } else {
-                State.Failed("笔画数据导入失败，请重试")
+                state = State.Done(info)
             }
         }
     }

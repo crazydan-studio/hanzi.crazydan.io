@@ -43,15 +43,20 @@ android {
 
     signingConfigs {
         create("release") {
+            // 配置期惰性读取 keystore 配置: 文件缺失（如全新克隆）时仅警告，
+            // 不影响 debug 构建；release 构建在打包阶段因未配置签名而失败
             val keystorePropertiesFile = rootProject.file("keystore/release.properties")
-            val keystoreProperties = Properties().apply {
-                load(FileInputStream(keystorePropertiesFile))
+            if (keystorePropertiesFile.isFile) {
+                val keystoreProperties = Properties().apply {
+                    load(FileInputStream(keystorePropertiesFile))
+                }
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            } else {
+                println("警告: 未找到 keystore/release.properties（配置见 keystore.example/），release 构建将无法签名")
             }
-
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
         }
     }
 
