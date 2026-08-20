@@ -196,12 +196,13 @@
                   'opacity-60': s.isPending,
                   // 重绘目标: 醒目高亮
                   'bg-amber-50 border-l-4 border-amber-400 dark:bg-amber-900/30 dark:border-amber-500': redrawStroke?.id === s.id,
-                  // 书写模式选中: 列表行高亮（点击选中/取消）
-                  'bg-blue-100 border-l-4 border-blue-500 dark:bg-blue-900/40 dark:border-blue-500': padMode === 'write' && selectedStrokeId === s.id,
+                  // 行选中高亮（书写模式点击选中/取消; 回放模式播放中联动/非播放保持选中）:
+                  // 注意: 两模式共用同一类键，须合并条件避免对象键覆盖导致选中不高亮
+                  'bg-blue-100 border-l-4 border-blue-500 dark:bg-blue-900/40 dark:border-blue-500':
+                    (padMode === 'write' && selectedStrokeId === s.id) ||
+                    (padMode === 'playback' && rowHighlightId === s.id),
                   // 书写模式悬停: 高亮并提示可拖拽（暗黑主题适配）
                   'hover:bg-blue-50 dark:hover:bg-gray-700 cursor-grab active:cursor-grabbing': padMode === 'write' && !s.isPending && !isTouch,
-                  // 回放联动高亮: 播放中显示正在绘制的笔画；非播放时保持选中笔画
-                  'bg-blue-100 border-l-4 border-blue-500 dark:bg-blue-900/40 dark:border-blue-500': padMode === 'playback' && rowHighlightId === s.id,
                   // 回放中已完成笔画淡化
                   'opacity-50': isPlaybackCompleted(s.id),
                   // 回放模式: 点击行选中该笔画并单笔播放
