@@ -40,6 +40,8 @@ import org.crazydan.studio.app.hanzi.ui.Platform
 import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
+import org.crazydan.studio.app.hanzi.ui.components.ThemeIconButton
+import org.crazydan.studio.app.hanzi.ui.components.TopBar
 
 /**
  * 友情赞助页（收款码图片内置，由 build/app-pack.sh 从站点拷贝/下载到 assets/donate/）

@@ -96,7 +96,7 @@ class WritingPlayer(private val strokes: List<ZiStroke>) {
     }
 
     /** 帧推进: dtMs 为墙钟毫秒，速度在此内部应用（与前端 tick 一致） */
-    fun tick(rawDtMs: Float, onComplete: () -> Unit) {
+    fun tick(rawDtMs: Float) {
         if (state != State.PLAYING) return
 
         // 笔画间停顿（墙钟时间，不乘速度）
@@ -108,7 +108,6 @@ class WritingPlayer(private val strokes: List<ZiStroke>) {
         // 全部完成
         if (currentIndex >= strokes.size) {
             state = State.COMPLETED
-            onComplete()
             return
         }
 
@@ -122,7 +121,6 @@ class WritingPlayer(private val strokes: List<ZiStroke>) {
             // 全部笔画结束
             if (currentIndex >= strokes.size) {
                 state = State.COMPLETED
-                onComplete()
             } else {
                 elapsedMs = 0f
                 gapRemainingMs = StrokeFormat.STROKE_GAP_MS
@@ -258,7 +256,7 @@ fun rememberWritingPlayer(strokes: List<ZiStroke>): WritingPlayer {
                 var lastNs = withFrameNanos { it }
                 while (player.state == WritingPlayer.State.PLAYING) {
                     val now = withFrameNanos { it }
-                    player.tick((now - lastNs) / 1_000_000f) {}
+                    player.tick((now - lastNs) / 1_000_000f)
                     lastNs = now
                 }
             }
@@ -542,7 +540,7 @@ private fun DrawScope.drawFullStroke(stroke: ZiStroke, color: Color, box: ZiBox?
     val pts = stroke.points
     if (pts.isEmpty() || box == null) return
     val widths = brushWidths(pts, brushBaseWidth(stroke.brush))
-    drawStrokePath(pts, widths, 1f, color, box)
+    drawStrokePath(pts, widths, color, box)
 }
 
 /** 部分笔画（进度 0..1，按时间戳插值到当前点） */
@@ -565,10 +563,10 @@ private fun DrawScope.drawPartialStroke(
         drawStrokePath(
             head + interp,
             widths.take(head.size) + listOf(widths[head.size.coerceAtMost(widths.size - 1)]),
-            1f, color, box
+            color, box
         )
     } else {
-        drawStrokePath(pts, widths, 1f, color, box)
+        drawStrokePath(pts, widths, color, box)
     }
 }
 
@@ -576,20 +574,18 @@ private fun DrawScope.drawPartialStroke(
 private fun DrawScope.drawStrokePath(
     points: List<StrokePoint>,
     widths: List<Float>,
-    progress: Float,
     color: Color,
     box: ZiBox
 ) {
     if (points.size < 2) {
         if (points.size == 1) {
             val p = toCanvas(points[0], box)
-            val r = (widths[0] / 2f).coerceAtLeast(0.5f) * progress.coerceAtLeast(0.1f)
+            val r = (widths[0] / 2f).coerceAtLeast(0.5f)
             drawCircle(color, radius = r, center = p)
         }
         return
     }
-    val count = maxOf(2, (points.size * progress).toInt().coerceAtLeast(1))
-    for (i in 1 until count) {
+    for (i in 1 until points.size) {
         val a = toCanvas(points[i - 1], box)
         val b = toCanvas(points[i], box)
         // 宽度已为画布像素（brushBaseWidth 画布锚定），直接绘制

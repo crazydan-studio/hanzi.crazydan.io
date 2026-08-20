@@ -34,41 +34,9 @@ import org.crazydan.studio.app.hanzi.shared.ZiEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
 import org.crazydan.studio.app.hanzi.ui.components.LoadingBox
+import org.crazydan.studio.app.hanzi.ui.components.TopBar
 import org.crazydan.studio.app.hanzi.ui.components.ZiCell
 import org.crazydan.studio.app.hanzi.ui.logError
-
-/** 页面顶部栏（返回 + 标题 + 主题切换图标） */
-@Composable
-fun TopBar(
-    title: String,
-    dark: Boolean,
-    onToggleTheme: () -> Unit,
-    onBack: () -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp)
-    ) {
-        Text(
-            text = "← 返回",
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier
-                .clickable(onClick = onBack)
-                .padding(horizontal = 8.dp, vertical = 8.dp)
-        )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
-            modifier = Modifier.weight(1f)
-        )
-        ThemeIconButton(dark = dark, onToggleTheme = onToggleTheme)
-    }
-}
 
 /**
  * 汉字列表页（常用字列表 / 拼音字列表）: 整页滚动
@@ -170,7 +138,8 @@ fun CommonsScreen(
     LaunchedEffect(Unit) {
         if (entries == null) {
             entries = try {
-                withContext(Dispatchers.Default) { db.queryCommons(1500) }
+                // 常用字全量列表（与笔画库「1500 字」规模对应的常用字集合，见 export-zi.js）
+                withContext(Dispatchers.Default) { db.queryCommons(COMMONS_FULL_LIMIT) }
             } catch (e: Exception) {
                 logError("ListScreen", "查询常用字列表失败", e)
                 error = "常用字数据加载失败"
@@ -241,3 +210,6 @@ fun PinyinListScreen(
         selectedZi = selected
     )
 }
+
+// 常用字全量列表数量（与 build/export-zi.js 的 DEFAULT_COUNT 一致）
+private const val COMMONS_FULL_LIMIT = 1500

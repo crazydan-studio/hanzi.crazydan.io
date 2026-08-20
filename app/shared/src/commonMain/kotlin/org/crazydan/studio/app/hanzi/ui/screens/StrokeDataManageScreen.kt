@@ -1,7 +1,6 @@
 package org.crazydan.studio.app.hanzi.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,6 +42,8 @@ import org.crazydan.studio.app.hanzi.ui.components.FullscreenWait
 import org.crazydan.studio.app.hanzi.ui.components.InlineLinkText
 import org.crazydan.studio.app.hanzi.ui.components.PrimaryButton
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
+import org.crazydan.studio.app.hanzi.ui.components.ThemeIconButton
+import org.crazydan.studio.app.hanzi.ui.components.TopBar
 
 /**
  * 笔画数据管理页:
@@ -184,7 +185,7 @@ fun StrokeDataManageScreen(
         InlineLinkText(
             text = "可按需下载不同规模的汉字笔画数据；笔画数据发布于「汉字网」GitHub Releases（可选择其他规模数据库）。",
             links = mapOf(
-                "GitHub Releases" to "https://github.com/crazydan-studio/hanzi.crazydan.io/releases/latest"
+                "GitHub Releases" to SiteLinks.RELEASES
             ),
             style = MaterialTheme.typography.bodySmall.copy(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -364,21 +365,24 @@ private fun downloadScale(scale: String) {
     Platform.openUrl(SiteLinks.strokeDbDownloadUrl(Platform.appVersion(), scale))
 }
 
-// 数据规模选项（与 build/export-stroke-db.js 的 --count 导出规模一致）
+// 数据规模选项（与 build/export-stroke-db.js 的 --count 导出规模一致）;
+// 前三档标题为静态，仅「全部」随汉字总数动态生成
 private data class ScaleOption(val title: String, val desc: String, val scale: String)
 
-private fun scaleOptions(totalZi: Int): List<ScaleOption> = listOf(
+private val SCALE_OPTIONS = listOf(
     ScaleOption("1500 字", "约 1500 个高频常用汉字（小规模）", "1500"),
     ScaleOption("3000 字", "约 3000 个高频汉字（中规模）", "3000"),
-    ScaleOption("5000 字", "约 5000 个高频汉字（大规模）", "5000"),
-    ScaleOption("全部（约 ${formatWan(totalZi)}）", "全部汉字的笔画数据（完整规模）", "full")
+    ScaleOption("5000 字", "约 5000 个高频汉字（大规模）", "5000")
 )
 
+private fun scaleOptions(totalZi: Int): List<ScaleOption> =
+    SCALE_OPTIONS + ScaleOption(
+        "全部（约 ${formatWan(totalZi)}）", "全部汉字的笔画数据（完整规模）", "full"
+    )
+
 /** 规模标识 → 展示名（下载遮罩文案用） */
-private fun scaleTitle(scale: String): String = when (scale) {
-    "full" -> "全部"
-    else -> scaleOptions(Int.MAX_VALUE).firstOrNull { it.scale == scale }?.title ?: scale
-}
+private fun scaleTitle(scale: String): String =
+    SCALE_OPTIONS.firstOrNull { it.scale == scale }?.title ?: "全部"
 
 /** 数字格式化为「万」表述（如 26223 → 2.6 万+） */
 private fun formatWan(total: Int): String {

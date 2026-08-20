@@ -3,22 +3,17 @@ package org.crazydan.studio.app.hanzi.ui.screens
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -30,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -47,12 +41,13 @@ import org.crazydan.studio.app.hanzi.ui.Gray400
 import org.crazydan.studio.app.hanzi.ui.Gray500
 import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
-import org.crazydan.studio.app.hanzi.ui.components.DarkModeIcon
 import org.crazydan.studio.app.hanzi.ui.components.InlineLinkText
-import org.crazydan.studio.app.hanzi.ui.components.LightModeIcon
+import org.crazydan.studio.app.hanzi.ui.components.LoadingBox
 import org.crazydan.studio.app.hanzi.ui.components.MixedFontText
 import org.crazydan.studio.app.hanzi.ui.components.PrimaryButton
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
+import org.crazydan.studio.app.hanzi.ui.components.SectionCardHeader
+import org.crazydan.studio.app.hanzi.ui.components.ThemeIconButton
 import org.crazydan.studio.app.hanzi.ui.components.ZiGrid
 import org.crazydan.studio.app.hanzi.ui.logoPainter
 
@@ -162,8 +157,8 @@ fun HomeScreen(
                 onClick = {
                     onSearch(query, onOpenZi, onOpenPinyin) { error = it }
                 }
-            )        }
-        // 提示说明（汉字用楷体，英文/拼音用系统字体，避免字符间隔过大）
+            )
+        }        // 提示说明（汉字用楷体，英文/拼音用系统字体，避免字符间隔过大）
         MixedFontText(
             text = "仅可输入单个汉字或单个无声调拼音；拼音中的 ü 可用 v 代替（如 lv 等同于 lü）",
             style = MaterialTheme.typography.labelSmall.copy(
@@ -187,33 +182,21 @@ fun HomeScreen(
         ) {
             // 常用字速览
             SectionCard {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "常用字速览",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        text = "查看全部常用字 →",
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier
-                            .clickable(onClick = onOpenCommons)
-                            .padding(6.dp)
-                    )
-                }
-                when {
-                    commonsLoading -> Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp)
-                    ) {
-                        CircularProgressIndicator()
+                SectionCardHeader(
+                    title = "常用字速览",
+                    trailing = {
+                        Text(
+                            text = "查看全部常用字 →",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier
+                                .clickable(onClick = onOpenCommons)
+                                .padding(6.dp)
+                        )
                     }
+                )
+                when {
+                    commonsLoading -> LoadingBox(height = 120.dp)
                     commonsError -> Text(
                         text = "暂无常用字数据",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -234,30 +217,22 @@ fun HomeScreen(
 
             // 笔画数据（按需下载，避免占用过多存储空间）
             SectionCard {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("笔画数据", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "笔画数据为独立数据库，可按需下载不同规模的数据集，下载后导入即可使用",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 2.dp)
+                SectionCardHeader(
+                    title = "笔画数据",
+                    subtitle = "笔画数据为独立数据库，可按需下载不同规模的数据集，下载后导入即可使用",
+                    trailing = {
+                        PrimaryButton(
+                            text = "管理",
+                            onClick = onOpenStrokeManage
                         )
                     }
-                    Spacer(Modifier.width(12.dp))
-                    PrimaryButton(
-                        text = "管理",
-                        onClick = onOpenStrokeManage
-                    )
-                }
+                )
                 // 附加说明: 已配置且完整时显示可访问的汉字数量；缺失/无效时警示
+                val info = strokeInfo
                 when {
                     !strokeChecked -> Unit
-                    strokeInfo != null -> Text(
-                        text = "当前可访问 ${strokeInfo!!.ziCount} 个汉字的笔画数据（共 ${strokeInfo!!.strokeCount} 笔）。",
+                    info != null -> Text(
+                        text = "当前可访问 ${info.ziCount} 个汉字的笔画数据（共 ${info.strokeCount} 笔）。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp)
@@ -273,25 +248,16 @@ fun HomeScreen(
 
             // 友情赞助
             SectionCard {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("友情赞助", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "支持本项目持续发展，让更多人免费使用汉字笔画数据",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 2.dp)
+                SectionCardHeader(
+                    title = "友情赞助",
+                    subtitle = "支持本项目持续发展，让更多人免费使用汉字笔画数据",
+                    trailing = {
+                        PrimaryButton(
+                            text = "去赞助",
+                            onClick = onOpenDonate
                         )
                     }
-                    Spacer(Modifier.width(12.dp))
-                    PrimaryButton(
-                        text = "去赞助",
-                        onClick = onOpenDonate
-                    )
-                }
+                )
             }
 
             // 关于本站（内容与样式与 web 页一致; 文案颜色与「友情赞助」一致）
@@ -371,18 +337,6 @@ private fun AboutBlock(title: String, dark: Boolean, content: @Composable () -> 
         Column(Modifier.padding(top = 4.dp)) {
             content()
         }
-    }
-}
-
-/** 主题切换图标按钮（深色主题显示日/亮色图标，浅色主题显示月/暗色图标） */
-@Composable
-fun ThemeIconButton(dark: Boolean, onToggleTheme: () -> Unit) {
-    IconButton(onClick = onToggleTheme) {
-        Icon(
-            imageVector = if (dark) LightModeIcon else DarkModeIcon,
-            contentDescription = if (dark) "切换浅色" else "切换深色",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

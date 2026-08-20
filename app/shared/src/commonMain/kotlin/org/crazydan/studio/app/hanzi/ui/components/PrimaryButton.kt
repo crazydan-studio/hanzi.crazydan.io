@@ -1,11 +1,9 @@
 package org.crazydan.studio.app.hanzi.ui.components
 
-import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import org.crazydan.studio.app.hanzi.ui.Blue500
@@ -18,8 +16,7 @@ import org.crazydan.studio.app.hanzi.ui.Blue500
 fun PrimaryButton(
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    icon: (@Composable () -> Unit)? = null
+    modifier: Modifier = Modifier
 ) {
     Button(
         colors = ButtonDefaults.buttonColors(
@@ -29,11 +26,6 @@ fun PrimaryButton(
         onClick = onClick,
         modifier = modifier
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) {
-                icon()
-            }
-            Text(text)
-        }
+        Text(text)
     }
 }

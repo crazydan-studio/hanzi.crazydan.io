@@ -5,6 +5,7 @@ object SiteLinks {
     const val SITE = "https://hanzi.crazydan.io"
     const val REPO = "https://github.com/crazydan-studio/hanzi.crazydan.io"
     const val ISSUES = "$REPO/issues"
+    const val RELEASES = "$REPO/releases/latest"
     const val KUAII_IME = "https://github.com/crazydan-studio/kuaizi-ime"
     const val ZDIC = "https://zdic.net/"
     const val ZDIC_TERMS = "https://zdic.net/terms/"
