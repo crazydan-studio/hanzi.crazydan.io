@@ -35,12 +35,12 @@ function sha256(file) {
 
 // 安装包文件名 → 变体（net/pure）与系统（当前仅 android）:
 //   hanzi-debug.apk / hanzi-net-debug.apk（debug）
-//   hanzi-pure-android-1.0.0.apk / hanzi-net-android-1.0.0.apk（release）
-// 旧命名遗留（如 hanzi-android-1.0.0.apk，无变体标识）忽略
+//   hanzi-android-1.0.0.apk（pure release，无变体标识）/ hanzi-net-android-1.0.0.apk（net release）
+// 其他前缀（非 net/debug/android/pure）视为未知变体，忽略
 const apkMetaOf = (name) => {
   const parts = name.replace(/^hanzi-/, '').replace(/\.apk$/, '').split('-')
   const variant = parts[0] === 'net' ? 'net'
-    : (parts[0] === 'pure' || parts[0] === 'debug') ? 'pure'
+    : (parts[0] === 'debug' || parts[0] === 'android' || parts[0] === 'pure') ? 'pure'
     : null
   return { variant, os: 'android' }
 }
