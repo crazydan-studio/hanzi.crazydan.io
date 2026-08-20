@@ -91,9 +91,9 @@ if [[ "${BUILD_TYPE}" == "debug" ]]; then
 else
   DEST_DIR="${ROOT}/dist/assets/app"
   prepare_dest "${DEST_DIR}"
-  cp_apk "pure" "release" "${DEST_DIR}" "hanzi-pure-${OS}-${VERSION_NAME}.apk"
+  cp_apk "pure" "release" "${DEST_DIR}" "hanzi-${OS}-${VERSION_NAME}.apk"
   cp_apk "net"  "release" "${DEST_DIR}" "hanzi-net-${OS}-${VERSION_NAME}.apk"
-  echo "==> 完成: ${DEST_DIR}/hanzi-pure-${OS}-${VERSION_NAME}.apk（纯净版）"
+  echo "==> 完成: ${DEST_DIR}/hanzi-${OS}-${VERSION_NAME}.apk（纯净版）"
   echo "           ${DEST_DIR}/hanzi-net-${OS}-${VERSION_NAME}.apk（联网版）"
 fi
 

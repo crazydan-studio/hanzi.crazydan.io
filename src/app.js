@@ -47,10 +47,10 @@ const APP_PLATFORMS = IS_DEV
         variant: 'pure',
         name: 'Android 纯净版',
         icon: ANDROID_ICON,
-        file: `hanzi-pure-android-${APP_VERSION}.apk`,
+        file: `hanzi-android-${APP_VERSION}.apk`,
         version: APP_VERSION,
         desc: '无任何权限，仅使用内置数据',
-        url: `${GITHUB_RELEASES}/v${APP_VERSION}/hanzi-pure-android-${APP_VERSION}.apk`
+        url: `${GITHUB_RELEASES}/v${APP_VERSION}/hanzi-android-${APP_VERSION}.apk`
       },
       {
         id: 'android',

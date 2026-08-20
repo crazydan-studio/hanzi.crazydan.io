@@ -28,5 +28,5 @@ object SiteLinks {
      * （命名与 build/app-pack.sh 产物一致，随 GitHub Releases 发布）
      */
     fun apkDownloadUrl(version: String, variant: String): String =
-        "$REPO/releases/download/v$version/hanzi-$variant-android-$version.apk"
+        "$REPO/releases/download/v$version/hanzi" + (if (variant.isEmpty()) "" else "-$variant") + "-android-$version.apk"
 }

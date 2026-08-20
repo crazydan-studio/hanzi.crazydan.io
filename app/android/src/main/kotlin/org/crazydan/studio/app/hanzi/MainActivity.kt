@@ -223,7 +223,7 @@ class MainActivity : ComponentActivity() {
                 downloading = true
                 updateInfo = null
                 val result = withContext(Dispatchers.IO) {
-                    Platform.downloadToFile(url, "hanzi-$VARIANT_NAME-android-${info.version}.apk")
+                    Platform.downloadToFile(url, url.substringAfterLast('/'))
                 }
                 val apk = when (result) {
                     is DownloadResult.Success -> result.path
@@ -279,7 +279,7 @@ class MainActivity : ComponentActivity() {
                             TextButton(onClick = {
                                 ignoreUpdateVersion(info.version)
                                 updateInfo = null
-                            }) { Text("忽略") }
+                            }) { Text("忽略该版本") }
                         }
                     }
                 )
@@ -412,7 +412,7 @@ class MainActivity : ComponentActivity() {
         private const val PREF_IGNORED_UPDATE = "ignored_update_version"
 
         /** 当前变体名（与 app-pack.sh 安装包命名约定一致） */
-        private val VARIANT_NAME = if (BuildConfig.NET_VARIANT) "net" else "pure"
+        private val VARIANT_NAME = if (BuildConfig.NET_VARIANT) "net" else ""
 
         /** 开屏页固定展示时间（毫秒） */
         private const val SPLASH_MIN_MS = 900L
