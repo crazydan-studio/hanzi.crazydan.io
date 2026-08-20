@@ -1,5 +1,5 @@
 // 生成 App 版本信息文件（public/assets/app/version，单行 JSON）:
-//   {"version":"1.0.0","changelog":"更新日志","checksum":{"android":{"pure":"sha256:...","net":"sha256:..."}}}
+//   {"name":"1.0.0","changelog":"更新日志","checksum":{"android":{"pure":"sha256:...","net":"sha256:..."}}}
 // 供联网变体（net）启动检查更新: 版本号/更新日志展示、安装包 sha256 完整性校验
 // 输入:
 //   - app/version.txt      版本号（与构建 versionName 单一来源一致）
@@ -7,14 +7,14 @@
 //   - 安装包 hanzi-{variant}-{os}-{version}.apk / hanzi-{variant}-debug.apk，
 //     扫描 public/assets/app/android（debug 产物）与 dist/assets/app（release 产物）
 // 输出: public/assets/app/version（dist/assets/app 已存在时同步写入）
-// 用法: node build/app-version-pack.js
+// 用法: pnpm app:version
 import fs from 'fs'
 import path from 'path'
 import { createHash } from 'node:crypto'
 import { ROOT, PUBLIC_DIR, DIST_DIR } from '../paths.js'
 
 const APP_DIR = path.join(ROOT, 'app')
-const VERSION = fs.readFileSync(path.join(APP_DIR, 'version.txt'), 'utf8').trim()
+const NAME = fs.readFileSync(path.join(APP_DIR, 'version.txt'), 'utf8').trim()
 
 const NOTES_FILE = path.join(APP_DIR, 'notes.txt')
 const CHANGELOG = fs.existsSync(NOTES_FILE)
@@ -53,7 +53,7 @@ for (const dir of APK_DIRS) {
   }
 }
 
-const content = JSON.stringify({ version: VERSION, changelog: CHANGELOG, checksum }) + '\n'
+const content = JSON.stringify({ name: NAME, changelog: CHANGELOG, checksum }) + '\n'
 
 const targets = [path.join(PUBLIC_DIR, 'assets', 'app', 'version')]
 if (fs.existsSync(path.join(DIST_DIR, 'assets', 'app'))) {
@@ -63,4 +63,4 @@ for (const target of targets) {
   fs.mkdirSync(path.dirname(target), { recursive: true })
   fs.writeFileSync(target, content)
 }
-console.log(`已写入 App 版本信息（v${VERSION}）→ ${targets.join(', ')}`)
+console.log(`已写入 App 版本信息（v${NAME}）→ ${targets.join(', ')}`)

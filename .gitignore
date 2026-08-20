@@ -3,7 +3,6 @@ dist/
 server/data/
 data/
 public/assets/app/android/*.apk
-public/assets/app/version
 public/assets/zi/*/strokes.json
 *.log
 .env

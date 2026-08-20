@@ -14,7 +14,8 @@
     "import:pinyin": "node --disable-warning=ExperimentalWarning server/scripts/import-pinyin.js",
     "export:zi": "node --disable-warning=ExperimentalWarning build/export-zi.js",
     "export:stroke-db": "node --disable-warning=ExperimentalWarning build/export-stroke-db.js",
-    "app:font": "node --disable-warning=ExperimentalWarning build/app-font-pack.js"
+    "app:font": "node --disable-warning=ExperimentalWarning build/app-font-pack.js",
+    "app:version": "node --disable-warning=ExperimentalWarning build/app-version-pack.js"
   },
   "dependencies": {
     "alpinejs": "^3.13.0",

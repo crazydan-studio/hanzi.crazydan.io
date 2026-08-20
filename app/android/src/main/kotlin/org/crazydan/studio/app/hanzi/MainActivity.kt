@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
         ) { uri ->
             Platform.onStrokeDbPicked(uri)
         }
-        Platform.init(this, strokeDbPicker, BuildConfig.NET_VARIANT)
+        Platform.init(this, strokeDbPicker, BuildConfig.NET_VARIANT, BuildConfig.VERSION_NAME)
         // 主题（开屏淡出前加载完毕，首页直接应用）
         val savedDark = ThemeStore.load() ?: isSystemDark()
         // 开屏为暗色品牌页: 窗口背景先置为暗色
@@ -311,11 +311,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 解析 version 单行 JSON: {"version":"1.0.0","changelog":"...","checksum":{"android":{"pure":"...","net":"..."}}}
+    // 解析 version 单行 JSON: {"name":"1.0.0","changelog":"...","checksum":{"android":{"pure":"...","net":"..."}}}
     private fun parseUpdateInfo(json: String, variant: String): UpdateInfo? {
         return try {
             val root = JSONObject(json)
-            val version = root.getString("version")
+            val version = root.getString("name")
             val changelog = root.optString("changelog", "")
             val sha256 = root.optJSONObject("checksum")
                 ?.optJSONObject("android")
