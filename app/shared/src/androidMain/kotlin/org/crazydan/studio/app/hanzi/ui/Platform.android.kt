@@ -72,8 +72,11 @@ actual object Platform {
 
     actual fun openUrl(url: String) {
         val context = AppContextHolder.appContext ?: return
+        val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
         try {
-            context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+            context.startActivity(intent)
         } catch (e: ActivityNotFoundException) {
             // 无可用应用处理该链接，忽略
         }
@@ -109,7 +112,10 @@ actual object Platform {
                 putExtra(Intent.EXTRA_TITLE, title)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            context.startActivity(Intent.createChooser(intent, title))
+            val chooserIntent = Intent.createChooser(intent, title).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(chooserIntent)
         } catch (e: Exception) {
             // 分享失败（如无可用应用），忽略
         }
