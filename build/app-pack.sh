@@ -99,4 +99,4 @@ fi
 
 # 版本信息文件（单行 JSON: 版本号/更新日志/各变体安装包 sha256），
 # 供联网变体检查更新与安装包完整性校验; public/ 由 vite 构建时复制到 dist
-(cd "${ROOT}" && node build/app-version-pack.js)
+(cd "${ROOT}" && pnpm app:version)
