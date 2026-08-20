@@ -49,6 +49,9 @@ expect object Platform {
     /** 当前构建是否为可联网变体（纯净版为 false; 用于检查更新/在线下载笔画数据） */
     fun isOnlineVariant(): Boolean
 
+    /** 当前 App 版本号（构建 versionName，MainActivity 经 Platform.init 注入） */
+    fun appVersion(): String
+
     /**
      * 下载 URL 到应用私有下载目录（流式写入）:
      * 成功返回文件绝对路径；失败返回具体原因

@@ -51,7 +51,7 @@ object StrokeDbDownloader {
             state = State.Working(Phase.DOWNLOADING, scale)
             val result = withContext(Dispatchers.IO) {
                 Platform.downloadToFile(
-                    "${SiteLinks.STROKE_DB_DOWNLOAD}$scale.db",
+                    SiteLinks.strokeDbDownloadUrl(Platform.appVersion(), scale),
                     "hanzi-stroke-$scale.db"
                 )
             }

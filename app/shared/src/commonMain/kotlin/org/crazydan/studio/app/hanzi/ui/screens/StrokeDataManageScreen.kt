@@ -360,7 +360,8 @@ private fun ScaleOption(
 }
 
 private fun downloadScale(scale: String) {
-    Platform.openUrl("${SiteLinks.STROKE_DB_DOWNLOAD}$scale.db")
+    // 纯净版: 跳转浏览器下载与当前 App 版本对应的笔画数据库
+    Platform.openUrl(SiteLinks.strokeDbDownloadUrl(Platform.appVersion(), scale))
 }
 
 // 数据规模选项（与 build/export-stroke-db.js 的 --count 导出规模一致）

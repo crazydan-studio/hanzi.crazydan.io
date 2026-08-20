@@ -243,6 +243,8 @@ actual object Platform {
 
     actual fun isOnlineVariant(): Boolean = AppContextHolder.onlineVariant
 
+    actual fun appVersion(): String = AppContextHolder.appVersion
+
     actual fun downloadToFile(url: String, destFileName: String): DownloadResult {
         val context = AppContextHolder.appContext
             ?: return DownloadResult.Failure("应用上下文不可用")
@@ -339,10 +341,12 @@ actual object Platform {
     fun init(
         activity: ComponentActivity,
         strokeDbPicker: ActivityResultLauncher<Array<String>>,
-        onlineVariant: Boolean
+        onlineVariant: Boolean,
+        appVersion: String
     ) {
         AppContextHolder.appContext = activity
         AppContextHolder.onlineVariant = onlineVariant
+        AppContextHolder.appVersion = appVersion
         pickLauncher = strokeDbPicker
     }
 }

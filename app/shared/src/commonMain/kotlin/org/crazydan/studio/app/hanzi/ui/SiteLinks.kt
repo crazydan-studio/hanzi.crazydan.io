@@ -12,8 +12,13 @@ object SiteLinks {
     const val SUPPORT_EMAIL = "support@studio.crazydan.org"
     const val DONATE_LIST = "$REPO/blob/master/docs/donate/index.md"
 
-    /** 笔画数据下载前缀（产物命名与 build/export-stroke-db.js 一致: hanzi-stroke-{规模}.db） */
-    const val STROKE_DB_DOWNLOAD = "$REPO/releases/latest/download/hanzi-stroke-"
+    /**
+     * 笔画数据下载地址: {version}/hanzi-stroke-{数据量}.db
+     * （与 App 版本对应，随对应版本 GitHub Releases 发布; 产物命名与
+     * build/export-stroke-db.js 一致: hanzi-stroke-{规模}.db）
+     */
+    fun strokeDbDownloadUrl(version: String, scale: String): String =
+        "$REPO/releases/download/v$version/hanzi-stroke-$scale.db"
 
     /** App 最新版本信息（构建脚本写入 public/assets/app/version，单行 JSON） */
     const val APP_VERSION_CHECK = "https://hanzi.crazydan.io/assets/app/version"
