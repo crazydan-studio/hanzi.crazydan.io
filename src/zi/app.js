@@ -2,10 +2,10 @@
 // 展示: 书写动画（倍速/暂停/重置）/ 读音试听 / 复制 / 汉典链接 / 笔画分解图
 import Alpine from 'alpinejs'
 import { AnimationEngine } from '@components/AnimationEngine.js'
-import { drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from '@components/StrokeBackground.js'
+import { drawCanvasBackground, ziInkBox, strokeInkColor, ensureKaiFont } from '@components/StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
-import { strokeTypesMap } from '@components/StrokeTypes.js'
+import { strokeTypeName } from '@components/StrokeTypes.js'
 import { loadZiMeta, loadZiStrokes } from '@services/data.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { copyText } from '@services/clipboard.js'
@@ -56,8 +56,13 @@ Alpine.data('ziApp', () => ({
       this.loading = false
       return
     }
-    // 笔画数据仅常用字存在（其余汉字不支持播放书写动画与笔画分解）
-    this.strokes = await loadZiStrokes(this.unicode)
+    // 笔画数据仅常用字存在（其余汉字不支持播放书写动画与笔画分解）;
+    // 加载失败按无笔画数据处理（信息展示不受影响）
+    try {
+      this.strokes = await loadZiStrokes(this.unicode)
+    } catch {
+      this.strokes = []
+    }
     this.hasStrokes = Array.isArray(this.strokes) && this.strokes.length > 0
     this.loading = false
     await this.ensureFont()
@@ -96,14 +101,7 @@ Alpine.data('ziApp', () => ({
     this.engine.onBeforeRender = () => {
       const canvas = this.$refs.mainCanvas
       if (!canvas) return
-      const rect = canvas.getBoundingClientRect()
-      if (!rect.width) return   // 尺寸未确定，暂不绘制
-      drawTianZiGe(this.engine.ctx, this.engine.cssW, this.engine.cssH, displayUnit(canvas, rect), rect.width)
-      drawZiRef(this.engine.ctx, this.engine.cssW, this.engine.cssH, this.zi, ziRefColor())
-      // 调试: 绘制背景字墨迹盒边界（仅开发模式）
-      if (import.meta.env.DEV) {
-        drawZiBoxDebug(this.engine.ctx, this.engine.cssW, this.engine.cssH, this.zi)
-      }
+      drawCanvasBackground(canvas, this.engine.ctx, this.engine.cssW, this.engine.cssH, this.zi)
     }
     // 笔画开始: 实时显示当前笔画名（未命名提示笔画类型未知）
     this.engine.onStrokeStart = (index) => {
@@ -181,7 +179,7 @@ Alpine.data('ziApp', () => ({
   strokeNameAt(index) {
     const s = (this.strokes || [])[index]
     if (!s) return ''
-    return strokeTypesMap[s.stroke_type]?.name || '未指定'
+    return strokeTypeName(s.stroke_type)
   },
 
   // 播放倍速（0.25-4 之间实时生效）
@@ -224,9 +222,7 @@ Alpine.data('ziApp', () => ({
   },
 
   // 数字声调拼音 → 符号声调拼音（展示用）
-  symbolPinyin(p) {
-    return numberToSymbolTonePinyin(p)
-  },
+  symbolPinyin: numberToSymbolTonePinyin,
 
   // 复制到剪贴板（含非安全上下文回退），成功后提示「已复制」
   async copy(value) {

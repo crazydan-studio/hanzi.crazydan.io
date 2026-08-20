@@ -121,6 +121,7 @@ Alpine.data('ziList', () => ({
 
   // 笔画小图: 以背景汉字墨迹盒为坐标系还原笔画轨迹（归一化 ×1000），
   // 等比缩放到缩略图尺寸；字体未加载/未覆盖该字时不绘制
+  // （模板经 x-effect 传入 themeVersion 作为依赖触发重绘，函数本身不消费该参数）
   renderThumb(canvas, strokes, zi) {
     if (!canvas) return
     const size = 44

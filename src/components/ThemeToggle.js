@@ -9,7 +9,8 @@ export const THEME_CHANGE_EVENT = 'hanzi:theme-change'
 const MOON_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
 const SUN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>'
 
-export function applyTheme(dark) {
+// 应用主题（class 策略）: 存储 + 广播主题变化事件（画布等据此重绘）
+function applyTheme(dark) {
   document.documentElement.classList.toggle('dark', dark)
   try {
     localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light')
@@ -17,7 +18,8 @@ export function applyTheme(dark) {
   window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT))
 }
 
-export function currentDark() {
+// 当前是否暗黑主题
+function currentDark() {
   return document.documentElement.classList.contains('dark')
 }
 

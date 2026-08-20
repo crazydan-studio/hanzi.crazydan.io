@@ -7,9 +7,10 @@ import Alpine from 'alpinejs'
 import { api } from '@services/api.js'
 import { createSyncClient } from '@services/syncClient.js'
 import { STROKE_TYPES, strokeTypesMap } from '@components/StrokeTypes.js'
-import { ZI_STRUCTURES } from '@components/ZiStructures.js'
+import { ZI_STRUCTURES, structureLabel } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
+import { STROKE_ORDER_URL } from '../../config.js'
 
 export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
@@ -18,6 +19,7 @@ export function registerStrokeEditor() {
     STROKE_TYPES: STROKE_TYPES,
     strokeTypesMap: strokeTypesMap,
     ZI_STRUCTURES: ZI_STRUCTURES,
+    structureLabel: structureLabel,           // 结构显示文本（含示例）
     symbolPinyin: numberToSymbolTonePinyin,   // 数字声调拼音 → 符号声调
     saveQueue: Promise.resolve(),
     cancelledLocalIds: new Set(),
@@ -26,7 +28,7 @@ export function registerStrokeEditor() {
     redoStack: [],                        // 撤销/删除的笔画备份（重做恢复）
     clearedStrokes: [],                   // 清空时备份的全部笔画（支持恢复）
     isDeleting: 0,                        // 进行中的笔画删除数（重做需等删除完成，避免竞争）
-    _lastOp: null,                        // 最近一次操作: draw | remove | delete | clear | redo | restore
+    _lastOp: null,                        // 最近一次操作: draw | remove | delete | clear | redo | restore | reorder
     sync: null,                          // 多端同步客户端
     _remoteConfig: false,                // 远端配置回显标志（防广播回环）
     _pendingWidth: null,                 // pad 未就绪时暂存的远端笔宽
@@ -244,11 +246,11 @@ export function registerStrokeEditor() {
     showStrokeRef: false,        // 是否展开笔顺参考图
     strokeRefError: false,       // 图加载失败（离线/外链被拦）
 
-    // 笔顺参考图 URL: https://www.strokeorder.com/assets/bishun/stroke/{码点}.png
+    // 笔顺参考图 URL: 外部图源，{cp} 为汉字 Unicode 码点
     get strokeRefUrl() {
       if (!this.zi?.zi) return ''
       const cp = this.zi.zi.codePointAt(0)
-      return `https://www.strokeorder.com/assets/bishun/stroke/${cp}.png`
+      return STROKE_ORDER_URL.replace('{cp}', String(cp))
     },
 
     toggleStrokeRef() {

@@ -2,7 +2,10 @@
 // 功能: 汉字/拼音查询（URL 参数路由）+ 常用字速览
 import Alpine from 'alpinejs'
 import { loadCommons } from '@services/data.js'
-import { GITHUB_RELEASES } from './config.js'
+import {
+  GITHUB_ISSUES, GITHUB_RELEASES, KUAII_IME_URL, SITE_URL,
+  STUDIO_URL, SUPPORT_EMAIL, ZDIC_TERMS_URL, ZDIC_URL
+} from './config.js'
 
 // Android 系统图标（App 下载按钮）
 const ANDROID_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6 text-green-500"><path d="M17.5 8.5c-.9 0-1.7.4-2.3 1H8.8c-.6-.6-1.4-1-2.3-1C4.6 8.5 3 10.1 3 12v3.5h18V12c0-1.9-1.6-3.5-3.5-3.5zM6.5 11.5c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zm11 0c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zM8.8 9.5 7 6.3c-.3-.5 0-1.1.5-1.3.5-.3 1.1 0 1.3.5l1.8 3.1c.5-.1 1-.2 1.4-.2s.9.1 1.4.2l1.8-3.1c.3-.5.8-.8 1.3-.5.5.3.8.8.5 1.3l-1.8 3.2h-6.4zm-3.3 7.5H4V19.5c0 .6.4 1 1 1s1-.4 1-1V17zm13 0h-1.5v2.5c0 .6.4 1 1 1s1-.4 1-1V17z"/></svg>'
@@ -10,59 +13,36 @@ const ANDROID_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24
 // App 版本号（构建时注入，见 vite.config.js: __HANZI_APP_VERSION__，与 app/version.txt 一致）
 const APP_VERSION = __HANZI_APP_VERSION__
 
-// App 下载平台与变体（系统图标按钮）: 目前仅支持 android
-// 安装包由 build/app-pack.sh 生成:
+// 变体展示信息（纯净版/可联网变体）: 安装包由 build/app-pack.sh 生成
 //   - development: public/assets/app/android/ 下的 debug 双变体
 //     （hanzi-debug.apk 纯净版 / hanzi-net-debug.apk 联网版，applicationId 一致可互相覆盖）
-//   - production:  纯净版（pure，无任何权限）与可联网变体（net，支持检查更新与
-//     在线下载笔画数据），命名 hanzi-{variant}-android-{version}.apk，随 GitHub
-//     Releases 发布（tag 为 v{version}），下载地址与 app-pack.sh 命名约定一致
+//   - production:  随 GitHub Releases 发布（tag 为 v{version}）;
+//     纯净版无变体标识（hanzi-android-{version}.apk），联网版带 net 前缀
+const VARIANTS = {
+  pure: { name: 'Android 纯净版', desc: '无任何权限，仅使用内置数据' },
+  net: { name: 'Android 联网版', desc: '可联网：支持检查更新、在线下载笔画数据' }
+}
+
+// 安装包文件名（纯净版无变体标识，与 app-pack.sh 命名约定一致）
 const IS_DEV = import.meta.env.DEV
-const APP_PLATFORMS = IS_DEV
-  ? [
-      {
-        id: 'android',
-        variant: 'pure',
-        name: 'Android 纯净版',
-        icon: ANDROID_ICON,
-        file: 'hanzi-debug.apk',
-        version: `${APP_VERSION}-debug`,
-        desc: '无任何权限（开发构建）',
-        url: '/assets/app/android/hanzi-debug.apk'
-      },
-      {
-        id: 'android',
-        variant: 'net',
-        name: 'Android 联网版',
-        icon: ANDROID_ICON,
-        file: 'hanzi-net-debug.apk',
-        version: `${APP_VERSION}-debug`,
-        desc: '可联网：检查更新、在线下载笔画数据（开发构建）',
-        url: '/assets/app/android/hanzi-net-debug.apk'
-      }
-    ]
-  : [
-      {
-        id: 'android',
-        variant: 'pure',
-        name: 'Android 纯净版',
-        icon: ANDROID_ICON,
-        file: `hanzi-android-${APP_VERSION}.apk`,
-        version: APP_VERSION,
-        desc: '无任何权限，仅使用内置数据',
-        url: `${GITHUB_RELEASES}/v${APP_VERSION}/hanzi-android-${APP_VERSION}.apk`
-      },
-      {
-        id: 'android',
-        variant: 'net',
-        name: 'Android 联网版',
-        icon: ANDROID_ICON,
-        file: `hanzi-net-android-${APP_VERSION}.apk`,
-        version: APP_VERSION,
-        desc: '可联网：支持检查更新、在线下载笔画数据',
-        url: `${GITHUB_RELEASES}/v${APP_VERSION}/hanzi-net-android-${APP_VERSION}.apk`
-      }
-    ]
+const apkFile = (variant, dev) => {
+  const prefix = variant === 'pure' ? '' : `${variant}-`
+  return dev
+    ? `hanzi-${prefix}debug.apk`
+    : `hanzi-${prefix}android-${APP_VERSION}.apk`
+}
+
+const APP_PLATFORMS = Object.entries(VARIANTS).map(([variant, info]) => ({
+  variant,
+  name: info.name,
+  icon: ANDROID_ICON,
+  file: apkFile(variant, IS_DEV),
+  version: IS_DEV ? `${APP_VERSION}-debug` : APP_VERSION,
+  desc: IS_DEV ? `${info.desc}（开发构建）` : info.desc,
+  url: IS_DEV
+    ? `/assets/app/android/${apkFile(variant, true)}`
+    : `${GITHUB_RELEASES}/v${APP_VERSION}/${apkFile(variant, false)}`
+}))
 
 Alpine.data('homeApp', () => ({
   commons: [],
@@ -74,6 +54,15 @@ Alpine.data('homeApp', () => ({
   devButton: import.meta.env.DEV,
   // 移动端 App 下载平台
   APP_PLATFORMS: APP_PLATFORMS,
+  // 关于本站链接（站点配置单一来源，模板经 :href 引用）
+  LINKS: {
+    kuaizi: KUAII_IME_URL,
+    site: SITE_URL,
+    zdic: ZDIC_URL,
+    terms: ZDIC_TERMS_URL,
+    issues: GITHUB_ISSUES,
+    email: SUPPORT_EMAIL
+  },
 
   init() {
     loadCommons()

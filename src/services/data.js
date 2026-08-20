@@ -11,7 +11,7 @@ async function loadJson(url) {
 // meta.json 紧凑结构 → 完整字段
 // { c: 汉字, p: 读音[], n: 笔画数, r: 部首, s: 结构编码 }
 // unicode 不存储，按汉字直接计算；结构编码映射为展示名（不含「结构」与示例）
-export function normalizeMeta(raw) {
+function normalizeMeta(raw) {
   if (!raw) return raw
   return {
     zi: raw.c,
@@ -39,7 +39,7 @@ function deltaDecode(points) {
 
 // strokes.json 紧凑结构 → 完整字段
 // [{ o: 笔顺, t: 类型, d: { v: 轨迹版本, b: 笔刷面积比, p: 点（增量编码，解码为绝对坐标） } }]
-export function normalizeStrokes(list) {
+function normalizeStrokes(list) {
   return (list || []).map(s => ({
     stroke_order: s.o,
     stroke_type: s.t,

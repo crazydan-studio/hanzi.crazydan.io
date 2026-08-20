@@ -45,3 +45,8 @@ export const STROKE_TYPES = [
 
 // code → 类型对象映射（保存笔画时取名称/形状）
 export const strokeTypesMap = Object.fromEntries(STROKE_TYPES.map(t => [t.code, t]))
+
+// 笔画类型名称（类型 0 未指定 → 未指定；编码未知时兜底）
+export function strokeTypeName(code) {
+  return strokeTypesMap[code]?.name || '未指定'
+}

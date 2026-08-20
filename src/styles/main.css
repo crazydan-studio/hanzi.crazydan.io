@@ -91,6 +91,10 @@ input, select, textarea {
   .loading-overlay {
     @apply absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/60 backdrop-blur-[1px] dark:bg-gray-800/60;
   }
+  /* 悬浮提示徽标（字体失败/笔画名等，画布上层非阻塞提示） */
+  .float-badge {
+    @apply rounded-full bg-gray-900/70 text-white shadow dark:bg-gray-100/80 dark:text-gray-900;
+  }
   /* 加载指示器 */
   .spinner {
     @apply inline-block h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500;

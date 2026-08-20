@@ -15,6 +15,6 @@ export const COORD_SCALE = 1000
 export const PRESSURE_SCALE = 100
 export const TIMESTAMP_SCALE = 10
 export const BRUSH_SCALE = 100000
-// 笔刷面积比取值边界（与 server/trajectory.js 一致）
+// 笔刷面积比取值边界（与 server/schemas/strokeSchema.js 的 BRUSH_MAX 一致）
 export const BRUSH_MIN = 0
 export const BRUSH_MAX = 100 * BRUSH_SCALE

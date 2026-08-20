@@ -9,7 +9,7 @@
   <div class="max-w-3xl mx-auto px-4 py-6">
     <div x-data="pageHeader({ mb: 'mb-4' })" x-html="html"></div>
 
-    <p x-show="loading" class="text-center text-gray-500 py-16 dark:text-gray-400">加载中...</p>
+    <p x-show="loading" class="text-center text-gray-500 py-16 dark:text-gray-400">正在加载…</p>
     <p x-show="error && !loading" class="text-center text-red-600 py-16" x-text="error"></p>
 
     <template x-if="meta && !loading">
@@ -80,14 +80,14 @@
               <canvas x-ref="mainCanvas" class="block w-full" style="aspect-ratio:1"></canvas>
               <div x-show="fontError" x-cloak
                 class="pointer-events-none absolute inset-x-0 top-1 z-10 flex justify-center">
-                <span class="rounded-full bg-gray-900/70 px-3 py-0.5 text-xs text-white shadow dark:bg-gray-100/80 dark:text-gray-900">
+                <span class="float-badge px-3 py-0.5 text-xs">
                   楷体字体加载失败，无法显示背景字与笔画动画
                 </span>
               </div>
               <!-- 当前笔画名提示（悬浮于田字格上方，不占布局，不引起位置/尺寸变化） -->
               <div x-show="strokeName" x-cloak
                 class="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2">
-                <span class="inline-flex items-center rounded-full bg-gray-900/70 px-3 py-1 text-sm font-medium text-white shadow dark:bg-gray-100/80 dark:text-gray-900"
+                <span class="float-badge inline-flex items-center px-3 py-1 text-sm font-medium"
                   x-text="strokeName"></span>
               </div>
             </div>
@@ -102,7 +102,7 @@
               <span class="text-sm text-gray-500 dark:text-gray-400">倍速</span>
               <template x-for="s in SPEEDS" :key="s">
                 <button @click="setSpeed(s)" class="btn-sm"
-                  :class="playbackSpeed === s ? 'bg-blue-500 text-white border-blue-500' : ''"
+                  :class="playbackSpeed === s ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'"
                   x-text="s + 'x'"></button>
               </template>
             </span>

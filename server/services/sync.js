@@ -4,7 +4,6 @@
 //   - 后端在笔画/汉字写操作后自动广播 strokes-changed/zi-updated
 //   - 前端主动广播 页面跳转(navigate)/笔宽(pen-width)
 //   - 广播按 client 排除发起者，防止回环
-const CHANNEL = 'hanzi-sync'
 const HEARTBEAT_MS = 25000
 const clients = new Map()   // clientId -> res
 
@@ -59,9 +58,7 @@ export function broadcastSync(event, payload, exceptClientId) {
   }
 }
 
-// 客户端主动广播（页面跳转/模式/笔宽等配置）
+// 客户端主动广播（页面跳转/笔宽等配置）
 export function publishSync(clientId, event, payload) {
   broadcastSync(event, payload, clientId)
 }
-
-export const SYNC_CHANNEL = CHANNEL

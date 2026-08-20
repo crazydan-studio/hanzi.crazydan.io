@@ -8,10 +8,10 @@
 // 后才渲染背景字与笔画（坐标以墨迹盒为坐标系），等待期间显示加载信息。
 import Alpine from 'alpinejs'
 import { AnimationEngine } from './AnimationEngine.js'
-import { drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
+import { drawCanvasBackground, ziInkBox, strokeInkColor, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { STROKE_HIGHLIGHT_COLOR } from './Constants.js'
-import { strokeTypesMap } from './StrokeTypes.js'
+import { strokeTypeName } from './StrokeTypes.js'
 
 Alpine.data('strokeCell', (zi, index, strokes) => ({
   canvas: null,
@@ -30,17 +30,8 @@ Alpine.data('strokeCell', (zi, index, strokes) => ({
       ziBox: () => this._box                  // 墨迹盒提供者
     })
     // 背景: 田字格 + 半透明汉字字型（颜色适配主题）
-    // 换算系数由画布设备像素与实测显示宽度得出，尺寸未确定（宽度为 0）时暂不绘制，
-    // 保证任意显示尺寸/DPR 下各格线宽与虚线模式完全一致
     this.engine.onBeforeRender = () => {
-      const rect = this.canvas.getBoundingClientRect()
-      if (!rect.width) return
-      drawTianZiGe(this.engine.ctx, this.engine.cssW, this.engine.cssH, displayUnit(this.canvas, rect), rect.width)
-      drawZiRef(this.engine.ctx, this.engine.cssW, this.engine.cssH, zi, ziRefColor())
-      // 调试: 绘制背景字墨迹盒边界（仅开发模式）
-      if (import.meta.env.DEV) {
-        drawZiBoxDebug(this.engine.ctx, this.engine.cssW, this.engine.cssH, zi)
-      }
+      drawCanvasBackground(this.canvas, this.engine.ctx, this.engine.cssW, this.engine.cssH, zi)
     }
     this.engine.onStrokeStart = () => { this.playing = true }
     // 自动循环播放当前笔画（单笔播放，不会继续播放剩余笔画）;
@@ -100,7 +91,7 @@ Alpine.data('strokeCell', (zi, index, strokes) => ({
   get name() {
     const s = (strokes || [])[index]
     if (!s) return ''
-    return strokeTypesMap[s.stroke_type]?.name || '未指定'
+    return strokeTypeName(s.stroke_type)
   },
 
   // 点击分解图: 播放（自动循环当前笔画）/ 终止播放

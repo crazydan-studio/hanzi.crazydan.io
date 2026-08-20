@@ -7,21 +7,21 @@
 // 宿主用法:
 //   <div x-data="strokePad({
 //     referenceZi: '',
-//     onStrokeRecorded: (stroke) => { ... },      // 笔画录入完成
+//     onReady: (pad) => { ... },                 // 实例就绪回调（宿主持有实例）
+//     onStrokeRecorded: (stroke) => { ... },     // 笔画录入完成
 //     onStrokeRemoveRequest: ({ strokeId }) => { ... }, // 撤销/清空请求
-//     onStrokeHover: (strokeId) => { ... },       // 列表悬停联动
-//     onModeChanged: (mode) => { ... },           // 书写/回放切换
+//     onStrokeHover: (strokeId) => { ... },      // 列表悬停联动
+//     onModeChanged: (mode) => { ... },          // 书写/回放切换
 //     onPlaybackProgress: ({ index, strokeId, state }) => { ... }
 //   })">
-//   宿主再通过实例方法注入数据:
-//     Alpine.$data($refs.padEl).setZi('永')
-//     .loadStrokes([...]) / .confirmStrokeSaved(localId, saved) / .removeStroke(id)
-//     .setMode('playback') / .seekToStroke(strokeId)
+//   宿主经 onReady 获得实例后调用:
+//     pad.setZi('永') / pad.loadStrokes([...]) / pad.confirmStrokeSaved(localId, saved)
+//     pad.removeStroke(id) / pad.setMode('playback') / pad.seekToStroke(strokeId)
 import Alpine from 'alpinejs'
 import { StrokeRecorder } from './StrokeRecorder.js'
 import { AnimationEngine } from './AnimationEngine.js'
 import { computeBrushWidths, drawBrushStroke, normalizeBrush, brushBaseWidth } from './Brush.js'
-import { drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
+import { drawCanvasBackground, drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 
@@ -96,8 +96,7 @@ Alpine.data('strokePad', (opts = {}) => ({
       ziBox: () => this.ziBoxValue             // 墨迹盒提供者（字体/字符就绪后可用）
     })
     this.engine.onBeforeRender = () => {
-      this.drawTianZiGe()
-      this.drawPlaybackBackground()
+      drawCanvasBackground(this.canvas, this.ctx, this.width, this.height, this.currentZi)
     }
     this.engine.onStrokeStart = (i) => {
       this.playbackIndex = i

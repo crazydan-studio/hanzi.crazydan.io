@@ -38,13 +38,13 @@
                     @change="updateZiStructure(zi, $event.target.value)">
                     <template x-for="st in ZI_STRUCTURES" :key="st.code">
                       <option :value="st.code" :selected="zi.structure === st.code"
-                        x-text="st.examples.length ? st.name + '（' + st.examples.join('·') + '）' : st.name"></option>
+                        x-text="structureLabel(st.code)"></option>
                     </template>
                   </select>
                 </label>
                 <!-- 笔顺参考图开关 -->
                 <button @click="toggleStrokeRef()" class="btn-sm"
-                  :class="showStrokeRef ? 'bg-blue-500 text-white border-blue-500' : ''">
+                  :class="showStrokeRef ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">
                   笔顺参考
                 </button>
               </div>
@@ -63,14 +63,14 @@
             </div>
           </div>
         </template>
-        <p x-show="!zi" class="text-gray-500 dark:text-gray-400">加载中...</p>
+        <p x-show="!zi" class="text-gray-500 dark:text-gray-400">正在加载…</p>
       </div>
 
       <!-- 响应式: 移动端竖屏上下堆叠，桌面左右分栏 -->
       <div class="flex flex-col lg:flex-row gap-4">
         <!-- 左侧: 书写板（书写/回放双模式 + 田字格背景） -->
         <div class="w-full lg:w-1/2">
-          <div x-data="strokePad(padOpts)" x-ref="pad">
+          <div x-data="strokePad(padOpts)">
             <!-- 模式切换（与列表页过滤按钮/其他页面 btn-sm 样式一致） -->
             <div class="mb-2 flex gap-1">
               <button @click="switchMode('write')" class="btn-sm"
@@ -96,7 +96,7 @@
                    字体加载等待由全局页面遮罩负责；此处仅失败时给出提示 -->
               <div x-show="mode === 'write' && fontError" x-cloak
                 class="pointer-events-none absolute inset-x-0 top-1 z-10 flex justify-center">
-                <span class="rounded-full bg-gray-900/70 px-3 py-0.5 text-xs text-white shadow dark:bg-gray-100/80 dark:text-gray-900">
+                <span class="float-badge px-3 py-0.5 text-xs">
                   楷体字体加载失败，无法书写
                 </span>
               </div>

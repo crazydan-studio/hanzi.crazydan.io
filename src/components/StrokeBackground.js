@@ -27,8 +27,6 @@ export function displayUnit(canvas, rect) {
 // 背景字统一字体族（自带静态中易楷体，无系统字体回退）
 import { KAI_FONT_FAMILY, KAI_FONT_SIZE } from '../config.js'
 
-export { KAI_FONT_FAMILY }
-
 // 楷体是否已加载可用（仅检查字体加载状态，不做覆盖检测——各浏览器对
 // check(font, text) 的覆盖语义实现不一致）; 未加载时不做任何渲染/测量（无兜底，
 // 避免回退字体导致的字形尺寸异常）
@@ -193,6 +191,20 @@ export function drawZiBoxDebug(ctx, width, height, zi) {
   ctx.lineWidth = 1.5
   ctx.strokeRect(box.x0, box.y0, box.w, box.h)
   ctx.restore()
+}
+
+// 田字格 + 半透明背景字 + 墨迹盒调试框 统一绘制（书写板/信息页/笔画分解图共用）:
+// 换算系数由画布设备像素与实测显示宽度得出（任意显示尺寸/DPR 下线宽与虚线一致）；
+// 画布尺寸未确定（宽度为 0）时跳过，待布局完成后由宿主重绘
+export function drawCanvasBackground(canvas, ctx, width, height, zi) {
+  const rect = canvas.getBoundingClientRect()
+  if (!rect.width) return
+  drawTianZiGe(ctx, width, height, displayUnit(canvas, rect), rect.width)
+  drawZiRef(ctx, width, height, zi, ziRefColor())
+  // 调试: 绘制背景字墨迹盒边界（仅开发模式）
+  if (import.meta.env.DEV) {
+    drawZiBoxDebug(ctx, width, height, zi)
+  }
 }
 
 // 田字格: 外框 + 米字格中央十字虚线（颜色适配主题色，虚线低透明度）// 中央虚线从中心向四周发散绘制（上/下/左/右四条射线），中心留出空心

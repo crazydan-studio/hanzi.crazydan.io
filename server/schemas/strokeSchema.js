@@ -1,12 +1,9 @@
 import { z } from 'zod'
 import { COORD_MIN, COORD_MAX, PRESSURE_SCALE, BRUSH_SCALE } from '../services/trajectory.js'
 
-// 笔画类型数字编码 0-35（与前端 strokeTypes.js 一致）
-// 0=未指定, 1=点, 2=横, 3=竖, 4=撇, 5=捺, 6=提, 7=横折, 8=横撇, 9=横钩,
-// 10=横折钩, 11=横折提, 12=横折弯, 13=横折折, 14=横斜钩, 15=横折弯钩,
-// 16=横撇弯钩, 17=横折折撇, 18=横折折折钩, 19=横折折折, 20=竖提, 21=竖折,
-// 22=竖钩, 23=竖弯, 24=竖弯钩, 25=竖折撇, 26=竖折折, 27=竖折折钩,
-// 28=撇点, 29=撇折, 30=斜钩, 31=弯钩, 32=卧钩, 33=平捺, 34=点撇, 35=点捺
+// 笔画类型数字编码 0-35（与前端 StrokeTypes.js 的 STROKE_TYPES 一一对应，
+// 数字编码为约定，跨语言无法共享）: 0=未指定, 1-6 基本笔画（点横竖撇捺提）,
+// 7-19 横系折笔, 20-27 竖系折笔, 28-35 撇/点系
 export const STROKE_TYPE_MIN = 0
 export const STROKE_TYPE_MAX = 35
 export const strokeTypeSchema = z.number().int().min(STROKE_TYPE_MIN).max(STROKE_TYPE_MAX)
