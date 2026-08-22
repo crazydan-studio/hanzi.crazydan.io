@@ -104,14 +104,14 @@
 
             <!-- 书写模式工具条: 撤销/重做/清空(恢复) 状态一致且互斥 -->
             <div class="mt-2 flex flex-wrap items-center gap-2" x-show="mode === 'write'">
-              <button @click="undoStroke()" :disabled="!canUndo()"
-                class="btn btn-gray">撤销</button>
-              <button @click="redo()" :disabled="!canRedo()"
-                class="btn btn-gray">重做</button>
               <button @click="canRestore() ? restoreCleared() : clearPad()"
                 :disabled="!canClear() && !canRestore()"
                 class="btn btn-gray"
                 x-text="canRestore() ? '恢复' : '清空'"></button>
+              <button @click="redo()" :disabled="!canRedo()"
+                class="btn btn-gray">重做</button>
+              <button @click="undoStroke()" :disabled="!canUndo()"
+                class="btn btn-gray">撤销</button>
               <!-- 笔触宽度选择（移动端画布缩小，默认特粗） -->
               <div class="flex items-center gap-1 ml-2">
                 <template x-for="w in PEN_WIDTHS" :key="w">
