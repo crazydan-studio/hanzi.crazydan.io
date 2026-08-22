@@ -10,7 +10,7 @@ import { STROKE_TYPES, strokeTypesMap } from '@components/StrokeTypes.js'
 import { ZI_STRUCTURES, structureLabel } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
-import { STROKE_ORDER_URL } from '../../config.js'
+import { STROKE_REF_URL } from '../../config.js'
 
 export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
@@ -242,15 +242,15 @@ export function registerStrokeEditor() {
       }
     },
 
-    // ---- 笔顺参考图（strokeorder.com 外部图） ----
+    // ---- 笔顺参考图（汉典网楷体笔顺图） ----
     showStrokeRef: false,        // 是否展开笔顺参考图
     strokeRefError: false,       // 图加载失败（离线/外链被拦）
 
-    // 笔顺参考图 URL: 外部图源，{cp} 为汉字 Unicode 码点
+    // 笔顺参考图 URL: 汉典网楷体笔顺图，{unicode} 为汉字 Unicode 码点十六进制大写（如 永 → 6C38）
     get strokeRefUrl() {
       if (!this.zi?.zi) return ''
-      const cp = this.zi.zi.codePointAt(0)
-      return STROKE_ORDER_URL.replace('{cp}', String(cp))
+      const unicode = this.zi.zi.codePointAt(0).toString(16).toUpperCase()
+      return STROKE_REF_URL.replace('{unicode}', unicode)
     },
 
     toggleStrokeRef() {

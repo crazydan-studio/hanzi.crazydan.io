@@ -44,12 +44,12 @@
                 </label>
                 <!-- 笔顺参考图开关 -->
                 <button @click="toggleStrokeRef()" class="btn-sm"
-                  :class="showStrokeRef ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">
+                  :class="showStrokeRef ? 'btn-active' : 'bg-white dark:bg-gray-800'">
                   笔顺参考
                 </button>
               </div>
             </div>
-            <!-- 笔顺参考图（strokeorder.com 外部图） -->
+            <!-- 笔顺参考图（汉典网楷体笔顺图） -->
             <div x-show="showStrokeRef" class="mt-3">
               <div class="flex flex-wrap items-end gap-4">
                 <img :src="strokeRefUrl" alt="笔顺参考"
@@ -57,7 +57,7 @@
                   @load="strokeRefError = false"
                   @error="strokeRefError = true">
                 <p x-show="strokeRefError" class="text-xs text-gray-500 dark:text-gray-400">
-                  笔顺图加载失败（需联网访问 strokeorder.com）
+                  笔顺图加载失败（需联网访问汉典网）
                 </p>
               </div>
             </div>
@@ -74,9 +74,9 @@
             <!-- 模式切换（与列表页过滤按钮/其他页面 btn-sm 样式一致） -->
             <div class="mb-2 flex gap-1">
               <button @click="switchMode('write')" class="btn-sm"
-                :class="mode === 'write' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">书写</button>
+                :class="mode === 'write' ? 'btn-active' : 'bg-white dark:bg-gray-800'">书写</button>
               <button @click="switchMode('playback')" class="btn-sm"
-                :class="mode === 'playback' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">回放</button>
+                :class="mode === 'playback' ? 'btn-active' : 'bg-white dark:bg-gray-800'">回放</button>
             </div>
 
             <!-- 画布容器: 宽度自适应（移动端竖屏缩放显示，内部坐标恒为500×500） -->
@@ -130,12 +130,12 @@
             <!-- 回放模式控制条（移动端自动换行） -->
             <div class="mt-2" x-show="mode === 'playback'">
               <div class="flex flex-wrap items-center gap-2">
+                <button @click="resetPlayback()" :disabled="!hasPlaybackData"
+                  class="btn btn-gray">重置</button>
                 <button @click="togglePlayback()" :disabled="!hasPlaybackData"
                   class="btn btn-primary disabled:opacity-50">
                   <span x-text="playbackState === 'PLAYING' ? '暂停' : '播放'"></span>
                 </button>
-                <button @click="resetPlayback()" :disabled="!hasPlaybackData"
-                  class="btn btn-gray">重置</button>
 
                 <div class="flex items-center gap-2">
                   <label class="text-sm text-gray-600 dark:text-gray-300">速度:</label>
