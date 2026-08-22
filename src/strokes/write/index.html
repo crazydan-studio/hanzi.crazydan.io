@@ -57,7 +57,7 @@
             <!-- 笔顺参考图（汉典网楷体笔顺图） -->
             <div x-show="showStrokeRef" class="mt-3">
               <div class="flex flex-wrap items-end gap-4">
-                <img :src="strokeRefUrl" alt="笔顺参考"
+                <img :src="strokeRefUrl" alt="笔顺参考" referrerpolicy="no-referrer"
                   class="border border-gray-200 rounded bg-white max-w-full dark:border-gray-600 dark:bg-gray-900"
                   @load="strokeRefError = false"
                   @error="strokeRefError = true">
