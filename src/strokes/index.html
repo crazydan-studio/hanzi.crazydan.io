@@ -35,6 +35,7 @@
             <tr class="border-b bg-gray-100 dark:bg-gray-700 dark:border-gray-600">
               <th class="px-3 py-2 text-left">汉字</th>
               <th class="px-3 py-2 text-left">读音</th>
+              <th class="px-3 py-2 text-left">部首</th>
               <th class="px-3 py-2 text-left">结构</th>
               <th class="px-3 py-2 text-left">笔画图</th>
             </tr>
@@ -49,6 +50,7 @@
                     x-text="'(' + c.total_stroke_count + ' 笔)'"></span>
                 </td>
                 <td class="px-3 py-2 font-pinyin" x-text="c.pinyin.map(p => symbolPinyin(p)).join('、')"></td>
+                <td class="px-3 py-2 font-kaiti" x-text="c.radical || '—'"></td>
                 <td class="px-3 py-2">
                   <span x-text="structureLabel(c.structure)"></span>
                 </td>
@@ -61,10 +63,10 @@
               </tr>
             </template>
             <tr x-show="!loading && loadError" x-cloak>
-              <td colspan="4" class="px-3 py-6 text-center text-red-600" x-text="loadError"></td>
+              <td colspan="5" class="px-3 py-6 text-center text-red-600" x-text="loadError"></td>
             </tr>
             <tr x-show="!loading && !loadError && zi.length === 0" x-cloak>
-              <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">无匹配汉字</td>
+              <td colspan="5" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">无匹配汉字</td>
             </tr>
           </tbody>
         </table>

@@ -231,17 +231,22 @@
                 <span class="flex-1 truncate"
                   :class="s.stroke_type === 0 ? 'text-gray-400 italic' : ''"
                   x-text="strokeTypesMap[s.stroke_type]?.name || '未指定'"></span>
-                <!-- 行内笔画类型选择（仅书写模式显示；重绘目标行隐藏） -->
+                <!-- 行内笔画类型选择（仅书写模式显示；重绘目标行隐藏）:
+                     按 横/竖/撇/捺/折 等分组分类 -->
                 <select
                   x-show="padMode === 'write' && redrawStroke?.id !== s.id"
                   class="text-xs border border-gray-300 rounded px-1 py-0.5 mr-2 bg-white max-w-[5.5rem] dark:border-gray-600 dark:bg-gray-800"
                   :class="s.stroke_type === 0 ? 'border-amber-400 text-amber-600' : ''"
                   @click.stop
                   @change="updateStrokeType(s, $event.target.value)">
-                  <template x-for="t in STROKE_TYPES" :key="t.code">
-                    <option :value="t.code" :selected="s.stroke_type === t.code">
-                      <span x-text="t.shape"></span> <span x-text="t.name"></span>
-                    </option>
+                  <template x-for="g in STROKE_TYPE_GROUPS" :key="g.name">
+                    <optgroup :label="g.name">
+                      <template x-for="t in g.types" :key="t.code">
+                        <option :value="t.code" :selected="s.stroke_type === t.code">
+                          <span x-text="t.shape"></span> <span x-text="t.name"></span>
+                        </option>
+                      </template>
+                    </optgroup>
                   </template>
                 </select>
                 <!-- 重绘目标行: 取消按钮（重绘/删除按钮与类型下拉框已隐藏） -->
