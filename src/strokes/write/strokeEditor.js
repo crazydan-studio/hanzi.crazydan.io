@@ -10,7 +10,7 @@ import { STROKE_TYPES, strokeTypesMap } from '@components/StrokeTypes.js'
 import { ZI_STRUCTURES, structureLabel } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
-import { STROKE_REF_URL } from '../../config.js'
+import { STROKE_REF_URL, ZDIC_URL } from '../../config.js'
 
 export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
@@ -245,6 +245,12 @@ export function registerStrokeEditor() {
     // ---- 笔顺参考图（汉典网楷体笔顺图） ----
     showStrokeRef: false,        // 是否展开笔顺参考图
     strokeRefError: false,       // 图加载失败（离线/外链被拦）
+
+    // 汉典网该字信息页链接（https://zdic.net/hans/{汉字}）
+    get zdicUrl() {
+      if (!this.zi?.zi) return ''
+      return `${ZDIC_URL}hans/${encodeURIComponent(this.zi.zi)}`
+    },
 
     // 笔顺参考图 URL: 汉典网楷体笔顺图，{unicode} 为汉字 Unicode 码点十六进制大写（如 永 → 6C38）
     get strokeRefUrl() {
