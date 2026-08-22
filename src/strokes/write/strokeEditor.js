@@ -6,7 +6,7 @@
 import Alpine from 'alpinejs'
 import { api } from '@services/api.js'
 import { createSyncClient } from '@services/syncClient.js'
-import { STROKE_TYPE_GROUPS, strokeTypesMap } from '@components/StrokeTypes.js'
+import { strokeTypesMap } from '@components/StrokeTypes.js'
 import { ZI_STRUCTURES, structureLabel } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
@@ -16,7 +16,6 @@ export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
     zi: null,
     strokes: [],
-    STROKE_TYPE_GROUPS: STROKE_TYPE_GROUPS,   // 类型下拉按组分类（横/竖/撇/捺/折等）
     strokeTypesMap: strokeTypesMap,
     ZI_STRUCTURES: ZI_STRUCTURES,
     structureLabel: structureLabel,           // 结构显示文本（含示例）

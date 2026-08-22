@@ -51,16 +51,20 @@ export function strokeTypeName(code) {
   return strokeTypesMap[code]?.name || '未指定'
 }
 
-// 笔画类型分组（类型下拉列表 optgroup 用）: 按主笔画归属分类，覆盖全部类型
+// 笔画类型分组（类型下拉列表 optgroup 用）: 按主笔画归属分类，覆盖全部类型;
+// 「折」拆分为 折/提/钩 三组（钩: 含钩的复合笔；提: 含提的复合笔）
 export const STROKE_TYPE_GROUPS = [
   { name: '未指定', codes: [0] },
   { name: '点', codes: [1, 34, 35] },          // 点/点撇/点捺
-  { name: '横', codes: [2, 6] },               // 横/提
+  { name: '横', codes: [2] },
   { name: '竖', codes: [3] },
-  { name: '撇', codes: [4, 28, 29] },          // 撇/撇点/撇折
+  { name: '撇', codes: [4] },
   { name: '捺', codes: [5, 33] },              // 捺/平捺
-  { name: '折', codes: [                        // 横竖系折笔与钩
-    7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-    20, 21, 22, 23, 24, 25, 26, 27, 30, 31, 32
+  { name: '折', codes: [                        // 横竖系折笔与撇折/撇点
+    7, 8, 12, 13, 17, 19, 21, 23, 25, 26, 28, 29
+  ] },
+  { name: '提', codes: [6, 11, 20] },          // 提/横折提/竖提
+  { name: '钩', codes: [                        // 含钩的复合笔
+    9, 10, 14, 15, 16, 18, 22, 24, 27, 30, 31, 32
   ] }
 ].map(g => ({ name: g.name, types: g.codes.map(c => strokeTypesMap[c]) }))
