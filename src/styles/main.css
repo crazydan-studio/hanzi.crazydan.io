@@ -72,6 +72,12 @@ input, select, textarea {
   .btn-sm {
     @apply px-2 py-1 text-xs rounded border border-gray-300 hover:bg-gray-100 transition-colors dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700;
   }
+  /* 按钮选中态（列表过滤/模式切换/倍速等共用）:
+     移动端触摸后 :hover 会残留，btn-sm 的 hover:bg-gray-100（utilities 层）
+     会覆盖选中背景，故选中态的 hover 用 !important 固定为加深蓝、文字恒为白色 */
+  .btn-active {
+    @apply bg-blue-500 text-white border-blue-500 hover:!bg-blue-600 dark:!text-white;
+  }
   /* 图标按钮（主题切换等） */
   .icon-btn {
     @apply btn-sm inline-flex items-center justify-center !px-2;

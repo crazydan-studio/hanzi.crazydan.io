@@ -18,13 +18,13 @@
                  placeholder="搜索汉字或拼音" class="input w-full sm:w-64">
           <div class="flex items-center gap-1 flex-wrap">
             <button @click="setHasStrokes('')" class="btn-sm"
-              :class="hasStrokes === '' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">全部</button>
+              :class="hasStrokes === '' ? 'btn-active' : 'bg-white dark:bg-gray-800'">全部</button>
             <button @click="setHasStrokes('1')" class="btn-sm"
-              :class="hasStrokes === '1' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">有完整笔画图</button>
+              :class="hasStrokes === '1' ? 'btn-active' : 'bg-white dark:bg-gray-800'">有完整笔画图</button>
             <button @click="setHasStrokes('2')" class="btn-sm"
-              :class="hasStrokes === '2' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">仅含部分笔画图</button>
+              :class="hasStrokes === '2' ? 'btn-active' : 'bg-white dark:bg-gray-800'">仅含部分笔画图</button>
             <button @click="setHasStrokes('0')" class="btn-sm"
-              :class="hasStrokes === '0' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'">无笔画图</button>
+              :class="hasStrokes === '0' ? 'btn-active' : 'bg-white dark:bg-gray-800'">无笔画图</button>
           </div>
           <span class="text-sm text-gray-500 dark:text-gray-400">按使用频率降序</span>
         </div>

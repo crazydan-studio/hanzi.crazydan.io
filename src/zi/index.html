@@ -102,7 +102,7 @@
               <span class="text-sm text-gray-500 dark:text-gray-400">倍速</span>
               <template x-for="s in SPEEDS" :key="s">
                 <button @click="setSpeed(s)" class="btn-sm"
-                  :class="playbackSpeed === s ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800'"
+                  :class="playbackSpeed === s ? 'btn-active' : 'bg-white dark:bg-gray-800'"
                   x-text="s + 'x'"></button>
               </template>
             </span>
