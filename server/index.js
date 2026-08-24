@@ -6,7 +6,7 @@ import ziRouter from './routes/zi.js'
 import strokesRouter from './routes/strokes.js'
 import syncRouter from './routes/sync.js'
 import { errorHandler } from './middleware/errorHandler.js'
-import { BACKEND_PORT, DIST_DIR, PAGES } from '../paths.js'
+import { BACKEND_PORT, DIST_DIR, HANZI_DB_PATH, PAGES } from '../paths.js'
 
 const app = express()
 
@@ -23,6 +23,20 @@ function resolvePort() {
   return BACKEND_PORT
 }
 const PORT = resolvePort()
+
+// 数据库路径解析优先级: 命令行 --db <path> > 环境变量 HANZI_DB > 默认 data/hanzi.db
+// （相对路径基于当前工作目录解析）
+function resolveDbPath() {
+  const idx = process.argv.indexOf('--db')
+  if (idx !== -1 && process.argv[idx + 1]) {
+    return path.resolve(process.argv[idx + 1])
+  }
+  if (process.env.HANZI_DB) {
+    return path.resolve(process.env.HANZI_DB)
+  }
+  return HANZI_DB_PATH
+}
+const DB_PATH = resolveDbPath()
 
 app.use(express.json({ limit: '10mb' }))
 
@@ -49,7 +63,7 @@ if (fs.existsSync(DIST_DIR)) {
 
 app.use(errorHandler)
 
-initDatabase()
+initDatabase(DB_PATH)
 app.listen(PORT, () => {
-  console.log(`HanziStroke server running on http://localhost:${PORT}`)
+  console.log(`HanziStroke server running on http://localhost:${PORT} (db: ${DB_PATH})`)
 })

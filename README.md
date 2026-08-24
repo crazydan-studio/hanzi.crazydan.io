@@ -30,7 +30,7 @@
 
 ### 数据准备
 
-1. 导入汉字基础信息（读音、权重、结构、部首、笔画数）到后端数据库 `server/data/hanzi_stroke.db`：
+1. 导入汉字基础信息（读音、权重、结构、部首、笔画数）到后端数据库 `data/hanzi.db`：
 
    ```bash
    pnpm import:pinyin
@@ -93,20 +93,51 @@ pnpm dev:all
 ### 生产构建
 
 ```bash
-pnpm build
-pnpm start
+pnpm build            # 构建前端
+pnpm build:server     # 构建后端为单文件（输出 server/dist/index.cjs）
+pnpm start            # 源码直接启动后端
 ```
 
 生产模式由后端服务托管前端构建产物与静态数据，访问 http://localhost:3001 。
 
+**后端单文件产物**（`pnpm build:server`，esbuild 打包全部依赖）：
+
+```bash
+node server/dist/index.cjs                    # 默认端口 3001、默认数据库 data/hanzi.db
+node server/dist/index.cjs --port 8080        # 指定端口
+node server/dist/index.cjs --db /path/db.db   # 指定数据库路径（相对当前目录）
+HANZI_DB=/path/db.db node server/dist/index.cjs   # 亦可通过环境变量指定
+```
+
+端口解析优先级：`--port` > 环境变量 `PORT` > 默认 3001；数据库路径优先级：`--db` > 环境变量 `HANZI_DB` > 默认 `data/hanzi.db`。
+`data/hanzi.db` 为现有数据资产，未经明确要求禁止删除或清空。
+
+### App 打包（Android）
+
+```bash
+build/app-pack.sh debug     # 构建 pure/net 双变体 debug 安装包
+build/app-pack.sh release   # 构建 pure/net 双变体 release 安装包并写入版本信息
+```
+
+- **变体**：`pure`（纯净版，无任何权限）/ `net`（可联网变体，支持检查更新、在线下载笔画数据）；
+  两变体 `applicationId` 一致，可互相覆盖安装且保留数据
+- **产物**：
+  - debug：`public/assets/app/android/hanzi-debug.apk`、`hanzi-net-debug.apk`（web 开发环境下载）
+  - release：`dist/assets/app/hanzi-android-{version}.apk`、`hanzi-net-android-{version}.apk`（纯净版无变体标识，随 GitHub Releases 发布）
+- **版本信息**（`pnpm app:version` 生成 `public/assets/app/version`，单行 JSON：
+  `{"name":"...","changelog":"...","checksum":{"android":{"pure":"sha256:...","net":"sha256:..."}}}`）：
+  联网变体启动时据此检查更新并校验安装包完整性；更新日志可选写入 `app/notes.txt`
+- 打包步骤包含：拷贝拼音读音/收款码资源、打包中易楷体（目标已存在则跳过）、
+  打包内置数据库（`data/hanzi.db` → `app/android/src/main/assets/db/hanzi.db`）、Gradle 构建、移动安装包
+
 ### 目录结构
 
 ```
-├── build/          # 构建相关脚本（字体打包、数据库打包、静态数据导出等）
+├── build/          # 构建相关脚本（字体打包、数据库打包、静态数据导出、App 打包等）
 │   └── fonts/      # 中易楷体全量 TTF（子集源，不随 App 打包）
-├── data/           # 本地开发数据库（汉字词典数据源）
+├── data/           # 本地开发数据（hanzi.db 汉字数据库、pinyin-dict.sqlite 词典数据源）
 ├── public/         # 静态资源（字体、logo、导出的数据）
-├── server/         # 本地开发后端服务（REST API + 静态数据同步）
+├── server/         # 后端服务（REST API + 静态数据同步；build:server 产物在 server/dist/）
 ├── dist/           # 前端构建产物、笔画数据库与 App release 安装包导出位置
 └── src/            # 前端页面与共享组件
     ├── index.html        # 首页
