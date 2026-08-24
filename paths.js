@@ -1,13 +1,34 @@
 // ============ 仓库级路径与固定文件（build/ server/ vite 构建共用，单一来源） ============
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 
-export const ROOT = path.dirname(fileURLToPath(import.meta.url))
+// 仓库根目录: 自本模块所在目录向上查找 package.json。
+// 源码形态（paths.js 位于仓库根）与单文件构建产物（server/dist/index.js 内联本模块）
+// 均能正确推导; 也可经环境变量 HANZI_ROOT 显式指定
+function findRoot(from) {
+  if (process.env.HANZI_ROOT) return path.resolve(process.env.HANZI_ROOT)
+  let dir = from
+  for (;;) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) return dir
+    const parent = path.dirname(dir)
+    if (parent === dir) throw new Error('未找到仓库根目录（缺少 package.json）')
+    dir = parent
+  }
+}
+
+// 本模块所在目录: 源码为 ESM（import.meta.url）; 单文件 CJS 产物无 import.meta，回退 __dirname
+const moduleDir = import.meta.url
+  ? path.dirname(fileURLToPath(import.meta.url))
+  : __dirname
+
+export const ROOT = findRoot(moduleDir)
 export const DIST_DIR = path.join(ROOT, 'dist')
 export const PUBLIC_DIR = path.join(ROOT, 'public')
 
-// 笔画开发库（导入/导出/打包共用）
-export const STROKE_DB_PATH = path.join(ROOT, 'server', 'data', 'hanzi_stroke.db')
+// 汉字数据库（开发库，存放于 data/ 目录; 导入/导出/打包共用）
+// 注意: 该文件为现有数据资产，未经明确要求禁止删除或清空
+export const HANZI_DB_PATH = path.join(ROOT, 'data', 'hanzi.db')
 
 // 静态数据输出目录（导出脚本与 server 同步共用）
 export const ZI_ASSETS_DIR = path.join(PUBLIC_DIR, 'assets', 'zi')

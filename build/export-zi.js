@@ -17,7 +17,7 @@ import { decompressTrajectory, deltaEncode, TRAJECTORY_VERSION } from '../server
 import { stripTone } from '../server/services/pinyinDict.js'
 import path from 'path'
 import fs from 'fs'
-import { PUBLIC_DIR, STROKE_DB_PATH } from '../paths.js'
+import { PUBLIC_DIR, HANZI_DB_PATH } from '../paths.js'
 
 const DEFAULT_OUT = PUBLIC_DIR
 
@@ -39,7 +39,7 @@ function parseArgs() {
   }
   return {
     count: opt.count,
-    db: opt.db || STROKE_DB_PATH,
+    db: opt.db || HANZI_DB_PATH,
     out: opt.out || DEFAULT_OUT
   }
 }

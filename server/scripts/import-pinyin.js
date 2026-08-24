@@ -19,11 +19,11 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { STRUCTURE_MAP, numberTonePinyin } from '../services/pinyinDict.js'
-import { STROKE_DB_PATH, KAI_FONT_WOFF2_PATH, ZI_ASSETS_DIR } from '../../paths.js'
+import { HANZI_DB_PATH, KAI_FONT_WOFF2_PATH, ZI_ASSETS_DIR } from '../../paths.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEFAULT_SRC = path.join(__dirname, '..', '..', 'data', 'pinyin-dict.sqlite')
-const DEFAULT_DST = STROKE_DB_PATH
+const DEFAULT_DST = HANZI_DB_PATH
 // 自带中易楷体（web 端显示字体）: 不在其中的汉字不做导入
 const KAI_FONT_PATH = KAI_FONT_WOFF2_PATH
 

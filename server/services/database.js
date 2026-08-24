@@ -2,12 +2,12 @@ import { DatabaseSync } from 'node:sqlite'
 import path from 'path'
 import fs from 'fs'
 import { compressTrajectory, decompressTrajectory, TRAJECTORY_VERSION } from './trajectory.js'
-import { STROKE_DB_PATH } from '../../paths.js'
+import { HANZI_DB_PATH } from '../../paths.js'
 
 let db
 
 // 支持指定数据库路径（导入脚本等场景）；缺省用默认路径
-export function initDatabase(dbPath = STROKE_DB_PATH) {
+export function initDatabase(dbPath = HANZI_DB_PATH) {
   const dir = path.dirname(dbPath)
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 

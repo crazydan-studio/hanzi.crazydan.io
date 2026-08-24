@@ -12,9 +12,9 @@ import { DatabaseSync } from 'node:sqlite'
 import os from 'node:os'
 import path from 'path'
 import fs from 'fs'
-import { STROKE_DB_PATH, DIST_DIR } from '../paths.js'
+import { HANZI_DB_PATH, DIST_DIR } from '../paths.js'
 
-const SRC_DB = STROKE_DB_PATH
+const SRC_DB = HANZI_DB_PATH
 const DEFAULT_OUT = path.join(DIST_DIR, 'assets')
 
 function parseArgs() {
