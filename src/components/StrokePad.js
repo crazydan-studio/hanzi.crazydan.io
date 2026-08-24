@@ -96,7 +96,8 @@ Alpine.data('strokePad', (opts = {}) => ({
       ziBox: () => this.ziBoxValue             // 墨迹盒提供者（字体/字符就绪后可用）
     })
     this.engine.onBeforeRender = () => {
-      drawCanvasBackground(this.canvas, this.ctx, this.width, this.height, this.currentZi)
+      // 书写页恒绘制墨迹盒边界（笔画坐标系的视觉基准）
+      drawCanvasBackground(this.canvas, this.ctx, this.width, this.height, this.currentZi, true)
     }
     this.engine.onStrokeStart = (i) => {
       this.playbackIndex = i
@@ -298,13 +299,11 @@ Alpine.data('strokePad', (opts = {}) => ({
     this.drawZiRef(ziRefColor())
   },
 
-  // 楷体半透明参考字核心绘制（书写模式与回放背景共用）— 逻辑在共享模块 strokeBackground.js
+  // 楷体半透明参考字核心绘制（书写模式与回放背景共用）— 逻辑在共享模块 strokeBackground.js;
+  // 同时绘制墨迹盒边界（书写页恒绘制，笔画坐标系的视觉基准）
   drawZiRef(color) {
     drawZiRef(this.ctx, this.width, this.height, this.currentZi, color)
-    // 调试: 绘制背景字墨迹盒边界（仅开发模式）
-    if (import.meta.env.DEV) {
-      drawZiBoxDebug(this.ctx, this.width, this.height, this.currentZi)
-    }
+    drawZiBoxDebug(this.ctx, this.width, this.height, this.currentZi)
   },
 
   // 书写模式重绘: 田字格 → 参考字 → 笔画（展示颜色/宽度均前端配置，墨色适配主题）

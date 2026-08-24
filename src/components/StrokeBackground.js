@@ -182,7 +182,7 @@ export function ziInkBox(width, height, zi) {
   return ziBoxLayout(width, height, zi)?.box ?? null
 }
 
-// 调试用（仅开发模式）: 绘制背景字墨迹盒边界（光栅实测盒，即笔画坐标系的基准）
+// 墨迹盒边界绘制（书写页恒绘制——笔画坐标系的视觉基准；信息页/分解图仅开发模式）
 export function drawZiBoxDebug(ctx, width, height, zi) {
   const box = ziInkBox(width, height, zi)
   if (!box) return
@@ -193,16 +193,16 @@ export function drawZiBoxDebug(ctx, width, height, zi) {
   ctx.restore()
 }
 
-// 田字格 + 半透明背景字 + 墨迹盒调试框 统一绘制（书写板/信息页/笔画分解图共用）:
+// 田字格 + 半透明背景字 + 墨迹盒边界 统一绘制（书写板/信息页/笔画分解图共用）:
 // 换算系数由画布设备像素与实测显示宽度得出（任意显示尺寸/DPR 下线宽与虚线一致）；
 // 画布尺寸未确定（宽度为 0）时跳过，待布局完成后由宿主重绘
-export function drawCanvasBackground(canvas, ctx, width, height, zi) {
+// debugBox: 是否绘制墨迹盒边界（书写页恒绘制；信息页/分解图仅开发模式）
+export function drawCanvasBackground(canvas, ctx, width, height, zi, debugBox = import.meta.env.DEV) {
   const rect = canvas.getBoundingClientRect()
   if (!rect.width) return
   drawTianZiGe(ctx, width, height, displayUnit(canvas, rect), rect.width)
   drawZiRef(ctx, width, height, zi, ziRefColor())
-  // 调试: 绘制背景字墨迹盒边界（仅开发模式）
-  if (import.meta.env.DEV) {
+  if (debugBox) {
     drawZiBoxDebug(ctx, width, height, zi)
   }
 }
