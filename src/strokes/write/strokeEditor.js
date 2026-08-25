@@ -10,6 +10,7 @@ import { strokeTypesMap } from '@components/StrokeTypes.js'
 import { ZI_STRUCTURES, structureLabel } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
+import { TRAJECTORY_VERSION } from '@components/Constants.js'
 import { STROKE_REF_URL, ZDIC_URL } from '../../config.js'
 
 export function registerStrokeEditor() {
@@ -31,6 +32,7 @@ export function registerStrokeEditor() {
     sync: null,                          // 多端同步客户端
     _remoteConfig: false,                // 远端配置回显标志（防广播回环）
     _pendingWidth: null,                 // pad 未就绪时暂存的远端笔宽
+    _upgradeTimer: null,                 // 旧轨迹升级轮询（等待实测盒就绪）
 
     // 触摸设备检测: 移动端无 HTML5 拖拽，列表排序改用上移/下移按钮
     isTouch: ('ontouchstart' in window) || navigator.maxTouchPoints > 0,
@@ -288,11 +290,55 @@ export function registerStrokeEditor() {
       // 数据注入公共书写板（参考字 + 笔画）
       this.pad.setZi(this.zi?.zi || '')
       this.pad.loadStrokes(this.strokes)
+      // 旧轨迹（v1，无光栅实测盒）自动升级: 等待真实字体实测盒就绪后补记
+      this.scheduleLegacyUpgrade()
     } catch (e) {
       this.error = e.message
       this.zi = null
       this.strokes = []
     }
+  },
+
+  // ---- 旧轨迹数据自动升级（v1 → v2）----
+  // v1 轨迹未记录光栅实测盒，且盒无法仅从轨迹数据还原——须在真实背景字
+  // 光栅实测盒就绪后（书写页字体渲染）补记，保证记录盒与实际光栅实测盒一致
+  scheduleLegacyUpgrade() {
+    if (this._upgradeTimer) return   // 升级轮询已在进行
+    let tries = 0
+    this._upgradeTimer = setInterval(async () => {
+      tries++
+      if (this.pad?.ziBoxValue) {
+        clearInterval(this._upgradeTimer)
+        this._upgradeTimer = null
+        await this.upgradeLegacyStrokes()
+      } else if (tries > 60) {
+        // 30s 超时（字体加载异常）后停止轮询
+        clearInterval(this._upgradeTimer)
+        this._upgradeTimer = null
+      }
+    }, 500)
+  },
+
+  async upgradeLegacyStrokes() {
+    const legacy = this.strokes.filter(s =>
+      Number.isInteger(s.id) &&
+      (!s.trajectory_data.box || s.trajectory_data.version !== TRAJECTORY_VERSION))
+    if (legacy.length === 0) return
+    const box = this.pad?.ziBoxValue
+    if (!box) return
+    const recorded = { w: Math.round(box.w), h: Math.round(box.h) }
+    for (const s of legacy) {
+      try {
+        const res = await api.patch(
+          `/api/zi/${this.zi.id}/strokes/${s.id}`,
+          { trajectory_data: { ...s.trajectory_data, version: TRAJECTORY_VERSION, box: recorded } })
+        s.trajectory_data = res.data.trajectory_data
+      } catch (e) {
+        console.warn('旧笔画升级失败（跳过）:', s.id, e.message)
+      }
+    }
+    // 升级后刷新画布（记录盒生效）; 列表数据保持
+    this.pad.loadStrokes(this.strokes)
   },
 
     // 计算下一个 stroke_order（max+1，服务端权威）

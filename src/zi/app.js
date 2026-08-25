@@ -2,7 +2,7 @@
 // 展示: 书写动画（倍速/暂停/重置）/ 读音试听 / 复制 / 汉典链接 / 笔画分解图
 import Alpine from 'alpinejs'
 import { AnimationEngine } from '@components/AnimationEngine.js'
-import { boxFromTrajectory, drawCanvasBackground, ziInkBox, strokeInkColor, ensureKaiFont } from '@components/StrokeBackground.js'
+import { boxFromTrajectory, drawCanvasBackground, strokeInkColor, ensureKaiFont } from '@components/StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { CANVAS_SIZE, STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
 import { strokeTypeName } from '@components/StrokeTypes.js'
@@ -22,9 +22,8 @@ Alpine.data('ziApp', () => ({
   loading: true,
   error: '',
   engine: null,
-  fontReady: false,       // 楷体加载完成且覆盖该字（背景字/笔画可渲染）
+  fontReady: false,       // 楷体加载完成且覆盖该字（背景字可渲染）
   fontError: false,       // 楷体加载失败（无兜底，显示失败提示）
-  ziBoxValue: null,     // 背景字墨迹盒（内部坐标系，笔画坐标还原基准）
   SPEEDS: [0.5, 1, 1.5, 2],
   playbackSpeed: 1,
   playing: false,
@@ -77,15 +76,8 @@ Alpine.data('ziApp', () => ({
     this.fontError = !ok
   },
 
-  // 测量当前汉字墨迹盒（需引擎画布就绪后调用）; 仅作为无记录盒时的回退
-  measureZiBox() {
-    const e = this.engine
-    if (!e || !this.fontReady) return
-    this.ziBoxValue = ziInkBox(e.cssW, e.cssH, this.zi)
-    if (this.ziBoxValue) e.refreshBox()
-  },
-
-  // 笔画数据记录的光栅实测盒 → 画布盒（中心对齐画布; 无记录盒返回 null）
+  // 笔画数据记录的光栅实测盒 → 画布盒（中心对齐画布; 无记录盒返回 null）:
+  // 笔画轨迹只支持按记录盒还原（v2），无记录盒（旧格式）时不绘制笔画
   recordedBox() {
     return boxFromTrajectory(this.strokes?.[0]?.trajectory_data, CANVAS_SIZE.width)
   },
@@ -101,9 +93,9 @@ Alpine.data('ziApp', () => ({
       highlightColor: STROKE_HIGHLIGHT_COLOR,
       strokeGap: 300,
       completedColor: () => strokeInkColor(),   // 已绘笔画墨色（适配主题）
-      // 墨迹盒提供者: 优先用笔画数据记录的光栅实测盒（脱离字体按盒还原），
-      // 无记录盒（旧格式/异常）时回退字体实测测量
-      ziBox: () => this.recordedBox() ?? this.ziBoxValue
+      // 墨迹盒提供者: 仅使用笔画数据记录的光栅实测盒（脱离字体按盒还原）;
+      // 无记录盒（旧格式数据）时笔画不绘制
+      ziBox: () => this.recordedBox()
     })
     this.engine.onBeforeRender = () => {
       const canvas = this.$refs.mainCanvas
@@ -118,7 +110,6 @@ Alpine.data('ziApp', () => ({
       this.playing = false
       this.strokeName = ''
     }
-    this.measureZiBox()
     if (this.hasStrokes) {
       this.engine.loadStrokes(this.strokes)
     } else {
@@ -157,8 +148,7 @@ Alpine.data('ziApp', () => ({
 
   play() {
     if (!this.engine || !this.hasStrokes) return
-    // 盒不可用不可播放: 优先记录盒（脱离字体）; 无记录盒时需字体实测测量就绪
-    if (!this.recordedBox() && (!this.fontReady || !this.ziBoxValue)) return
+    if (!this.recordedBox()) return   // 无记录盒（旧格式数据）不可播放
     this.engine.singleStrokePlayback = false
     this.engine.play()
     this.playing = this.engine.state === 'PLAYING'

@@ -8,9 +8,11 @@ export const STROKE_HIGHLIGHT_COLOR = '#dc2626'
 //     范围 [-2000, 3000]（允许笔画落在盒外 2 倍范围内）
 //   - pressure ×100、timestamp ×10 存整数
 //   - brush: 笔刷面积/背景字面积 比值 ×BRUSH_SCALE 存整数（整轨迹共享笔宽），
-//     还原笔宽 = sqrt(brush / BRUSH_SCALE × 当前盒面积)
+//     还原笔宽 = sqrt(brush / BRUSH_SCALE × 盒面积)
 //     BRUSH_SCALE=100000 精度: 典型盒下笔宽量化误差约 0.03px
-export const TRAJECTORY_VERSION = 1
+//   - v2: 记录绘制时背景字光栅实测盒 box: { w, h }（内部坐标系像素，整数）;
+//     盒的位置按约定为画布中心对齐，笔画可脱离字体按盒还原与按比例缩放
+export const TRAJECTORY_VERSION = 2
 export const COORD_SCALE = 1000
 export const PRESSURE_SCALE = 100
 export const TIMESTAMP_SCALE = 10
