@@ -53,31 +53,8 @@ export function deltaDecode(points) {
 
 // 与前端布局约定的墨迹盒测量参数（见 src/components/StrokeBackground.js ziBoxLayout）:
 //   画布内部坐标系 500×500; 统一字号 = 短边 92%; 盒不超出画布 92% 区域（必要时按比例缩小字号）
+// （仅用于说明盒的测量约定; 盒由前端光栅实测，服务端不测量）
 export const INKBOX_CANVAS = 500
-const INKBOX_FONT_RATIO = 0.92
-
-// 用字体字形度量近似光栅实测盒（迁移 v1 轨迹时填充 box 用）:
-// 以字体单位包围盒按约定字号换算为画布像素盒，并应用同样的 fit 缩放;
-// 与前端光栅实测盒（alpha 扫描）略有差异，仅用于旧数据迁移的近似值
-export function inkBoxFromGlyph(font, zi) {
-  const glyph = font.glyphForCodePoint(zi.codePointAt(0))
-  if (!glyph || !glyph.bbox) return null
-  const b = glyph.bbox   // 字体单位: { minX, minY, maxX, maxY }
-  const unitsPerEm = font.unitsPerEm || 1000
-  const fontSize = Math.round(INKBOX_CANVAS * INKBOX_FONT_RATIO)
-  // 字形包围盒 → 字号下的像素盒
-  const scale = fontSize / unitsPerEm
-  const inkW = (b.maxX - b.minX) * scale
-  const inkH = (b.maxY - b.minY) * scale
-  if (!(inkW > 0) || !(inkH > 0)) return null
-  // fit: 盒不超出画布 92% 区域（与前端 ziBoxLayout 一致）
-  const maxSize = INKBOX_CANVAS * INKBOX_FONT_RATIO
-  const fit = Math.min(1, maxSize / inkW, maxSize / inkH)
-  return {
-    w: Math.round(inkW * fit),
-    h: Math.round(inkH * fit)
-  }
-}
 
 export function compressTrajectory(trajectory) {
   const encoded = {
