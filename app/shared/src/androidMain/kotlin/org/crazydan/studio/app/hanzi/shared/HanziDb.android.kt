@@ -231,12 +231,13 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                 Log.w(TAG, "解压笔画轨迹失败（数据损坏，跳过该笔画）: unicode=$unicode", e)
                 return@queryAll
             }
-            val points = traj.getJSONArray("points")
+            // 轨迹属性为单字符（v/b/r/p），兼容旧完整词字段名（version/brush/points）
+            val points = traj.optJSONArray("p") ?: traj.getJSONArray("points")
             val list = ArrayList<StrokePoint>(points.length())
             var prev: StrokePoint? = null
             for (i in 0 until points.length()) {
                 val p = points.getJSONArray(i)
-                // 增量编码: 首点绝对，后续为与上一点的差值（与 server/services/trajectory.js 一致）；
+                // 增量编码: 首点绝对，后续为与上一点的差值（与 server/services/Trajectory.js 一致）；
                 // x/y 盒相对归一化 ×1000、时间戳 ×10 存储，还原为盒相对浮点与毫秒
                 val point = prev?.let {
                     StrokePoint(
@@ -254,7 +255,8 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                 list.add(point)
                 prev = point
             }
-            out.add(ZiStroke(cursor.getInt(0), cursor.getInt(1), traj.optInt("brush", 0), list))
+            val brush = if (traj.has("b")) traj.optInt("b", 0) else traj.optInt("brush", 0)
+            out.add(ZiStroke(cursor.getInt(0), cursor.getInt(1), brush, list))
         }
         return out
     }

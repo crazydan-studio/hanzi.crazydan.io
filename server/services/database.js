@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import path from 'path'
 import fs from 'fs'
-import { compressTrajectory, decompressTrajectory, TRAJECTORY_VERSION } from './trajectory.js'
+import { compressTrajectory, decompressTrajectory, TRAJECTORY_VERSION } from './Trajectory.js'
 import { HANZI_DB_PATH } from '../../paths.js'
 
 let db
@@ -77,42 +77,70 @@ function migrateZiTable() {
 }
 
 // 结构编码范围迁移（幂等）: 旧库 CHECK 限制 0-9 无法存入半包围细分（10-16），
-// 重建 zi 表扩展取值范围（数据原样保留）
+// 重建 zi 表扩展取值范围；同时修复此前迁移可能破坏的 strokes 外键
+// （ALTER TABLE RENAME 会把外键改写为 REFERENCES zi_old，须检测并重建）
 function migrateStructureRange() {
-  const sql = db.prepare(
+  const ziSql = db.prepare(
     "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'zi'"
   ).get()?.sql
-  if (!sql || !sql.includes('CHECK(structure BETWEEN 0 AND 9)')) return
+  const strokesSql = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'strokes'"
+  ).get()?.sql
+  // 精确匹配旧约束（注意: BETWEEN 0 AND 99 含子串 BETWEEN 0 AND 9，须带边界）
+  const needZi = ziSql && !/CHECK\(structure BETWEEN 0 AND 99\)/.test(ziSql)
+  const badFk = strokesSql && !/REFERENCES zi\(id\)/.test(strokesSql)
+  if (!needZi && !badFk) return
   withTransaction(() => {
-    db.exec('ALTER TABLE zi RENAME TO zi_old')
-    db.exec(`
-      CREATE TABLE zi (
-        id INTEGER PRIMARY KEY,
-        zi TEXT NOT NULL UNIQUE,
-        pinyin TEXT NOT NULL DEFAULT '[]',
-        used_weight INTEGER NOT NULL DEFAULT 0,
-        structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 99),
-        radical TEXT NOT NULL DEFAULT '',
-        total_stroke_count INTEGER NOT NULL DEFAULT 0
-      )
-    `)
-    db.exec(`INSERT INTO zi
-      (id, zi, pinyin, used_weight, structure, radical, total_stroke_count)
-      SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count FROM zi_old`)
-    db.exec('DROP TABLE zi_old')
-    db.exec('CREATE UNIQUE INDEX idx_zi_zi_unique ON zi(zi)')
+    if (needZi) {
+      // 用新表名重建后替换，避免 RENAME 改写其他表的外键引用
+      db.exec(`
+        CREATE TABLE zi_new (
+          id INTEGER PRIMARY KEY,
+          zi TEXT NOT NULL UNIQUE,
+          pinyin TEXT NOT NULL DEFAULT '[]',
+          used_weight INTEGER NOT NULL DEFAULT 0,
+          structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 99),
+          radical TEXT NOT NULL DEFAULT '',
+          total_stroke_count INTEGER NOT NULL DEFAULT 0
+        )
+      `)
+      db.exec(`INSERT INTO zi_new
+        (id, zi, pinyin, used_weight, structure, radical, total_stroke_count)
+        SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count FROM zi`)
+      db.exec('DROP TABLE zi')
+      db.exec('ALTER TABLE zi_new RENAME TO zi')
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_zi_zi_unique ON zi(zi)')
+    }
+    if (badFk) {
+      // 重建 strokes（外键正确指向 zi），原数据保留
+      db.exec(`
+        CREATE TABLE strokes_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          zi_id INTEGER NOT NULL,
+          stroke_order INTEGER NOT NULL CHECK(stroke_order >= 1),
+          stroke_type INTEGER NOT NULL DEFAULT 0 CHECK(stroke_type BETWEEN 0 AND 35),
+          trajectory_data BLOB NOT NULL,
+          FOREIGN KEY (zi_id) REFERENCES zi(id) ON DELETE CASCADE
+        )
+      `)
+      db.exec('INSERT INTO strokes_new SELECT * FROM strokes')
+      db.exec('DROP TABLE strokes')
+      db.exec('ALTER TABLE strokes_new RENAME TO strokes')
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_strokes_order_unique ON strokes(zi_id, stroke_order)')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_strokes_zi_id ON strokes(zi_id)')
+    }
   })
-  console.log('DB migrated: zi.structure 取值范围扩展（半包围细分）')
+  console.log('DB migrated: zi.structure 取值范围扩展 / strokes 外键修复')
 }
 
 // 轨迹数据清理（幂等）: 无法解压/字段非法的损坏数据删除;
-// 版本低于当前（v1，无 box）的数据保留，等待 web 端书写页在获得真实光栅实测盒后升级
+// 版本低于当前（v1，无光栅实测盒 r）的数据保留，等待 web 端书写页在获得真实光栅实测盒后升级
 function cleanStrokeTrajectories() {
   const rows = db.prepare('SELECT id, trajectory_data FROM strokes').all()
   const corrupted = rows.filter(r => {
     let traj
     try { traj = decompressTrajectory(r.trajectory_data) } catch { return true }
-    return !traj || !Number.isInteger(traj.brush) || traj.brush < 0
+    return !traj || !Number.isInteger(traj.b) || traj.b < 0
   })
   if (corrupted.length === 0) return
   const del = db.prepare('DELETE FROM strokes WHERE id = ?')

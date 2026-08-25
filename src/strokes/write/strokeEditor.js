@@ -322,16 +322,16 @@ export function registerStrokeEditor() {
   async upgradeLegacyStrokes() {
     const legacy = this.strokes.filter(s =>
       Number.isInteger(s.id) &&
-      (!s.trajectory_data.box || s.trajectory_data.version !== TRAJECTORY_VERSION))
+      (!s.trajectory_data.r || s.trajectory_data.v !== TRAJECTORY_VERSION))
     if (legacy.length === 0) return
     const box = this.pad?.ziBoxValue
     if (!box) return
-    const recorded = { w: Math.round(box.w), h: Math.round(box.h) }
+    const r = { w: Math.round(box.w), h: Math.round(box.h) }
     for (const s of legacy) {
       try {
         const res = await api.patch(
           `/api/zi/${this.zi.id}/strokes/${s.id}`,
-          { trajectory_data: { ...s.trajectory_data, version: TRAJECTORY_VERSION, box: recorded } })
+          { trajectory_data: { ...s.trajectory_data, v: TRAJECTORY_VERSION, r } })
         s.trajectory_data = res.data.trajectory_data
       } catch (e) {
         console.warn('旧笔画升级失败（跳过）:', s.id, e.message)

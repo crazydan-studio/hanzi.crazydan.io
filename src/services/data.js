@@ -37,11 +37,11 @@ function deltaDecode(points) {
   return out
 }
 
-// strokes.json 紧凑结构 → 完整字段
+// strokes.json 紧凑结构 → 完整字段（单字符属性，与轨迹数据一致）:
 // 静态文件为上层共享结构（避免每笔画重复存放）:
-//   { v: 轨迹版本, box: { w, h }: 光栅实测盒（同字所有笔画共享）, strokes: [{ o, t, d }] }
+//   { v: 轨迹版本, r: { w, h }: 光栅实测盒（同字所有笔画共享）, strokes: [{ o, t, d }] }
 //   d = { b: 笔刷面积比, p: 点（增量编码，解码为绝对坐标）}
-// 旧格式（笔画数组，d 内含 v）亦兼容解析
+// 旧格式（笔画数组 / box 字段名）亦兼容解析
 function normalizeStrokes(payload) {
   const list = Array.isArray(payload) ? payload : payload?.strokes
   const shared = Array.isArray(payload) ? {} : payload
@@ -49,10 +49,10 @@ function normalizeStrokes(payload) {
     stroke_order: s.o,
     stroke_type: s.t,
     trajectory_data: {
-      version: s.d?.v ?? shared.v,
-      brush: s.d?.b ?? 0,
-      box: s.d?.box ?? shared.box ?? null,
-      points: deltaDecode(s.d?.p || [])
+      v: s.d?.v ?? shared.v,
+      b: s.d?.b ?? 0,
+      r: s.d?.r ?? s.d?.box ?? shared.r ?? shared.box ?? null,
+      p: deltaDecode(s.d?.p || [])
     }
   }))
 }

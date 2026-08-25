@@ -61,9 +61,9 @@ export class StrokeRecorder {
     this.brush = Math.max(BRUSH_MIN, Math.min(BRUSH_MAX, Math.round(brush || 0)))
   }
 
-  // 记录绘制时背景字光栅实测盒宽高（v2 格式）: 脱离字体按盒还原与按比例缩放
+  // 记录绘制时背景字光栅实测盒宽高（v2 格式，单字符 r）: 脱离字体按盒还原与按比例缩放
   setBox(w, h) {
-    this.box = { w: Math.round(w), h: Math.round(h) }
+    this.r = { w: Math.round(w), h: Math.round(h) }
   }
 
   stopRecording() {
@@ -71,20 +71,16 @@ export class StrokeRecorder {
     return this.generateTrajectoryData()
   }
 
-  // 仅记录坐标点数据（元组数组 [x,y,pressure,timestamp]，降低存储开销）
-  // x/y: 盒相对归一化 ×COORD_SCALE 整数（x 按盒宽、y 按盒高）；
-  //     前端显示时 ÷COORD_SCALE 还原到当前盒
-  // pressure: 0-1 浮点 ×100 存整数（保留 2 位小数，0.01 步进不可感知）
-  // timestamp: 毫秒浮点 ×10 存整数（保留 1 位小数，0.1ms 远高于 60fps 需求）
-  // brush: 笔刷面积/背景字面积 比值 ×BRUSH_SCALE 整数（整轨迹共享笔宽）
-  // box: 绘制时背景字光栅实测盒宽高（内部坐标系像素，笔画坐标还原基准）
-  // 整数存储可消除浮点噪声（如 1.4000000059604645）并减小体积
+  // 仅记录坐标点数据（元组数组 [x,y,pressure,timestamp]，降低存储开销）;
+  // 轨迹属性采用单字符: v 版本 / b 笔刷面积比 / r 光栅实测盒 / p 坐标点
+  // x/y: 盒相对归一化 ×COORD_SCALE 整数（x 按盒宽、y 按盒高）
+  // pressure/timestamp 同 ×比例取整数; 整数存储可消除浮点噪声并减小体积
   generateTrajectoryData() {
     return {
-      version: TRAJECTORY_VERSION,
-      brush: this.brush ?? 0,
-      ...(this.box ? { box: this.box } : {}),
-      points: this.points.map(p => [
+      v: TRAJECTORY_VERSION,
+      b: this.brush ?? 0,
+      ...(this.r ? { r: this.r } : {}),
+      p: this.points.map(p => [
         Math.round(p.x * COORD_SCALE),
         Math.round(p.y * COORD_SCALE),
         Math.round(p.pressure * PRESSURE_SCALE),
@@ -99,6 +95,6 @@ export class StrokeRecorder {
     this.isRecording = false
     this.startTime = 0
     this.brush = 0
-    this.box = null
+    this.r = null
   }
 }

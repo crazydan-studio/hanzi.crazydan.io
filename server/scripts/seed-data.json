@@ -13,9 +13,13 @@
           "stroke_order": 1,
           "stroke_type": 1,
           "trajectory_data": {
-            "version": 2,
-            "brush": 60,
-            "points": [
+            "v": 2,
+            "b": 60,
+            "r": {
+              "w": 403,
+              "h": 394
+            },
+            "p": [
               [
                 500,
                 140,
@@ -28,20 +32,20 @@
                 55,
                 600
               ]
-            ],
-            "box": {
-              "w": 403,
-              "h": 394
-            }
+            ]
           }
         },
         {
           "stroke_order": 2,
           "stroke_type": 10,
           "trajectory_data": {
-            "version": 2,
-            "brush": 60,
-            "points": [
+            "v": 2,
+            "b": 60,
+            "r": {
+              "w": 403,
+              "h": 394
+            },
+            "p": [
               [
                 150,
                 220,
@@ -66,20 +70,20 @@
                 40,
                 6200
               ]
-            ],
-            "box": {
-              "w": 403,
-              "h": 394
-            }
+            ]
           }
         },
         {
           "stroke_order": 3,
           "stroke_type": 8,
           "trajectory_data": {
-            "version": 2,
-            "brush": 60,
-            "points": [
+            "v": 2,
+            "b": 60,
+            "r": {
+              "w": 403,
+              "h": 394
+            },
+            "p": [
               [
                 180,
                 400,
@@ -98,20 +102,20 @@
                 55,
                 4200
               ]
-            ],
-            "box": {
-              "w": 403,
-              "h": 394
-            }
+            ]
           }
         },
         {
           "stroke_order": 4,
           "stroke_type": 4,
           "trajectory_data": {
-            "version": 2,
-            "brush": 60,
-            "points": [
+            "v": 2,
+            "b": 60,
+            "r": {
+              "w": 403,
+              "h": 394
+            },
+            "p": [
               [
                 480,
                 360,
@@ -124,20 +128,20 @@
                 45,
                 3500
               ]
-            ],
-            "box": {
-              "w": 403,
-              "h": 394
-            }
+            ]
           }
         },
         {
           "stroke_order": 5,
           "stroke_type": 5,
           "trajectory_data": {
-            "version": 2,
-            "brush": 60,
-            "points": [
+            "v": 2,
+            "b": 60,
+            "r": {
+              "w": 403,
+              "h": 394
+            },
+            "p": [
               [
                 460,
                 420,
@@ -150,11 +154,7 @@
                 55,
                 4000
               ]
-            ],
-            "box": {
-              "w": 403,
-              "h": 394
-            }
+            ]
           }
         }
       ]
@@ -172,9 +172,13 @@
           "stroke_order": 1,
           "stroke_type": 2,
           "trajectory_data": {
-            "version": 2,
-            "brush": 60,
-            "points": [
+            "v": 2,
+            "b": 60,
+            "r": {
+              "w": 358,
+              "h": 370
+            },
+            "p": [
               [
                 140,
                 300,
@@ -187,20 +191,20 @@
                 50,
                 2500
               ]
-            ],
-            "box": {
-              "w": 358,
-              "h": 370
-            }
+            ]
           }
         },
         {
           "stroke_order": 2,
           "stroke_type": 4,
           "trajectory_data": {
-            "version": 2,
-            "brush": 60,
-            "points": [
+            "v": 2,
+            "b": 60,
+            "r": {
+              "w": 358,
+              "h": 370
+            },
+            "p": [
               [
                 500,
                 320,
@@ -213,20 +217,20 @@
                 45,
                 3200
               ]
-            ],
-            "box": {
-              "w": 358,
-              "h": 370
-            }
+            ]
           }
         },
         {
           "stroke_order": 3,
           "stroke_type": 5,
           "trajectory_data": {
-            "version": 2,
-            "brush": 60,
-            "points": [
+            "v": 2,
+            "b": 60,
+            "r": {
+              "w": 358,
+              "h": 370
+            },
+            "p": [
               [
                 500,
                 320,
@@ -239,11 +243,7 @@
                 55,
                 3200
               ]
-            ],
-            "box": {
-              "w": 358,
-              "h": 370
-            }
+            ]
           }
         }
       ]

@@ -2,7 +2,7 @@
 // 书写页对 部首/结构/笔画 的修改与调整，同步落盘到该汉字对应的静态数据文件
 import fs from 'fs'
 import path from 'path'
-import { deltaEncode, TRAJECTORY_VERSION } from './trajectory.js'
+import { deltaEncode, TRAJECTORY_VERSION } from './Trajectory.js'
 import { ZI_ASSETS_DIR } from '../../paths.js'
 
 function metaPath(ziId) {
@@ -31,26 +31,26 @@ export function syncZiMeta(zi) {
 }
 
 // 同步笔画数据到 strokes.json（该汉字须已导出 meta.json）:
-// 有笔画时创建/更新（轨迹为增量编码，含笔刷面积比 b）; 无笔画时删除文件
+// 有笔画时创建/更新（轨迹为增量编码，含笔刷面积比）; 无笔画时删除文件
 // 静态文件采用上层共享结构（避免每笔画重复存放）:
-//   { v: 轨迹版本, box: { w, h }: 光栅实测盒（同字所有笔画共享）, strokes: [{ o, t, d }] }
-//   d = { b: 笔刷面积比, p: 增量编码点 }（不含 v/box，前端加载时按上层合并）
+//   { v: 轨迹版本, r: { w, h }: 光栅实测盒（同字所有笔画共享）, strokes: [{ o, t, d }] }
+//   d = { b: 笔刷面积比, p: 增量编码点 }（不含 v/r，前端加载时按上层合并）
 export function syncZiStrokes(ziId, strokes) {
   const file = strokesPath(ziId)
   if (!fs.existsSync(metaPath(ziId))) return false
-  const list = (strokes || []).filter(s => s.trajectory_data?.points?.length > 0)
+  const list = (strokes || []).filter(s => s.trajectory_data?.p?.length > 0)
   try {
     if (list.length > 0) {
-      const box = list[0].trajectory_data.box
+      const r = list[0].trajectory_data.r
       fs.writeFileSync(file, JSON.stringify({
         v: TRAJECTORY_VERSION,
-        ...(box ? { box } : {}),
+        ...(r ? { r } : {}),
         strokes: list.map(s => ({
           o: s.stroke_order,
           t: s.stroke_type,
           d: {
-            b: s.trajectory_data.brush ?? 0,
-            p: deltaEncode(s.trajectory_data.points)
+            b: s.trajectory_data.b ?? 0,
+            p: deltaEncode(s.trajectory_data.p)
           }
         }))
       }))

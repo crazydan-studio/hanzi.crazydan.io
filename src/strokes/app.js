@@ -135,8 +135,8 @@ Alpine.data('ziList', () => ({
     const ctx = canvas.getContext('2d')
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, size, size)
-    // 盒宽高: 优先记录盒（v2），否则字体实测
-    const recorded = strokes?.[0]?.trajectory_data?.box
+    // 盒宽高: 优先记录盒（v2，单字符 r），否则字体实测
+    const recorded = strokes?.[0]?.trajectory_data?.r
     const boxW = recorded?.w ?? null
     const boxH = recorded?.h ?? null
     let scale
