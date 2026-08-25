@@ -306,16 +306,15 @@ fun WritingAnimationCanvas(
         drawTianZiGe(border, unit)
         val layout = drawZiRef(zi, ref, textMeasurer)
         drawZiBoxDebug(layout, unit)
-        val box = layout?.box
 
         val completed = if (player != null) player.currentIndex.coerceIn(0, strokes.size) else strokes.size
         for (i in 0 until completed) {
-            drawFullStroke(strokes[i], ink, box)
+            drawFullStroke(strokes[i], ink)
         }
         if (player != null && player.currentIndex < strokes.size) {
             val p = player.progress
             if (p > 0f && p < 1f) {
-                drawPartialStroke(strokes[player.currentIndex], p, highlight, box)
+                drawPartialStroke(strokes[player.currentIndex], p, highlight)
             }
         }
     }
@@ -352,16 +351,15 @@ fun StrokeCellCanvas(
         drawTianZiGe(border, unit)
         val layout = drawZiRef(zi, ref, textMeasurer)
         drawZiBoxDebug(layout, unit)
-        val box = layout?.box
         // 此前笔画墨色已绘
         for (i in 0 until index) {
-            drawFullStroke(strokes[i], ink, box)
+            drawFullStroke(strokes[i], ink)
         }
         // 当前笔画红色（静态满红示位 / 动画按进度绘制）
         val p = progress
         when {
-            p == null || p >= 1f -> drawFullStroke(stroke, highlight, box)
-            p > 0f -> drawPartialStroke(stroke, p, highlight, box)
+            p == null || p >= 1f -> drawFullStroke(stroke, highlight)
+            p > 0f -> drawPartialStroke(stroke, p, highlight)
         }
     }
 }
@@ -545,9 +543,10 @@ private fun DrawScope.drawZiBoxDebug(layout: ZiLayout?, unit: Float) {
     )
 }
 
-/** 完整笔画（墨色）: 盒优先用笔画记录的光栅实测盒（中心对齐画布），无记录时回退测量盒 */
-private fun DrawScope.drawFullStroke(stroke: ZiStroke, color: Color, fallbackBox: ZiBox?) {
-    val box = stroke.recordedBox(size.width) ?: fallbackBox
+/** 完整笔画（墨色）: 仅按笔画记录的光栅实测盒绘制（中心对齐画布，脱离字体还原）;
+ * 无记录盒（旧格式数据）时不绘制 */
+private fun DrawScope.drawFullStroke(stroke: ZiStroke, color: Color) {
+    val box = stroke.recordedBox(size.width)
     val pts = stroke.points
     if (pts.isEmpty() || box == null) return
     val widths = brushWidths(pts, brushBaseWidth(stroke.brush))
@@ -558,10 +557,9 @@ private fun DrawScope.drawFullStroke(stroke: ZiStroke, color: Color, fallbackBox
 private fun DrawScope.drawPartialStroke(
     stroke: ZiStroke,
     progress: Float,
-    color: Color,
-    fallbackBox: ZiBox?
+    color: Color
 ) {
-    val box = stroke.recordedBox(size.width) ?: fallbackBox
+    val box = stroke.recordedBox(size.width)
     val pts = stroke.points
     if (pts.isEmpty() || box == null) return
     // 当前目标时间
