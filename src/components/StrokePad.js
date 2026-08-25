@@ -21,7 +21,7 @@ import Alpine from 'alpinejs'
 import { StrokeRecorder } from './StrokeRecorder.js'
 import { AnimationEngine } from './AnimationEngine.js'
 import { computeBrushWidths, drawBrushStroke, normalizeBrush, brushBaseWidth } from './Brush.js'
-import { boxFromTrajectory, drawCanvasBackground, drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
+import { drawCanvasBackground, drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 
@@ -90,11 +90,11 @@ Alpine.data('strokePad', (opts = {}) => ({
     // - highlightColor: 正在绘制笔画的动画高亮色（蓝）
     // - 背景: 每帧清屏后重绘田字格 + 浅色完整字型（未完成笔画浅灰，作为参照）
     // - 笔画坐标以背景汉字墨迹盒为坐标系，经 ziBox 还原;
-    //   仅使用笔画数据记录的光栅实测盒（脱离字体还原），无记录盒（旧格式数据）不绘制笔画
+    //   仅使用背景字光栅实测盒（与背景字严格对齐），实测盒不可用（字体未就绪）时笔画不绘制
     this.engine = new AnimationEngine(this.canvas, {
       highlightColor: this.HIGHLIGHT_COLOR,
       completedColor: () => strokeInkColor(),      // 已绘笔画墨色（适配主题）
-      ziBox: () => this.recordedBox()
+      ziBox: () => this.ziBoxValue
     })
     this.engine.onBeforeRender = () => {
       // 书写页恒绘制墨迹盒边界（笔画坐标系的视觉基准）
@@ -614,12 +614,6 @@ Alpine.data('strokePad', (opts = {}) => ({
     return `田字格 ${this.width}×${this.height}，墨迹盒 ${Math.round(box.w)}×${Math.round(box.h)}（左上角 ${x0},${y0}）`
   },
 
-  // 笔画数据记录的光栅实测盒 → 画布盒（中心对齐画布; 无记录盒返回 null）:
-  // 笔画轨迹只支持按记录盒还原（v2），无记录盒（旧格式数据）时不绘制
-  recordedBox() {
-    return boxFromTrajectory(this.strokes?.[0]?.trajectory_data, this.width)
-  },
-
   // 书写模式选中笔画: 画布置顶高亮（点击列表行选中/取消选中）
   setSelectedStroke(strokeId) {
     this.selectedStrokeId = strokeId
@@ -642,10 +636,9 @@ Alpine.data('strokePad', (opts = {}) => ({
   // 轨迹坐标为元组数组 [x,y,pressure,timestamp]（盒相对归一化 ×1000），
   // 此处 ÷1000 还原到背景字墨迹盒并映射为画布像素；基准笔宽由轨迹
   // brush（面积比）按盒面积还原（忠实显示录制笔宽）；颜色为前端展示配置
-  // 盒仅用轨迹记录的光栅实测盒（中心对齐画布，脱离字体还原）;
-  // 无记录盒（旧格式数据）时笔画不绘制
+  // 盒仅用背景字光栅实测盒（与背景字严格对齐）; 实测盒不可用时笔画不绘制
   drawTrajectory(trajectory, color, highlight = false) {
-    const box = this.recordedBox()
+    const box = this.ziBoxValue
     if (!box) return
     const pts = trajectory.points
     if (!pts || pts.length === 0) return

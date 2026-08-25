@@ -2,9 +2,9 @@
 // 展示: 书写动画（倍速/暂停/重置）/ 读音试听 / 复制 / 汉典链接 / 笔画分解图
 import Alpine from 'alpinejs'
 import { AnimationEngine } from '@components/AnimationEngine.js'
-import { boxFromTrajectory, drawCanvasBackground, strokeInkColor, ensureKaiFont } from '@components/StrokeBackground.js'
+import { drawCanvasBackground, ziInkBox, strokeInkColor, ensureKaiFont } from '@components/StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
-import { CANVAS_SIZE, STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
+import { STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
 import { strokeTypeName } from '@components/StrokeTypes.js'
 import { loadZiMeta, loadZiStrokes } from '@services/data.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
@@ -22,8 +22,9 @@ Alpine.data('ziApp', () => ({
   loading: true,
   error: '',
   engine: null,
-  fontReady: false,       // 楷体加载完成且覆盖该字（背景字可渲染）
+  fontReady: false,       // 楷体加载完成且覆盖该字（背景字/墨迹盒可渲染）
   fontError: false,       // 楷体加载失败（无兜底，显示失败提示）
+  ziBoxValue: null,       // 背景字光栅实测盒（笔画坐标还原基准）
   SPEEDS: [0.5, 1, 1.5, 2],
   playbackSpeed: 1,
   playing: false,
@@ -76,10 +77,13 @@ Alpine.data('ziApp', () => ({
     this.fontError = !ok
   },
 
-  // 笔画数据记录的光栅实测盒 → 画布盒（中心对齐画布; 无记录盒返回 null）:
-  // 笔画轨迹只支持按记录盒还原（v2），无记录盒（旧格式）时不绘制笔画
-  recordedBox() {
-    return boxFromTrajectory(this.strokes?.[0]?.trajectory_data, CANVAS_SIZE.width)
+  // 测量当前汉字背景字光栅实测盒（需引擎画布就绪后调用）:
+  // 绘制背景字的地方笔画仅按实测盒还原（与背景字严格对齐）; 字体未就绪时盒不可用、不绘制
+  measureZiBox() {
+    const e = this.engine
+    if (!e || !this.fontReady) return
+    this.ziBoxValue = ziInkBox(e.cssW, e.cssH, this.zi)
+    if (this.ziBoxValue) e.refreshBox()
   },
 
   // 书写动画引擎: 田字格 + 字型背景（背景汉字半透明，颜色适配主题），
@@ -93,9 +97,9 @@ Alpine.data('ziApp', () => ({
       highlightColor: STROKE_HIGHLIGHT_COLOR,
       strokeGap: 300,
       completedColor: () => strokeInkColor(),   // 已绘笔画墨色（适配主题）
-      // 墨迹盒提供者: 仅使用笔画数据记录的光栅实测盒（脱离字体按盒还原）;
-      // 无记录盒（旧格式数据）时笔画不绘制
-      ziBox: () => this.recordedBox()
+      // 墨迹盒提供者: 仅使用背景字光栅实测盒（与背景字严格对齐）;
+      // 实测盒不可用（字体未就绪）时笔画不绘制
+      ziBox: () => this.ziBoxValue
     })
     this.engine.onBeforeRender = () => {
       const canvas = this.$refs.mainCanvas
@@ -110,6 +114,7 @@ Alpine.data('ziApp', () => ({
       this.playing = false
       this.strokeName = ''
     }
+    this.measureZiBox()
     if (this.hasStrokes) {
       this.engine.loadStrokes(this.strokes)
     } else {
@@ -148,7 +153,7 @@ Alpine.data('ziApp', () => ({
 
   play() {
     if (!this.engine || !this.hasStrokes) return
-    if (!this.recordedBox()) return   // 无记录盒（旧格式数据）不可播放
+    if (!this.fontReady || !this.ziBoxValue) return   // 实测盒未就绪（字体未加载）不可播放
     this.engine.singleStrokePlayback = false
     this.engine.play()
     this.playing = this.engine.state === 'PLAYING'

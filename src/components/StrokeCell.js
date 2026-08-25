@@ -8,7 +8,7 @@
 // 后才渲染背景字与笔画（坐标以墨迹盒为坐标系），等待期间显示加载信息。
 import Alpine from 'alpinejs'
 import { AnimationEngine } from './AnimationEngine.js'
-import { boxFromTrajectory, drawCanvasBackground, strokeInkColor, ensureKaiFont } from './StrokeBackground.js'
+import { drawCanvasBackground, ziInkBox, strokeInkColor, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { STROKE_HIGHLIGHT_COLOR } from './Constants.js'
 import { strokeTypeName } from './StrokeTypes.js'
@@ -17,8 +17,9 @@ Alpine.data('strokeCell', (zi, index, strokes) => ({
   canvas: null,
   engine: null,
   playing: false,
-  fontReady: false,        // 楷体已加载且覆盖该字（背景字可渲染）
+  fontReady: false,        // 楷体已加载且覆盖该字（背景字/墨迹盒可渲染）
   _loopTimer: null,
+  _box: null,               // 背景字光栅实测盒（笔画坐标还原基准）
 
   init() {
     this.canvas = this.$refs.canvas
@@ -26,9 +27,9 @@ Alpine.data('strokeCell', (zi, index, strokes) => ({
       highlightColor: STROKE_HIGHLIGHT_COLOR,
       strokeGap: 0,
       completedColor: () => strokeInkColor(),   // 已绘笔画墨色（适配主题）
-      // 墨迹盒提供者: 仅使用笔画数据记录的光栅实测盒（脱离字体还原）;
-      // 无记录盒（旧格式数据）时笔画不绘制
-      ziBox: () => this.recordedBox()
+      // 墨迹盒提供者: 仅使用背景字光栅实测盒（与背景字严格对齐）;
+      // 实测盒不可用（字体未就绪）时笔画不绘制
+      ziBox: () => this._box
     })
     // 背景: 田字格 + 半透明汉字字型（颜色适配主题）
     this.engine.onBeforeRender = () => {
@@ -47,11 +48,11 @@ Alpine.data('strokeCell', (zi, index, strokes) => ({
       }, 400)
     }
 
-    // 等待自带楷体加载（无系统字体/无兜底）: 就绪后渲染背景字;
-    // 笔画按记录盒还原（无记录盒则不绘制，不依赖字体）
+    // 等待自带楷体加载（无系统字体/无兜底）: 就绪后测量背景字光栅实测盒并渲染
     ensureKaiFont().then(ok => {
       this.fontReady = ok
       this.engine.loadStrokes(strokes)
+      this.remeasureBox()
       this.renderStatic()
     })
 
@@ -65,17 +66,21 @@ Alpine.data('strokeCell', (zi, index, strokes) => ({
     })
   },
 
-  // 笔画数据记录的光栅实测盒 → 画布盒（中心对齐画布; 无记录盒返回 null）:
-  // 笔画轨迹只支持按记录盒还原（v2），无记录盒（旧格式）时不绘制笔画
-  recordedBox() {
-    return boxFromTrajectory((strokes || [])[index]?.trajectory_data, this.engine.cssW)
+  // 测量背景字光栅实测盒（字体就绪后）: 笔画按实测盒还原（与背景字严格对齐）
+  remeasureBox() {
+    if (!this.fontReady) return
+    this._box = ziInkBox(this.engine.cssW, this.engine.cssH, zi)
+    if (this._box) this.engine.refreshBox()
   },
 
   // 静态显示: 该笔之前笔画墨色已绘，当前笔画以红色示位；
-  // 尺寸未确定时暂不绘制，待布局完成后重绘
+  // 尺寸未确定/实测盒不可用（字体未就绪）时暂不绘制，待就绪后重绘
   renderStatic() {
     if (!this.engine || this.engine.strokes.length === 0) return
-    if (!this.recordedBox()) return   // 无记录盒（旧格式数据）不绘制笔画
+    if (!this.fontReady || !this._box) {
+      setTimeout(() => { if (!this.playing) this.renderStatic() }, 50)
+      return
+    }
     if (!this.canvas.getBoundingClientRect().width) {
       setTimeout(() => { if (!this.playing) this.renderStatic() }, 50)
       return
@@ -99,7 +104,7 @@ Alpine.data('strokeCell', (zi, index, strokes) => ({
 
   play() {
     if (!this.engine || this.engine.strokes.length === 0) return
-    if (!this.recordedBox()) return   // 无记录盒（旧格式数据）不可播放
+    if (!this.fontReady || !this._box) return   // 实测盒未就绪（字体未加载）不可播放
     // 单笔播放: 只播放当前笔画，结束后经 onComplete 循环重播
     this.engine.singleStrokePlayback = true
     this.engine.seekToStroke(index)
