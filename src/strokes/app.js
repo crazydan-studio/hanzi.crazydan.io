@@ -129,6 +129,9 @@ Alpine.data('ziList', () => ({
     const dpr = window.devicePixelRatio || 1
     canvas.width = size * dpr
     canvas.height = size * dpr
+    // 显式 CSS 显示尺寸（避免 dpr≠1 时画布被放大显示，缩略图恒为 size）
+    canvas.style.width = size + 'px'
+    canvas.style.height = size + 'px'
     const ctx = canvas.getContext('2d')
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, size, size)
@@ -144,9 +147,11 @@ Alpine.data('ziList', () => ({
       if (!box) return
       scale = 1
     }
-    // 盒中心对齐缩略图中心; 四周留白由上面的缩放保证
+    // 盒中心对齐缩略图中心: 盒相对坐标原点在盒左上角（p=0..1000 对应盒宽高），
+    // 故以 (p - 500)/1000 的盒中心偏移映射到画布中心
     const cx = size / 2
     const cy = size / 2
+    const halfScale = COORD_SCALE / 2
     ctx.strokeStyle = strokeInkColor()   // 墨色适配主题
     ctx.lineWidth = 2
     ctx.lineCap = 'round'
@@ -157,8 +162,8 @@ Alpine.data('ziList', () => ({
       ctx.beginPath()
       pts.forEach((p, i) => {
         // 盒相对还原: 盒中心对齐缩略图中心，按盒宽高等比例缩放
-        const x = cx + (p[0] / COORD_SCALE) * (boxW ?? box.w) * scale
-        const y = cy + (p[1] / COORD_SCALE) * (boxH ?? box.h) * scale
+        const x = cx + ((p[0] - halfScale) / COORD_SCALE) * (boxW ?? box.w) * scale
+        const y = cy + ((p[1] - halfScale) / COORD_SCALE) * (boxH ?? box.h) * scale
         if (i === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       })
