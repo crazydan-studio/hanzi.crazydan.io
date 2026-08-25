@@ -170,19 +170,23 @@ function main() {
         s: w.structure
       })
       metaCount++
-      // 单字母紧凑结构: o 笔顺/t 类型/d 轨迹（v 版本/b 笔刷面积比/p 增量编码点）
+      // 笔画数据（上层共享结构: 版本与光栅实测盒 box 置于顶层，笔画条目不含重复字段）:
+      //   { v, box, strokes: [{ o, t, d: { b, p } }] }
       const strokes = strokeMap.get(cp)
       if (strokes && strokes.length > 0) {
-        writeJson(path.join(dir, 'strokes.json'),
-          strokes.map(st => ({
+        const box = strokes[0].trajectory_data.box
+        writeJson(path.join(dir, 'strokes.json'), {
+          v: TRAJECTORY_VERSION,
+          ...(box ? { box } : {}),
+          strokes: strokes.map(st => ({
             o: st.stroke_order,
             t: st.stroke_type,
             d: {
-              v: TRAJECTORY_VERSION,
               b: st.trajectory_data.brush ?? 0,
               p: deltaEncode(st.trajectory_data.points)
             }
-          })))
+          }))
+        })
         strokeCount++
       }
     }

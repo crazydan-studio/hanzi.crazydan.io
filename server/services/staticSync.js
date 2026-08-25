@@ -31,23 +31,29 @@ export function syncZiMeta(zi) {
 }
 
 // 同步笔画数据到 strokes.json（该汉字须已导出 meta.json）:
-// 有笔画时创建/更新（轨迹为增量编码，含笔刷面积比 b）；无笔画时删除文件
+// 有笔画时创建/更新（轨迹为增量编码，含笔刷面积比 b）; 无笔画时删除文件
+// 静态文件采用上层共享结构（避免每笔画重复存放）:
+//   { v: 轨迹版本, box: { w, h }: 光栅实测盒（同字所有笔画共享）, strokes: [{ o, t, d }] }
+//   d = { b: 笔刷面积比, p: 增量编码点 }（不含 v/box，前端加载时按上层合并）
 export function syncZiStrokes(ziId, strokes) {
   const file = strokesPath(ziId)
   if (!fs.existsSync(metaPath(ziId))) return false
   const list = (strokes || []).filter(s => s.trajectory_data?.points?.length > 0)
   try {
     if (list.length > 0) {
-      // 单字母紧凑结构（与导出脚本一致）: o 笔顺 / t 类型 / d 轨迹（v 版本 / b 笔刷 / p 增量编码点）
-      fs.writeFileSync(file, JSON.stringify(list.map(s => ({
-        o: s.stroke_order,
-        t: s.stroke_type,
-        d: {
-          v: TRAJECTORY_VERSION,
-          b: s.trajectory_data.brush ?? 0,
-          p: deltaEncode(s.trajectory_data.points)
-        }
-      }))))
+      const box = list[0].trajectory_data.box
+      fs.writeFileSync(file, JSON.stringify({
+        v: TRAJECTORY_VERSION,
+        ...(box ? { box } : {}),
+        strokes: list.map(s => ({
+          o: s.stroke_order,
+          t: s.stroke_type,
+          d: {
+            b: s.trajectory_data.brush ?? 0,
+            p: deltaEncode(s.trajectory_data.points)
+          }
+        }))
+      }))
     } else if (fs.existsSync(file)) {
       fs.rmSync(file)
     }

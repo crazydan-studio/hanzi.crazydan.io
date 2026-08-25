@@ -21,9 +21,17 @@ const pointTuple = z.tuple([
 // 笔刷归一化上限: 笔宽 500（内部坐标全画布）对最小盒面积(50×50)的比值 = 100 → ×BRUSH_SCALE
 const BRUSH_MAX = 100 * BRUSH_SCALE
 
+// 光栅实测盒（v2）: 绘制时背景字墨迹盒宽高（内部坐标系像素，整数）；
+// 盒的位置按约定为画布中心对齐，笔画可脱离字体按盒还原与按比例缩放
+const inkBoxSchema = z.object({
+  w: z.number().int().positive(),
+  h: z.number().int().positive()
+})
+
 export const trajectorySchema = z.object({
   version: z.number().int().positive(),         // 轨迹格式版本（数字，从 1 开始）
   brush: z.number().int().min(0).max(BRUSH_MAX),    // 笔刷面积/背景字面积 ×BRUSH_SCALE
+  box: inkBoxSchema,                            // 光栅实测盒宽高（v2 起必填）
   points: z.array(pointTuple).min(1)
     .superRefine((pts, ctx) => {
       // 时间戳必须单调不减（回放引擎按升序扫描区间）

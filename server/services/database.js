@@ -1,8 +1,9 @@
 import { DatabaseSync } from 'node:sqlite'
 import path from 'path'
 import fs from 'fs'
-import { compressTrajectory, decompressTrajectory, TRAJECTORY_VERSION } from './trajectory.js'
-import { HANZI_DB_PATH } from '../../paths.js'
+import * as fontkit from 'fontkit'
+import { compressTrajectory, decompressTrajectory, inkBoxFromGlyph, TRAJECTORY_VERSION } from './trajectory.js'
+import { HANZI_DB_PATH, KAI_FONT_WOFF2_PATH } from '../../paths.js'
 
 let db
 
@@ -53,8 +54,8 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
       ON strokes(zi_id);
   `)
 
-  // 数据格式守卫: 轨迹格式版本不一致（旧格式数据）时删除，由用户重新录入
-  migrateStrokeV1()
+  // 轨迹格式迁移: v1（无 box）→ v2（记录光栅实测盒），旧格式/损坏数据删除
+  migrateStrokeV2()
   return db
 }
 
@@ -73,20 +74,55 @@ function migrateZiTable() {
   console.log('DB migrated: characters table → zi')
 }
 
-// 格式守卫: 轨迹版本号须为当前版本（数字 1）且带合法 brush 字段，
-// 否则视为旧格式/损坏数据删除（幂等）
-function migrateStrokeV1() {
-  const rows = db.prepare('SELECT id, trajectory_data FROM strokes').all()
+// 轨迹格式迁移（幂等）: 版本低于当前或缺失 box 的旧轨迹升级为 v2 ——
+// 用中易楷体字形度量近似填充光栅实测盒（无法测量或数据损坏的删除）
+function migrateStrokeV2() {
+  const rows = db.prepare(`
+    SELECT s.id, z.zi, s.trajectory_data
+    FROM strokes s JOIN zi z ON z.id = s.zi_id
+  `).all()
   const outdated = rows.filter(r => {
     let traj
     try { traj = decompressTrajectory(r.trajectory_data) } catch { return true }
-    if (!traj || traj.version !== TRAJECTORY_VERSION) return true
-    return !Number.isInteger(traj.brush) || traj.brush < 0
+    if (!traj || !Number.isInteger(traj.brush) || traj.brush < 0) return true
+    return traj.version !== TRAJECTORY_VERSION || !traj.box
   })
   if (outdated.length === 0) return
+
+  // 惰性加载中易楷体（仅迁移时）
+  const font = loadKaiFontForMigration()
   const del = db.prepare('DELETE FROM strokes WHERE id = ?')
-  for (const r of outdated) del.run(r.id)
-  console.log(`DB migrated: stroke format v${TRAJECTORY_VERSION} — 已删除 ${outdated.length} 条旧格式/损坏笔画数据`)
+  const update = db.prepare('UPDATE strokes SET trajectory_data = ? WHERE id = ?')
+  let upgraded = 0
+  for (const r of outdated) {
+    let traj
+    try { traj = decompressTrajectory(r.trajectory_data) } catch { traj = null }
+    if (traj && font) {
+      const box = inkBoxFromGlyph(font, r.zi)
+      if (box) {
+        traj.version = TRAJECTORY_VERSION
+        traj.box = box
+        update.run(compressTrajectory(traj), r.id)
+        upgraded++
+        continue
+      }
+    }
+    del.run(r.id)   // 无法升级的旧格式/损坏数据删除
+  }
+  console.log(
+    `DB migrated: stroke format v${TRAJECTORY_VERSION}` +
+    ` — 升级 ${upgraded} 条，删除 ${outdated.length - upgraded} 条旧格式/损坏笔画数据`
+  )
+}
+
+// 加载中易楷体（迁移近似测量用; 字体缺失时跳过升级，仅删除旧数据）
+function loadKaiFontForMigration() {
+  try {
+    return fontkit.openSync(KAI_FONT_WOFF2_PATH)
+  } catch (e) {
+    console.warn('加载中易楷体失败，旧轨迹将删除: ' + e.message)
+    return null
+  }
 }
 
 export function getDb() {
