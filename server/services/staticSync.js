@@ -33,7 +33,7 @@ export function syncZiMeta(zi) {
 // 同步笔画数据到 strokes.json（该汉字须已导出 meta.json）:
 // 有笔画时创建/更新（轨迹为增量编码，含笔刷面积比）; 无笔画时删除文件
 // 静态文件采用上层共享结构（避免每笔画重复存放）:
-//   { v: 轨迹版本, r: { w, h }: 光栅实测盒（同字所有笔画共享）, strokes: [{ o, t, d }] }
+//   { v: 轨迹版本, r: { w, h }: 光栅实测盒（同字所有笔画共享）, s: [{ o, t, d }] }
 //   d = { b: 笔刷面积比, p: 增量编码点 }（不含 v/r，前端加载时按上层合并）
 export function syncZiStrokes(ziId, strokes) {
   const file = strokesPath(ziId)
@@ -45,12 +45,12 @@ export function syncZiStrokes(ziId, strokes) {
       fs.writeFileSync(file, JSON.stringify({
         v: TRAJECTORY_VERSION,
         ...(r ? { r } : {}),
-        strokes: list.map(s => ({
-          o: s.stroke_order,
-          t: s.stroke_type,
+        s: list.map(x => ({
+          o: x.stroke_order,
+          t: x.stroke_type,
           d: {
-            b: s.trajectory_data.b ?? 0,
-            p: deltaEncode(s.trajectory_data.p)
+            b: x.trajectory_data.b ?? 0,
+            p: deltaEncode(x.trajectory_data.p)
           }
         }))
       }))

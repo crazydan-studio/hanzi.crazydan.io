@@ -91,46 +91,54 @@ function migrateStructureRange() {
   const needZi = ziSql && !/CHECK\(structure BETWEEN 0 AND 99\)/.test(ziSql)
   const badFk = strokesSql && !/REFERENCES zi\(id\)/.test(strokesSql)
   if (!needZi && !badFk) return
-  withTransaction(() => {
-    if (needZi) {
-      // 用新表名重建后替换，避免 RENAME 改写其他表的外键引用
-      db.exec(`
-        CREATE TABLE zi_new (
-          id INTEGER PRIMARY KEY,
-          zi TEXT NOT NULL UNIQUE,
-          pinyin TEXT NOT NULL DEFAULT '[]',
-          used_weight INTEGER NOT NULL DEFAULT 0,
-          structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 99),
-          radical TEXT NOT NULL DEFAULT '',
-          total_stroke_count INTEGER NOT NULL DEFAULT 0
-        )
-      `)
-      db.exec(`INSERT INTO zi_new
-        (id, zi, pinyin, used_weight, structure, radical, total_stroke_count)
-        SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count FROM zi`)
-      db.exec('DROP TABLE zi')
-      db.exec('ALTER TABLE zi_new RENAME TO zi')
-      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_zi_zi_unique ON zi(zi)')
-    }
-    if (badFk) {
-      // 重建 strokes（外键正确指向 zi），原数据保留
-      db.exec(`
-        CREATE TABLE strokes_new (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          zi_id INTEGER NOT NULL,
-          stroke_order INTEGER NOT NULL CHECK(stroke_order >= 1),
-          stroke_type INTEGER NOT NULL DEFAULT 0 CHECK(stroke_type BETWEEN 0 AND 35),
-          trajectory_data BLOB NOT NULL,
-          FOREIGN KEY (zi_id) REFERENCES zi(id) ON DELETE CASCADE
-        )
-      `)
-      db.exec('INSERT INTO strokes_new SELECT * FROM strokes')
-      db.exec('DROP TABLE strokes')
-      db.exec('ALTER TABLE strokes_new RENAME TO strokes')
-      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_strokes_order_unique ON strokes(zi_id, stroke_order)')
-      db.exec('CREATE INDEX IF NOT EXISTS idx_strokes_zi_id ON strokes(zi_id)')
-    }
-  })
+  // 重建期间关闭外键: DROP TABLE zi 会隐式执行 DELETE FROM zi，
+  // 触发 strokes 的 ON DELETE CASCADE 级联清空——关闭后级联不生效，strokes 数据保留
+  // （外键为连接级设置，须在事务外切换）
+  db.exec('PRAGMA foreign_keys = OFF')
+  try {
+    withTransaction(() => {
+      if (needZi) {
+        // 用新表名重建后替换，避免 RENAME 改写其他表的外键引用
+        db.exec(`
+          CREATE TABLE zi_new (
+            id INTEGER PRIMARY KEY,
+            zi TEXT NOT NULL UNIQUE,
+            pinyin TEXT NOT NULL DEFAULT '[]',
+            used_weight INTEGER NOT NULL DEFAULT 0,
+            structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 99),
+            radical TEXT NOT NULL DEFAULT '',
+            total_stroke_count INTEGER NOT NULL DEFAULT 0
+          )
+        `)
+        db.exec(`INSERT INTO zi_new
+          (id, zi, pinyin, used_weight, structure, radical, total_stroke_count)
+          SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count FROM zi`)
+        db.exec('DROP TABLE zi')
+        db.exec('ALTER TABLE zi_new RENAME TO zi')
+        db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_zi_zi_unique ON zi(zi)')
+      }
+      if (badFk) {
+        // 重建 strokes（外键正确指向 zi），原数据保留
+        db.exec(`
+          CREATE TABLE strokes_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            zi_id INTEGER NOT NULL,
+            stroke_order INTEGER NOT NULL CHECK(stroke_order >= 1),
+            stroke_type INTEGER NOT NULL DEFAULT 0 CHECK(stroke_type BETWEEN 0 AND 35),
+            trajectory_data BLOB NOT NULL,
+            FOREIGN KEY (zi_id) REFERENCES zi(id) ON DELETE CASCADE
+          )
+        `)
+        db.exec('INSERT INTO strokes_new SELECT * FROM strokes')
+        db.exec('DROP TABLE strokes')
+        db.exec('ALTER TABLE strokes_new RENAME TO strokes')
+        db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_strokes_order_unique ON strokes(zi_id, stroke_order)')
+        db.exec('CREATE INDEX IF NOT EXISTS idx_strokes_zi_id ON strokes(zi_id)')
+      }
+    })
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON')
+  }
   console.log('DB migrated: zi.structure 取值范围扩展 / strokes 外键修复')
 }
 

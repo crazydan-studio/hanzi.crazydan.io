@@ -171,14 +171,14 @@ function main() {
       })
       metaCount++
       // 笔画数据（上层共享结构: 版本与光栅实测盒 r 置于顶层，笔画条目不含重复字段）:
-      //   { v, r, strokes: [{ o, t, d: { b, p } }] }
+      //   { v, r, s: [{ o, t, d: { b, p } }] }
       const strokes = strokeMap.get(cp)
       if (strokes && strokes.length > 0) {
         const r = strokes[0].trajectory_data.r
         writeJson(path.join(dir, 'strokes.json'), {
           v: TRAJECTORY_VERSION,
           ...(r ? { r } : {}),
-          strokes: strokes.map(st => ({
+          s: strokes.map(st => ({
             o: st.stroke_order,
             t: st.stroke_type,
             d: {

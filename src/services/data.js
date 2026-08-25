@@ -39,11 +39,11 @@ function deltaDecode(points) {
 
 // strokes.json 紧凑结构 → 完整字段（单字符属性，与轨迹数据一致）:
 // 静态文件为上层共享结构（避免每笔画重复存放）:
-//   { v: 轨迹版本, r: { w, h }: 光栅实测盒（同字所有笔画共享）, strokes: [{ o, t, d }] }
+//   { v: 轨迹版本, r: { w, h }: 光栅实测盒（同字所有笔画共享）, s: [{ o, t, d }] }
 //   d = { b: 笔刷面积比, p: 点（增量编码，解码为绝对坐标）}
-// 旧格式（笔画数组 / box 字段名）亦兼容解析
+// 旧格式（笔画数组 / strokes / box 字段名）亦兼容解析
 function normalizeStrokes(payload) {
-  const list = Array.isArray(payload) ? payload : payload?.strokes
+  const list = Array.isArray(payload) ? payload : (payload?.s ?? payload?.strokes)
   const shared = Array.isArray(payload) ? {} : payload
   return (list || []).map(s => ({
     stroke_order: s.o,
