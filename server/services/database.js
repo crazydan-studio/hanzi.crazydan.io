@@ -55,9 +55,10 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
       ON strokes(zi_id);
   `)
 
-  // 轨迹数据清理: 损坏数据删除; 旧版本（v1，无 box）数据保留——
-  // 光栅实测盒仅能由前端在真实字体渲染后测得，由 web 端书写页自动升级（见 strokeEditor.js）
-  cleanStrokeTrajectories()
+  // 轨迹数据校验: 不删除任何数据——v1（无光栅实测盒 r）轨迹保留，
+  // 等待 web 端书写页在获得真实背景字光栅实测盒后升级（见 strokeEditor.js）;
+  // 解压失败/字段异常仅记录日志，避免误删
+  checkStrokeTrajectories()
   return db
 }
 
@@ -133,19 +134,29 @@ function migrateStructureRange() {
   console.log('DB migrated: zi.structure 取值范围扩展 / strokes 外键修复')
 }
 
-// 轨迹数据清理（幂等）: 无法解压/字段非法的损坏数据删除;
-// 版本低于当前（v1，无光栅实测盒 r）的数据保留，等待 web 端书写页在获得真实光栅实测盒后升级
-function cleanStrokeTrajectories() {
+// 轨迹数据校验（幂等）: 不删除任何数据——
+// v1（无光栅实测盒 r）轨迹保留，等待 web 端书写页在获得真实光栅实测盒后升级;
+// 解压失败/字段异常仅记录日志（数据保留待人工处理，避免误删）
+function checkStrokeTrajectories() {
   const rows = db.prepare('SELECT id, trajectory_data FROM strokes').all()
-  const corrupted = rows.filter(r => {
+  let broken = 0
+  for (const r of rows) {
     let traj
-    try { traj = decompressTrajectory(r.trajectory_data) } catch { return true }
-    return !traj || !Number.isInteger(traj.b) || traj.b < 0
-  })
-  if (corrupted.length === 0) return
-  const del = db.prepare('DELETE FROM strokes WHERE id = ?')
-  for (const r of corrupted) del.run(r.id)
-  console.log(`已删除 ${corrupted.length} 条损坏笔画数据`)
+    try {
+      traj = decompressTrajectory(r.trajectory_data)
+    } catch (e) {
+      broken++
+      console.warn(`笔画 ${r.id} 轨迹解压失败（保留待处理）: ${e.message}`)
+      continue
+    }
+    if (!traj || !Number.isInteger(traj.b) || traj.b < 0) {
+      broken++
+      console.warn(`笔画 ${r.id} 轨迹字段异常（保留待处理）`)
+    }
+  }
+  if (broken > 0) {
+    console.log(`轨迹校验: ${broken} 条异常数据已保留（等待处理）`)
+  }
 }
 
 export function getDb() {
