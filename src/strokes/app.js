@@ -119,20 +119,34 @@ Alpine.data('ziList', () => ({
     this.updateUrl()
   },
 
-  // 笔画小图: 以背景汉字墨迹盒为坐标系还原笔画轨迹（归一化 ×1000），
-  // 等比缩放到缩略图尺寸；字体未加载/未覆盖该字时不绘制
+  // 笔画小图: 按笔画数据记录的光栅实测盒按比例缩放绘制（脱离字体/背景字还原），
+  // 盒置于缩略图中心且四周留有空白；无记录盒（旧格式/异常）时回退字体实测测量
   // （模板经 x-effect 传入 themeVersion 作为依赖触发重绘，函数本身不消费该参数）
   renderThumb(canvas, strokes, zi) {
     if (!canvas) return
     const size = 44
+    const margin = 6   // 盒四周留白（缩略图内）
     const dpr = window.devicePixelRatio || 1
     canvas.width = size * dpr
     canvas.height = size * dpr
     const ctx = canvas.getContext('2d')
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, size, size)
-    const box = zi ? ziInkBox(size, size, zi) : null
-    if (!box) return
+    // 盒宽高: 优先记录盒（v2），否则字体实测
+    const recorded = strokes?.[0]?.trajectory_data?.box
+    const boxW = recorded?.w ?? null
+    const boxH = recorded?.h ?? null
+    let scale
+    if (boxW > 0 && boxH > 0) {
+      scale = Math.min((size - margin * 2) / boxW, (size - margin * 2) / boxH)
+    } else {
+      const box = zi ? ziInkBox(size, size, zi) : null
+      if (!box) return
+      scale = 1
+    }
+    // 盒中心对齐缩略图中心; 四周留白由上面的缩放保证
+    const cx = size / 2
+    const cy = size / 2
     ctx.strokeStyle = strokeInkColor()   // 墨色适配主题
     ctx.lineWidth = 2
     ctx.lineCap = 'round'
@@ -142,9 +156,9 @@ Alpine.data('ziList', () => ({
       if (pts.length === 0) continue
       ctx.beginPath()
       pts.forEach((p, i) => {
-        // 盒相对还原: 盒起点 + 归一化值 × 盒宽/高（x、y 分别按盒宽、盒高）
-        const x = box.x0 + (p[0] / COORD_SCALE) * box.w
-        const y = box.y0 + (p[1] / COORD_SCALE) * box.h
+        // 盒相对还原: 盒中心对齐缩略图中心，按盒宽高等比例缩放
+        const x = cx + (p[0] / COORD_SCALE) * (boxW ?? box.w) * scale
+        const y = cy + (p[1] / COORD_SCALE) * (boxH ?? box.h) * scale
         if (i === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       })

@@ -21,7 +21,7 @@ import Alpine from 'alpinejs'
 import { StrokeRecorder } from './StrokeRecorder.js'
 import { AnimationEngine } from './AnimationEngine.js'
 import { computeBrushWidths, drawBrushStroke, normalizeBrush, brushBaseWidth } from './Brush.js'
-import { drawCanvasBackground, drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
+import { boxFromTrajectory, drawCanvasBackground, drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 
@@ -89,11 +89,12 @@ Alpine.data('strokePad', (opts = {}) => ({
     // 回放引擎绑定同一画布
     // - highlightColor: 正在绘制笔画的动画高亮色（蓝）
     // - 背景: 每帧清屏后重绘田字格 + 浅色完整字型（未完成笔画浅灰，作为参照）
-    // - 笔画坐标以背景汉字墨迹盒为坐标系，经 ziBox 还原
+    // - 笔画坐标以背景汉字墨迹盒为坐标系，经 ziBox 还原;
+    //   优先用笔画数据记录的光栅实测盒（脱离字体还原），无记录盒时回退字体实测测量
     this.engine = new AnimationEngine(this.canvas, {
       highlightColor: this.HIGHLIGHT_COLOR,
       completedColor: () => strokeInkColor(),      // 已绘笔画墨色（适配主题）
-      ziBox: () => this.ziBoxValue             // 墨迹盒提供者（字体/字符就绪后可用）
+      ziBox: () => this.recordedBox() ?? this.ziBoxValue
     })
     this.engine.onBeforeRender = () => {
       // 书写页恒绘制墨迹盒边界（笔画坐标系的视觉基准）
@@ -532,6 +533,8 @@ Alpine.data('strokePad', (opts = {}) => ({
       const box = this.ziBoxValue
       if (box) {
         this.recorder.setBrush(normalizeBrush(this.penWidth, box.w, box.h))
+        // 记录绘制时背景字光栅实测盒（v2）: 脱离字体按盒还原与按比例缩放
+        this.recorder.setBox(box.w, box.h)
       }
       // 轨迹数据已归一化（盒相对，2位小数级），仅含坐标点
       const trajectoryData = this.recorder.stopRecording()
@@ -599,6 +602,23 @@ Alpine.data('strokePad', (opts = {}) => ({
     }
   },
 
+  // 当前书写模式: 写字格尺寸/光栅实测盒尺寸及其在田字格内的位置（画布下方信息条显示）
+  // 盒位置按约定为画布中心对齐，信息为盒左上角相对田字格的偏移
+  get canvasInfoText() {
+    const box = this.ziBoxValue
+    if (!box) return ''
+    const cx = this.width / 2
+    const cy = this.height / 2
+    const x0 = Math.round(cx - box.w / 2)
+    const y0 = Math.round(cy - box.h / 2)
+    return `田字格 ${this.width}×${this.height}，墨迹盒 ${Math.round(box.w)}×${Math.round(box.h)}（左上角 ${x0},${y0}）`
+  },
+
+  // 笔画数据记录的光栅实测盒 → 画布盒（中心对齐画布; 无记录盒返回 null）
+  recordedBox() {
+    return boxFromTrajectory(this.strokes?.[0]?.trajectory_data, this.width)
+  },
+
   // 书写模式选中笔画: 画布置顶高亮（点击列表行选中/取消选中）
   setSelectedStroke(strokeId) {
     this.selectedStrokeId = strokeId
@@ -619,11 +639,11 @@ Alpine.data('strokePad', (opts = {}) => ({
 
   // 与动画引擎共享的轨迹渲染函数（笔触模拟: 压力/速度/锥形轮廓）
   // 轨迹坐标为元组数组 [x,y,pressure,timestamp]（盒相对归一化 ×1000），
-  // 此处 ÷1000 还原到当前背景字墨迹盒并映射为画布像素；基准笔宽由轨迹
-  // brush（面积比）按当前盒面积还原（忠实显示录制笔宽）；颜色为前端展示配置
-  // 高亮仅颜色区分，不改变笔宽
+  // 此处 ÷1000 还原到背景字墨迹盒并映射为画布像素；基准笔宽由轨迹
+  // brush（面积比）按盒面积还原（忠实显示录制笔宽）；颜色为前端展示配置
+  // 盒优先用轨迹记录的光栅实测盒（中心对齐画布，脱离字体还原），无记录时回退字体实测
   drawTrajectory(trajectory, color, highlight = false) {
-    const box = this.ziBoxValue
+    const box = this.recordedBox() ?? this.ziBoxValue
     if (!box) return
     const pts = trajectory.points
     if (!pts || pts.length === 0) return

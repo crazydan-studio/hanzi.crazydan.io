@@ -2,9 +2,9 @@
 // 展示: 书写动画（倍速/暂停/重置）/ 读音试听 / 复制 / 汉典链接 / 笔画分解图
 import Alpine from 'alpinejs'
 import { AnimationEngine } from '@components/AnimationEngine.js'
-import { drawCanvasBackground, ziInkBox, strokeInkColor, ensureKaiFont } from '@components/StrokeBackground.js'
+import { boxFromTrajectory, drawCanvasBackground, ziInkBox, strokeInkColor, ensureKaiFont } from '@components/StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
-import { STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
+import { CANVAS_SIZE, STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
 import { strokeTypeName } from '@components/StrokeTypes.js'
 import { loadZiMeta, loadZiStrokes } from '@services/data.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
@@ -77,12 +77,17 @@ Alpine.data('ziApp', () => ({
     this.fontError = !ok
   },
 
-  // 测量当前汉字墨迹盒（需引擎画布就绪后调用）
+  // 测量当前汉字墨迹盒（需引擎画布就绪后调用）; 仅作为无记录盒时的回退
   measureZiBox() {
     const e = this.engine
     if (!e || !this.fontReady) return
     this.ziBoxValue = ziInkBox(e.cssW, e.cssH, this.zi)
     if (this.ziBoxValue) e.refreshBox()
+  },
+
+  // 笔画数据记录的光栅实测盒 → 画布盒（中心对齐画布; 无记录盒返回 null）
+  recordedBox() {
+    return boxFromTrajectory(this.strokes?.[0]?.trajectory_data, CANVAS_SIZE.width)
   },
 
   // 书写动画引擎: 田字格 + 字型背景（背景汉字半透明，颜色适配主题），
@@ -96,7 +101,9 @@ Alpine.data('ziApp', () => ({
       highlightColor: STROKE_HIGHLIGHT_COLOR,
       strokeGap: 300,
       completedColor: () => strokeInkColor(),   // 已绘笔画墨色（适配主题）
-      ziBox: () => this.ziBoxValue          // 墨迹盒提供者
+      // 墨迹盒提供者: 优先用笔画数据记录的光栅实测盒（脱离字体按盒还原），
+      // 无记录盒（旧格式/异常）时回退字体实测测量
+      ziBox: () => this.recordedBox() ?? this.ziBoxValue
     })
     this.engine.onBeforeRender = () => {
       const canvas = this.$refs.mainCanvas
@@ -150,7 +157,8 @@ Alpine.data('ziApp', () => ({
 
   play() {
     if (!this.engine || !this.hasStrokes) return
-    if (!this.fontReady || !this.ziBoxValue) return   // 字体未就绪/未覆盖该字不可播放
+    // 盒不可用不可播放: 优先记录盒（脱离字体）; 无记录盒时需字体实测测量就绪
+    if (!this.recordedBox() && (!this.fontReady || !this.ziBoxValue)) return
     this.engine.singleStrokePlayback = false
     this.engine.play()
     this.playing = this.engine.state === 'PLAYING'

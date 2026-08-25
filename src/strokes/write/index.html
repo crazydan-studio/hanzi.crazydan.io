@@ -110,6 +110,10 @@
               </div>
             </div>
 
+            <!-- 田字格/光栅实测盒信息（画布下方，两种模式均显示; 盒不可用时隐藏） -->
+            <p x-show="canvasInfoText" class="mt-1 text-center text-xs text-gray-400 dark:text-gray-500"
+              x-text="canvasInfoText"></p>
+
             <!-- 书写模式工具条: 撤销/重做/清空(恢复) 状态一致且互斥 -->
             <div class="mt-2 flex flex-wrap items-center gap-2" x-show="mode === 'write'">
               <button @click="canRestore() ? restoreCleared() : clearPad()"

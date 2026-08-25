@@ -61,6 +61,11 @@ export class StrokeRecorder {
     this.brush = Math.max(BRUSH_MIN, Math.min(BRUSH_MAX, Math.round(brush || 0)))
   }
 
+  // 记录绘制时背景字光栅实测盒宽高（v2 格式）: 脱离字体按盒还原与按比例缩放
+  setBox(w, h) {
+    this.box = { w: Math.round(w), h: Math.round(h) }
+  }
+
   stopRecording() {
     this.isRecording = false
     return this.generateTrajectoryData()
@@ -72,11 +77,13 @@ export class StrokeRecorder {
   // pressure: 0-1 浮点 ×100 存整数（保留 2 位小数，0.01 步进不可感知）
   // timestamp: 毫秒浮点 ×10 存整数（保留 1 位小数，0.1ms 远高于 60fps 需求）
   // brush: 笔刷面积/背景字面积 比值 ×BRUSH_SCALE 整数（整轨迹共享笔宽）
+  // box: 绘制时背景字光栅实测盒宽高（内部坐标系像素，笔画坐标还原基准）
   // 整数存储可消除浮点噪声（如 1.4000000059604645）并减小体积
   generateTrajectoryData() {
     return {
       version: TRAJECTORY_VERSION,
       brush: this.brush ?? 0,
+      ...(this.box ? { box: this.box } : {}),
       points: this.points.map(p => [
         Math.round(p.x * COORD_SCALE),
         Math.round(p.y * COORD_SCALE),
@@ -92,5 +99,6 @@ export class StrokeRecorder {
     this.isRecording = false
     this.startTime = 0
     this.brush = 0
+    this.box = null
   }
 }

@@ -25,6 +25,7 @@ export function displayUnit(canvas, rect) {
 }
 
 // 背景字统一字体族（自带静态中易楷体，无系统字体回退）
+import { CANVAS_SIZE } from './Constants.js'
 import { KAI_FONT_FAMILY, KAI_FONT_SIZE } from '../config.js'
 
 // 楷体是否已加载可用（仅检查字体加载状态，不做覆盖检测——各浏览器对
@@ -180,6 +181,16 @@ function rasterZiBoxRel(font, fontSize, zi) {
 export function ziInkBox(width, height, zi) {
   if (!zi) return null
   return ziBoxLayout(width, height, zi)?.box ?? null
+}
+
+// 轨迹记录盒（v2）→ 画布盒: 盒位置按约定为画布中心对齐，笔画可脱离字体还原;
+// 轨迹无 box（旧格式/异常）时返回 null，调用方回退字体实测测量
+export function boxFromTrajectory(trajectory, canvasSize = CANVAS_SIZE.width) {
+  const b = trajectory?.box
+  if (!b || !(b.w > 0) || !(b.h > 0)) return null
+  const cx = canvasSize / 2
+  const cy = canvasSize / 2
+  return { x0: cx - b.w / 2, y0: cy - b.h / 2, w: b.w, h: b.h }
 }
 
 // 墨迹盒边界绘制（书写页恒绘制——笔画坐标系的视觉基准；信息页/分解图仅开发模式）
