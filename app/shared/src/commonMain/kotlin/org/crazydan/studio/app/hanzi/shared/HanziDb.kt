@@ -35,11 +35,18 @@ data class StrokePoint(
     val timestamp: Float
 )
 
+/** 绘制时背景字光栅实测盒（内部坐标系像素，笔画坐标还原基准; v2 轨迹格式） */
+data class StrokeBox(
+    val w: Int,
+    val h: Int
+)
+
 /** 单个笔画（对应前端 strokes.json 条目） */
 data class ZiStroke(
     val strokeOrder: Int,
     val strokeType: Int,
     val brush: Int,             // 笔刷面积/背景字面积 比值 ×100000（整轨迹共享笔宽）
+    val box: StrokeBox?,        // 光栅实测盒宽高（脱离字体按盒还原; 旧格式为 null）
     val points: List<StrokePoint>
 )
 

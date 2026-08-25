@@ -254,7 +254,13 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                 list.add(point)
                 prev = point
             }
-            out.add(ZiStroke(cursor.getInt(0), cursor.getInt(1), traj.optInt("brush", 0), list))
+            // 光栅实测盒（v2 轨迹格式）: 脱离字体按盒还原与按比例缩放; 缺失/非法时按无盒处理
+            val box = traj.optJSONObject("box")?.let { b ->
+                StrokeBox(b.optInt("w", 0), b.optInt("h", 0))
+            }?.takeIf { it.w > 0 && it.h > 0 }
+            out.add(ZiStroke(
+                cursor.getInt(0), cursor.getInt(1), traj.optInt("brush", 0), box, list
+            ))
         }
         return out
     }

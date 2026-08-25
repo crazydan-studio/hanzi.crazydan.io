@@ -6,6 +6,9 @@ package org.crazydan.studio.app.hanzi.shared
  * 压力 ×100、时间戳 ×10、笔刷面积比 ×100000 存整数
  */
 object StrokeFormat {
+    /** 轨迹格式版本（v2: 记录绘制时背景字光栅实测盒 box，见 server/services/trajectory.js） */
+    const val TRAJECTORY_VERSION = 2
+
     /** 内部坐标系尺寸（所有画布内部恒为 500×500，显示尺寸由宿主缩放） */
     const val INTERNAL_SIZE = 500
 

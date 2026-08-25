@@ -52,6 +52,16 @@ import org.crazydan.studio.app.hanzi.ui.tianZiGeColor
 /** 背景字墨迹盒（画布像素坐标）: 笔画坐标还原的基准（x 按盒宽、y 按盒高） */
 private class ZiBox(val x0: Float, val y0: Float, val w: Float, val h: Float)
 
+/**
+ * 笔画数据记录的光栅实测盒 → 画布盒（盒中心对齐画布中心）:
+ * 脱离字体/背景字按盒还原与按比例缩放; 无记录盒（旧格式/异常）返回 null
+ */
+private fun ZiStroke.recordedBox(canvasSize: Float): ZiBox? {
+    val b = box ?: return null
+    val half = canvasSize / 2f
+    return ZiBox(half - b.w / 2f, half - b.h / 2f, b.w.toFloat(), b.h.toFloat())
+}
+
 /** 播放状态机（与 AnimationEngine.js 单一状态机对应） */
 class WritingPlayer(private val strokes: List<ZiStroke>) {
 
@@ -535,8 +545,9 @@ private fun DrawScope.drawZiBoxDebug(layout: ZiLayout?, unit: Float) {
     )
 }
 
-/** 完整笔画（墨色） */
-private fun DrawScope.drawFullStroke(stroke: ZiStroke, color: Color, box: ZiBox?) {
+/** 完整笔画（墨色）: 盒优先用笔画记录的光栅实测盒（中心对齐画布），无记录时回退测量盒 */
+private fun DrawScope.drawFullStroke(stroke: ZiStroke, color: Color, fallbackBox: ZiBox?) {
+    val box = stroke.recordedBox(size.width) ?: fallbackBox
     val pts = stroke.points
     if (pts.isEmpty() || box == null) return
     val widths = brushWidths(pts, brushBaseWidth(stroke.brush))
@@ -548,8 +559,9 @@ private fun DrawScope.drawPartialStroke(
     stroke: ZiStroke,
     progress: Float,
     color: Color,
-    box: ZiBox?
+    fallbackBox: ZiBox?
 ) {
+    val box = stroke.recordedBox(size.width) ?: fallbackBox
     val pts = stroke.points
     if (pts.isEmpty() || box == null) return
     // 当前目标时间
