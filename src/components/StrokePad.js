@@ -348,7 +348,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   syncPlaybackData() {
     if (!this.engine) return
     const strokes = (this.strokes || []).filter(s =>
-      s.trajectory_data && s.trajectory_data.points?.length > 0)
+      s.trajectory_data && s.trajectory_data.p?.length > 0)
     this.playbackStrokes = strokes
     this.engine.loadStrokes(strokes)
     this.hasPlaybackData = strokes.length > 0
@@ -640,7 +640,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   drawTrajectory(trajectory, color, highlight = false) {
     const box = this.ziBoxValue
     if (!box) return
-    const pts = trajectory.points
+    const pts = trajectory.p
     if (!pts || pts.length === 0) return
     const px = pts.map(p => ({
       x: box.x0 + (p[0] / COORD_SCALE) * box.w,
@@ -649,7 +649,7 @@ Alpine.data('strokePad', (opts = {}) => ({
       timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
     }))
     const strokeColor = highlight ? this.HIGHLIGHT_COLOR : color
-    const baseWidth = brushBaseWidth(trajectory.brush, box.w, box.h)
+    const baseWidth = brushBaseWidth(trajectory.b, box.w, box.h)
     const widths = computeBrushWidths(px, baseWidth)
     drawBrushStroke(this.ctx, px, widths, strokeColor)
   },

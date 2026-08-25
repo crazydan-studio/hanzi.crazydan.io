@@ -157,7 +157,7 @@ Alpine.data('ziList', () => ({
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     for (const stroke of strokes || []) {
-      const pts = stroke.trajectory_data?.points || []
+      const pts = stroke.trajectory_data?.p || []
       if (pts.length === 0) continue
       ctx.beginPath()
       pts.forEach((p, i) => {

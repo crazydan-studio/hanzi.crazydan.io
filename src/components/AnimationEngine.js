@@ -60,7 +60,7 @@ export class AnimationEngine {
   loadStrokes(strokes) {
     // 拷贝后排序，不修改调用方数组
     this.strokes = [...strokes]
-      .filter(s => s && s.trajectory_data && s.trajectory_data.points?.length > 0)
+      .filter(s => s && s.trajectory_data && s.trajectory_data.p?.length > 0)
       .sort((a, b) => (a.stroke_order ?? 0) - (b.stroke_order ?? 0))
 
     // 背景汉字墨迹盒（内部坐标系）: 笔画坐标以盒为坐标系归一化存储，
@@ -70,14 +70,14 @@ export class AnimationEngine {
     for (const s of this.strokes) {
       const traj = s.trajectory_data
       if (this.boxReady) {
-        s.pxPoints = traj.points.map(p => ({
+        s.pxPoints = traj.p.map(p => ({
           x: box.x0 + (p[0] / COORD_SCALE) * box.w,
           y: box.y0 + (p[1] / COORD_SCALE) * box.h,
           pressure: (p[2] ?? PRESSURE_SCALE / 2) / PRESSURE_SCALE,
           timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
         }))
         // 基准笔宽 = 面积比还原（笔宽²/盒面积 比值 × 当前盒面积 开方）
-        s.pxBrushWidth = brushBaseWidth(traj.brush, box.w, box.h)
+        s.pxBrushWidth = brushBaseWidth(traj.b, box.w, box.h)
       } else {
         s.pxPoints = []
         s.pxBrushWidth = BASE_WIDTH
@@ -94,13 +94,13 @@ export class AnimationEngine {
     for (const s of this.strokes) {
       const traj = s.trajectory_data
       if (this.boxReady) {
-        s.pxPoints = traj.points.map(p => ({
+        s.pxPoints = traj.p.map(p => ({
           x: box.x0 + (p[0] / COORD_SCALE) * box.w,
           y: box.y0 + (p[1] / COORD_SCALE) * box.h,
           pressure: (p[2] ?? PRESSURE_SCALE / 2) / PRESSURE_SCALE,
           timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
         }))
-        s.pxBrushWidth = brushBaseWidth(traj.brush, box.w, box.h)
+        s.pxBrushWidth = brushBaseWidth(traj.b, box.w, box.h)
       } else {
         s.pxPoints = []
         s.pxBrushWidth = BASE_WIDTH
