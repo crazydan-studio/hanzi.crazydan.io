@@ -5,10 +5,12 @@ package org.crazydan.studio.app.hanzi.shared
  */
 object HanziLabels {
 
-    /** 结构编码 → 展示名（不含「结构」二字） */
+    /** 结构编码 → 展示名（不含「结构」二字；10-16 为半包围按包围方向细分） */
     val structureNames: Map<Int, String> = mapOf(
         0 to "未指定", 1 to "独体", 2 to "左右", 3 to "左中右", 4 to "上下",
-        5 to "上中下", 6 to "全包围", 7 to "半包围", 8 to "品字", 9 to "镶嵌"
+        5 to "上中下", 6 to "全包围", 7 to "半包围", 8 to "品字", 9 to "镶嵌",
+        10 to "左上包围", 11 to "右上包围", 12 to "左下包围",
+        13 to "上包围", 14 to "下包围", 15 to "左包围", 16 to "右包围"
     )
 
     /** 笔画类型编码 → 名称（35 种细化类型 + 未指定） */

@@ -23,6 +23,8 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
 
   // 旧表名迁移: characters → zi（含列 character → zi、character_id → zi_id）
   migrateZiTable()
+  // 结构编码范围迁移: 半包围按包围方向细分（编码 10-16）后扩展 CHECK 取值
+  migrateStructureRange()
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS zi (
@@ -30,7 +32,7 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
       zi TEXT NOT NULL UNIQUE,
       pinyin TEXT NOT NULL DEFAULT '[]',        -- 读音 JSON 数组（数字声调，可多音）
       used_weight INTEGER NOT NULL DEFAULT 0,   -- 使用频率权重
-      structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 9),
+      structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 99),
       radical TEXT NOT NULL DEFAULT '',         -- 部首（书写页可编辑）
       total_stroke_count INTEGER NOT NULL DEFAULT 0    -- 笔画数
     );
@@ -72,6 +74,35 @@ function migrateZiTable() {
   db.exec('DROP INDEX IF EXISTS idx_characters_character_unique')
   db.exec('DROP INDEX IF EXISTS idx_strokes_character_id')
   console.log('DB migrated: characters table → zi')
+}
+
+// 结构编码范围迁移（幂等）: 旧库 CHECK 限制 0-9 无法存入半包围细分（10-16），
+// 重建 zi 表扩展取值范围（数据原样保留）
+function migrateStructureRange() {
+  const sql = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'zi'"
+  ).get()?.sql
+  if (!sql || !sql.includes('CHECK(structure BETWEEN 0 AND 9)')) return
+  withTransaction(() => {
+    db.exec('ALTER TABLE zi RENAME TO zi_old')
+    db.exec(`
+      CREATE TABLE zi (
+        id INTEGER PRIMARY KEY,
+        zi TEXT NOT NULL UNIQUE,
+        pinyin TEXT NOT NULL DEFAULT '[]',
+        used_weight INTEGER NOT NULL DEFAULT 0,
+        structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 99),
+        radical TEXT NOT NULL DEFAULT '',
+        total_stroke_count INTEGER NOT NULL DEFAULT 0
+      )
+    `)
+    db.exec(`INSERT INTO zi
+      (id, zi, pinyin, used_weight, structure, radical, total_stroke_count)
+      SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count FROM zi_old`)
+    db.exec('DROP TABLE zi_old')
+    db.exec('CREATE UNIQUE INDEX idx_zi_zi_unique ON zi(zi)')
+  })
+  console.log('DB migrated: zi.structure 取值范围扩展（半包围细分）')
 }
 
 // 轨迹数据清理（幂等）: 无法解压/字段非法的损坏数据删除;

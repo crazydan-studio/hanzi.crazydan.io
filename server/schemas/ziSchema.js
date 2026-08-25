@@ -27,12 +27,12 @@ export const createZiSchema = z.object({
   zi: singleZiSchema,
   pinyin: z.array(z.string()).default([]),            // 读音（数字声调，可多音）
   used_weight: z.number().int().min(0).default(0),
-  structure: z.number().int().min(0).max(9).default(0),
+  structure: z.number().int().min(0).max(99).default(0),
   total_stroke_count: z.number().int().min(0).default(0)
 })
 
 // 更新: 仅 structure / radical 可编辑（其余数据只读，来自字典导入）
 export const updateZiSchema = z.object({
-  structure: z.number().int().min(0).max(9).optional(),
+  structure: z.number().int().min(0).max(99).optional(),
   radical: z.string().max(10).optional()
 })

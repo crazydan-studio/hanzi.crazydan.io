@@ -1,4 +1,4 @@
-// 汉字结构类型定义（数字编码稳定不变）
+// 汉字结构类型定义（数字编码稳定不变; 7 为通用半包围，10-16 按包围方向细分）
 // code: 数字编码（zi.structure 存储值） | name: 结构名
 // examples: 示例汉字
 export const ZI_STRUCTURES = [
@@ -11,7 +11,15 @@ export const ZI_STRUCTURES = [
   { code: 6, name: '全包围结构', examples: ['国', '园', '回'] },
   { code: 7, name: '半包围结构', examples: ['区', '这', '同'] },
   { code: 8, name: '品字形结构', examples: ['品', '晶', '森'] },
-  { code: 9, name: '镶嵌结构',   examples: ['坐', '乘', '爽'] }
+  { code: 9, name: '镶嵌结构',   examples: ['坐', '乘', '爽'] },
+  // 半包围按包围方向细分（7 保持通用）
+  { code: 10, name: '左上包围结构', examples: ['压', '病', '居', '历'] },
+  { code: 11, name: '右上包围结构', examples: ['句', '可', '司', '氧'] },
+  { code: 12, name: '左下包围结构', examples: ['这', '边', '建', '廷'] },
+  { code: 13, name: '上包围结构',   examples: ['同', '风', '周', '问'] },
+  { code: 14, name: '下包围结构',   examples: ['凶', '函', '画', '击'] },
+  { code: 15, name: '左包围结构',   examples: ['区', '医', '巨', '匹'] },
+  { code: 16, name: '右包围结构',   examples: [] }
 ]
 
 // code → 结构对象映射
