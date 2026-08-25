@@ -3,9 +3,9 @@ import { z } from 'zod'
 import { validateBody, validateParams } from '../middleware/validation.js'
 import { ok } from '../middleware/response.js'
 import { AppError } from '../middleware/errorHandler.js'
-import { strokeService } from '../services/strokeService.js'
+import { strokeService } from '../services/StrokeService.js'
 import { broadcastSync } from '../services/sync.js'
-import { createStrokeSchema, updateStrokeSchema, batchCreateStrokesSchema, reorderStrokesSchema } from '../schemas/strokeSchema.js'
+import { createStrokeSchema, updateStrokeSchema, batchCreateStrokesSchema, reorderStrokesSchema } from '../schemas/StrokeSchema.js'
 
 // 挂载于 /api/zi/:ziId/strokes
 const router = Router({ mergeParams: true })

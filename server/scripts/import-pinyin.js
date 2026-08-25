@@ -18,7 +18,7 @@ import * as fontkit from 'fontkit'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { STRUCTURE_MAP, numberTonePinyin } from '../services/pinyinDict.js'
+import { STRUCTURE_MAP, numberTonePinyin } from '../services/PinyinDict.js'
 import { HANZI_DB_PATH, KAI_FONT_WOFF2_PATH, ZI_ASSETS_DIR } from '../../paths.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))

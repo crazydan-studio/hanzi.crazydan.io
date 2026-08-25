@@ -2,12 +2,12 @@ import { Router } from 'express'
 import { validateBody, validateParams, validateQuery } from '../middleware/validation.js'
 import { ok, paginated } from '../middleware/response.js'
 import { AppError } from '../middleware/errorHandler.js'
-import { ziService } from '../services/ziService.js'
+import { ziService } from '../services/ZiService.js'
 import { broadcastSync } from '../services/sync.js'
 import {
   createZiSchema, updateZiSchema,
   idParamsSchema, ziParamSchema, listQuerySchema
-} from '../schemas/ziSchema.js'
+} from '../schemas/ZiSchema.js'
 
 const router = Router()
 

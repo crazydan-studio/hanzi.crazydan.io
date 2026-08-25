@@ -13,8 +13,8 @@
 //   pnpm export:zi -- --count 200                       # 指定常用字数量
 //   pnpm export:zi -- --db b.db --out public            # 指定库与输出目录
 import { DatabaseSync } from 'node:sqlite'
-import { decompressTrajectory, deltaEncode, TRAJECTORY_VERSION } from '../server/services/trajectory.js'
-import { stripTone } from '../server/services/pinyinDict.js'
+import { decompressTrajectory, deltaEncode, TRAJECTORY_VERSION } from '../server/services/Trajectory.js'
+import { stripTone } from '../server/services/PinyinDict.js'
 import path from 'path'
 import fs from 'fs'
 import { PUBLIC_DIR, HANZI_DB_PATH } from '../paths.js'
@@ -99,7 +99,7 @@ function main() {
   for (const s of strokeRows) {
     let traj = null
     try { traj = decompressTrajectory(s.trajectory_data) } catch { continue }
-    if (!traj || !Array.isArray(traj.points) || traj.points.length === 0) continue
+    if (!traj || !Array.isArray(traj.p) || traj.p.length === 0) continue
     if (!strokeMap.has(s.zi_id)) strokeMap.set(s.zi_id, [])
     strokeMap.get(s.zi_id).push({
       stroke_order: s.stroke_order,
@@ -170,20 +170,20 @@ function main() {
         s: w.structure
       })
       metaCount++
-      // 笔画数据（上层共享结构: 版本与光栅实测盒 box 置于顶层，笔画条目不含重复字段）:
-      //   { v, box, strokes: [{ o, t, d: { b, p } }] }
+      // 笔画数据（上层共享结构: 版本与光栅实测盒 r 置于顶层，笔画条目不含重复字段）:
+      //   { v, r, strokes: [{ o, t, d: { b, p } }] }
       const strokes = strokeMap.get(cp)
       if (strokes && strokes.length > 0) {
-        const box = strokes[0].trajectory_data.box
+        const r = strokes[0].trajectory_data.r
         writeJson(path.join(dir, 'strokes.json'), {
           v: TRAJECTORY_VERSION,
-          ...(box ? { box } : {}),
+          ...(r ? { r } : {}),
           strokes: strokes.map(st => ({
             o: st.stroke_order,
             t: st.stroke_type,
             d: {
-              b: st.trajectory_data.brush ?? 0,
-              p: deltaEncode(st.trajectory_data.points)
+              b: st.trajectory_data.b ?? 0,
+              p: deltaEncode(st.trajectory_data.p)
             }
           }))
         })

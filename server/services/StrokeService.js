@@ -1,7 +1,7 @@
 import { getDb, serializeStroke, withTransaction } from './database.js'
 import { AppError } from '../middleware/errorHandler.js'
 import { syncZiStrokes } from './staticSync.js'
-import { compressTrajectory } from './trajectory.js'
+import { compressTrajectory } from './Trajectory.js'
 
 export const strokeService = {
   findByZi(ziId) {

@@ -1,13 +1,15 @@
 // 笔画轨迹压缩（最大限度降低 trajectory_data 存储占用）
 // 存储: 轨迹经 增量编码 + zlib deflate 压缩为 BLOB；序列化输出时透明解压，
 //       API 与导出仍为绝对坐标 JSON 对象
-// 格式版本（数字，从 1 开始）:
-//   1: x/y 以【背景汉字墨迹盒】为坐标系分别归一化 ×1000（x 按盒宽、y 按盒高），
-//      范围放宽至 [-2000, 3000]（允许写在盒外）；brush 字段:
-//      笔刷面积 / 背景字面积 的比值 ×BRUSH_SCALE 存储（整轨迹共享一个笔宽）
-//   2: 记录绘制时背景字光栅实测盒的宽高 box: { w, h }（内部坐标系像素，整数）;
+// 轨迹属性采用单字符（与静态 strokes.json 的紧凑结构一致）:
+//   v: 格式版本（数字，从 1 开始）
+//   b: 笔刷面积 / 背景字面积 的比值 ×BRUSH_SCALE（整轨迹共享一个笔宽）
+//   r: 绘制时背景字光栅实测盒 { w, h }（内部坐标系像素，整数; v2 起记录）——
 //      盒的位置按约定为画布中心对齐，笔画可脱离字体/背景字按盒还原与按比例缩放
 //      （如列表缩略图、无字体环境的回放）
+//   p: 轨迹点 [x, y, pressure, timestamp]（绝对坐标）
+// x/y 以【背景汉字墨迹盒】为坐标系分别归一化 ×1000（x 按盒宽、y 按盒高），
+// 范围放宽至 [-2000, 3000]（允许写在盒外）
 import zlib from 'node:zlib'
 
 export const TRAJECTORY_VERSION = 2
@@ -56,24 +58,35 @@ export function deltaDecode(points) {
 // （仅用于说明盒的测量约定; 盒由前端光栅实测，服务端不测量）
 export const INKBOX_CANVAS = 500
 
+// 读取兼容旧字段名（version/brush/box/points）: 归一化为单字符
+function readField(traj, short, long) {
+  return traj[short] ?? traj[long]
+}
+
 export function compressTrajectory(trajectory) {
   const encoded = {
-    version: trajectory.version,
-    brush: trajectory.brush,
-    points: deltaEncode(trajectory.points)
+    v: readField(trajectory, 'v', 'version'),
+    b: readField(trajectory, 'b', 'brush'),
+    p: deltaEncode(trajectory.p ?? trajectory.points)
   }
-  if (trajectory.box) {
-    encoded.box = trajectory.box
+  const r = readField(trajectory, 'r', 'box')
+  if (r) {
+    encoded.r = r
   }
   return zlib.deflateSync(JSON.stringify(encoded))
 }
 
 export function decompressTrajectory(data) {
-  // 存储轨迹均为 compressTrajectory 产物（BLOB 压缩 + 增量编码），统一解码为绝对坐标点
+  // 存储轨迹均为 compressTrajectory 产物（BLOB 压缩 + 增量编码），
+  // 统一解码为单字符字段的绝对坐标点（旧完整词字段名亦兼容）
   if (!Buffer.isBuffer(data) && !(data instanceof Uint8Array)) {
     throw new Error('轨迹数据须为压缩 BLOB')
   }
   const parsed = JSON.parse(zlib.inflateSync(Buffer.from(data)).toString('utf8'))
-  parsed.points = deltaDecode(parsed.points)
-  return parsed
+  return {
+    v: readField(parsed, 'v', 'version'),
+    b: readField(parsed, 'b', 'brush'),
+    r: readField(parsed, 'r', 'box'),
+    p: deltaDecode(parsed.p ?? parsed.points)
+  }
 }

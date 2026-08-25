@@ -4,8 +4,8 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { initDatabase, closeDatabase } from '../services/database.js'
-import { strokeService } from '../services/strokeService.js'
-import { ziService } from '../services/ziService.js'
+import { strokeService } from '../services/StrokeService.js'
+import { ziService } from '../services/ZiService.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 initDatabase()
