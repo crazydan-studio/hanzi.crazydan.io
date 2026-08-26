@@ -9,7 +9,6 @@ import { createSyncClient } from '@services/syncClient.js'
 import { strokeTypesMap } from '@components/StrokeTypes.js'
 import { ZI_STRUCTURES, structureLabel } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
-import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { TRAJECTORY_VERSION } from '@components/Constants.js'
 import { STROKE_REF_URL, ZDIC_URL } from '../../config.js'
 
@@ -20,7 +19,6 @@ export function registerStrokeEditor() {
     strokeTypesMap: strokeTypesMap,
     ZI_STRUCTURES: ZI_STRUCTURES,
     structureLabel: structureLabel,           // 结构显示文本（含示例）
-    symbolPinyin: numberToSymbolTonePinyin,   // 数字声调拼音 → 符号声调
     saveQueue: Promise.resolve(),
     cancelledLocalIds: new Set(),
     error: null,
@@ -237,6 +235,30 @@ export function registerStrokeEditor() {
       if (zi.radical === value) return
       try {
         const res = await api.patch(`/api/zi/${zi.id}`, { radical: value })
+        this.zi = res.data || this.zi
+      } catch (e) {
+        this.error = e.message
+      }
+    },
+
+    // 读音编辑: 逗号/空格分隔的数字声调拼音（如 "de, di4, di2"）
+    async updatePinyin(zi, value) {
+      const pinyin = String(value || '').split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean)
+      if (JSON.stringify(pinyin) === JSON.stringify(zi.pinyin)) return
+      try {
+        const res = await api.patch(`/api/zi/${zi.id}`, { pinyin })
+        this.zi = res.data || this.zi
+      } catch (e) {
+        this.error = e.message
+      }
+    },
+
+    // 笔画数编辑
+    async updateStrokeCount(zi, value) {
+      const count = Number(value)
+      if (!Number.isInteger(count) || count < 0 || count === zi.total_stroke_count) return
+      try {
+        const res = await api.patch(`/api/zi/${zi.id}`, { total_stroke_count: count })
         this.zi = res.data || this.zi
       } catch (e) {
         this.error = e.message

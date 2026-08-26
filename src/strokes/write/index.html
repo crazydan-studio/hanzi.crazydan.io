@@ -28,10 +28,22 @@
             </div>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
               <span class="text-4xl font-bold font-kaiti" x-text="zi.zi"></span>
-              <span class="text-gray-700 font-pinyin dark:text-gray-200" x-text="`读音: ${zi.pinyin.map(p => symbolPinyin(p)).join('、')}`"></span>
-              <span class="text-gray-500 text-sm dark:text-gray-400" x-text="`笔画数: ${zi.total_stroke_count}`"></span>
-              <!-- 部首/结构/笔顺参考: 靠右侧布局 -->
+              <!-- 读音/笔画数/部首/结构: 可编辑（同步后端） -->
               <div class="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
+                <!-- 读音: 逗号/空格分隔的数字声调拼音（如 de, di4） -->
+                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  读音
+                  <input type="text" class="input !w-40 !py-1 font-pinyin"
+                    :value="zi.pinyin.join(', ')"
+                    @change="updatePinyin(zi, $event.target.value)">
+                </label>
+                <!-- 笔画数 -->
+                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  笔画数
+                  <input type="number" min="0" max="999" class="input !w-16 !py-1 text-center"
+                    :value="zi.total_stroke_count"
+                    @change="updateStrokeCount(zi, $event.target.value)">
+                </label>
                 <!-- 部首: 可编辑（同步后端） -->
                 <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                   部首

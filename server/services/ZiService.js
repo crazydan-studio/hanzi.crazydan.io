@@ -97,7 +97,7 @@ export const ziService = {
     return this.findById(id)
   },
 
-  // 仅允许更新 structure / radical（其余只读）
+  // 更新: 结构/部首/读音/笔画数（其余只读，来自字典导入）
   update(id, data) {
     const db = getDb()
     const updates = []
@@ -109,6 +109,14 @@ export const ziService = {
     if (data.radical !== undefined) {
       updates.push('radical = ?')
       params.push(data.radical)
+    }
+    if (data.pinyin !== undefined) {
+      updates.push('pinyin = ?')
+      params.push(JSON.stringify(data.pinyin))
+    }
+    if (data.total_stroke_count !== undefined) {
+      updates.push('total_stroke_count = ?')
+      params.push(data.total_stroke_count)
     }
     if (updates.length === 0) return this.findById(id)
     params.push(id)

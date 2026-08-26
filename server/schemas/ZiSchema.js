@@ -31,8 +31,11 @@ export const createZiSchema = z.object({
   total_stroke_count: z.number().int().min(0).default(0)
 })
 
-// 更新: 仅 structure / radical 可编辑（其余数据只读，来自字典导入）
+// 更新: 结构/部首/读音/笔画数可编辑（其余数据只读，来自字典导入）
+// pinyin: 数字声调拼音列表（可多音，如 ['de','di4','di2']）
 export const updateZiSchema = z.object({
   structure: z.number().int().min(0).max(99).optional(),
-  radical: z.string().max(10).optional()
+  radical: z.string().max(10).optional(),
+  pinyin: z.array(z.string()).max(10).optional(),
+  total_stroke_count: z.number().int().min(0).max(999).optional()
 })

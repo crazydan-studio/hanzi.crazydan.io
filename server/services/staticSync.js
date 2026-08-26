@@ -13,14 +13,16 @@ function strokesPath(ziId) {
   return path.join(ZI_ASSETS_DIR, String(ziId), 'strokes.json')
 }
 
-// 同步部首/结构到 meta.json（仅文件存在时）
+// 同步部首/结构/读音/笔画数到 meta.json（仅文件存在时）:
+// 单字母紧凑字段（与导出脚本一致）: p 读音 / n 笔画数 / r 部首 / s 结构编码（展示名由前端映射）
 export function syncZiMeta(zi) {
   if (!zi) return false
   const file = metaPath(zi.id)
   if (!fs.existsSync(file)) return false
   try {
     const meta = JSON.parse(fs.readFileSync(file, 'utf8'))
-    // 单字母紧凑字段（与导出脚本一致）: r 部首 / s 结构编码（展示名由前端映射）
+    if (zi.pinyin !== undefined) meta.p = zi.pinyin
+    if (zi.total_stroke_count !== undefined) meta.n = zi.total_stroke_count
     if (zi.radical !== undefined) meta.r = zi.radical
     if (zi.structure !== undefined) meta.s = zi.structure
     fs.writeFileSync(file, JSON.stringify(meta))
