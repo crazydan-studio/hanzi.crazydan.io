@@ -28,46 +28,83 @@
             </div>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
               <span class="text-4xl font-bold font-kaiti" x-text="zi.zi"></span>
-              <!-- 读音/笔画数/部首/结构: 可编辑（同步后端） -->
-              <div class="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
-                <!-- 读音: 逗号/空格分隔的数字声调拼音（如 de, di4） -->
-                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                  读音
-                  <input type="text" class="input !w-40 !py-1 font-pinyin"
-                    :value="zi.pinyin.join(', ')"
-                    @change="updatePinyin(zi, $event.target.value)">
-                </label>
-                <!-- 笔画数 -->
-                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                  笔画数
-                  <input type="number" min="0" max="999" class="input !w-16 !py-1 text-center"
-                    :value="zi.total_stroke_count"
-                    @change="updateStrokeCount(zi, $event.target.value)">
-                </label>
-                <!-- 部首: 可编辑（同步后端） -->
-                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                  部首
-                  <input type="text" maxlength="10" class="input !w-16 !py-1"
-                    :value="zi.radical || ''"
-                    @change="updateRadical(zi, $event.target.value)">
-                </label>
-                <!-- 结构: 唯一可编辑字段 -->
-                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                  结构
-                  <select class="input !w-auto !py-1"
-                    @change="updateZiStructure(zi, $event.target.value)">
-                    <template x-for="st in ZI_STRUCTURES" :key="st.code">
-                      <option :value="st.code" :selected="zi.structure === st.code"
-                        x-text="structureLabel(st.code)"></option>
+              <!-- 读音: 与汉字信息页一致（chip: 符号声调 + 试听/编辑/删除） -->
+              <div class="flex flex-wrap items-center gap-2">
+                <template x-for="(p, i) in zi.pinyin" :key="i">
+                  <span class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 dark:border-gray-600 dark:bg-gray-800">
+                    <template x-if="editingPinyin !== i">
+                      <span class="font-medium font-pinyin" x-text="symbolPinyin(p)"></span>
                     </template>
-                  </select>
-                </label>
-                <!-- 笔顺参考图开关 -->
-                <button @click="toggleStrokeRef()" class="btn-sm"
-                  :class="showStrokeRef ? 'btn-active' : 'bg-white dark:bg-gray-800'">
-                  笔顺参考
-                </button>
+                    <template x-if="editingPinyin === i">
+                      <input type="text" class="input !w-24 !py-0.5 font-pinyin"
+                        x-model="pinyinDraft"
+                        @keydown.enter="savePinyinEdit(i)"
+                        @keydown.esc="cancelPinyinEdit()"
+                        @blur="savePinyinEdit(i)">
+                    </template>
+                    <button @click="playPinyin(p)" class="text-blue-500 hover:text-blue-700">试听</button>
+                    <template x-if="editingPinyin === i">
+                      <button @click="savePinyinEdit(i)" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">保存</button>
+                    </template>
+                    <template x-if="editingPinyin !== i">
+                      <span class="inline-flex items-center gap-1.5">
+                        <button @click="startEditPinyin(i)" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">编辑</button>
+                        <button @click="deletePinyin(i)" class="text-red-500 hover:text-red-700">删除</button>
+                      </span>
+                    </template>
+                  </span>
+                </template>
+                <!-- 添加读音（编辑中显示独立输入框） -->
+                <template x-if="editingPinyin === -1">
+                  <span class="inline-flex items-center gap-1.5 rounded-full border border-blue-300 bg-blue-50 px-3 py-1 dark:border-blue-600 dark:bg-blue-900/30">
+                    <input type="text" class="input !w-24 !py-0.5 font-pinyin"
+                      x-model="pinyinDraft"
+                      placeholder="如 di4"
+                      @keydown.enter="savePinyinEdit(-1)"
+                      @keydown.esc="cancelPinyinEdit()"
+                      @blur="savePinyinEdit(-1)"
+                      x-ref="pinyinAddInput">
+                    <button @click="savePinyinEdit(-1)" class="text-blue-500 hover:text-blue-700">保存</button>
+                    <button @click="cancelPinyinEdit()" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">取消</button>
+                  </span>
+                </template>
+                <template x-if="editingPinyin !== -1">
+                  <button @click="startEditPinyin(-1)" class="btn-sm">+ 添加读音</button>
+                </template>
               </div>
+            </div>
+            <!-- 笔画数/部首/结构/笔顺参考/汉典: 下一行左对齐 -->
+            <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <!-- 笔画数 -->
+              <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                笔画数
+                <input type="number" min="0" max="999" class="input !w-16 !py-1 text-center"
+                  :value="zi.total_stroke_count"
+                  @change="updateStrokeCount(zi, $event.target.value)">
+              </label>
+              <!-- 部首: 可编辑（同步后端） -->
+              <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                部首
+                <input type="text" maxlength="10" class="input !w-16 !py-1"
+                  :value="zi.radical || ''"
+                  @change="updateRadical(zi, $event.target.value)">
+              </label>
+              <!-- 结构 -->
+              <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                结构
+                <select class="input !w-auto !py-1"
+                  @change="updateZiStructure(zi, $event.target.value)">
+                  <template x-for="st in ZI_STRUCTURES" :key="st.code">
+                    <option :value="st.code" :selected="zi.structure === st.code"
+                      x-text="structureLabel(st.code)"></option>
+                  </template>
+                </select>
+              </label>
+              <!-- 笔顺参考图开关 -->
+              <button @click="toggleStrokeRef()" class="btn-sm"
+                :class="showStrokeRef ? 'btn-active' : 'bg-white dark:bg-gray-800'">
+                笔顺参考
+              </button>
             </div>
             <!-- 笔顺参考图（汉典网楷体笔顺图） -->
             <div x-show="showStrokeRef" class="mt-3">

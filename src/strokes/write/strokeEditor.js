@@ -9,8 +9,9 @@ import { createSyncClient } from '@services/syncClient.js'
 import { strokeTypesMap } from '@components/StrokeTypes.js'
 import { ZI_STRUCTURES, structureLabel } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
+import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { TRAJECTORY_VERSION } from '@components/Constants.js'
-import { STROKE_REF_URL, ZDIC_URL } from '../../config.js'
+import { PINYIN_AUDIO_DIR, STROKE_REF_URL, ZDIC_URL } from '../../config.js'
 
 export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
@@ -241,12 +242,75 @@ export function registerStrokeEditor() {
       }
     },
 
-    // 读音编辑: 逗号/空格分隔的数字声调拼音（如 "de, di4, di2"）
-    async updatePinyin(zi, value) {
-      const pinyin = String(value || '').split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean)
-      if (JSON.stringify(pinyin) === JSON.stringify(zi.pinyin)) return
+    // ---- 读音编辑（与汉字信息页一致的 chip 形式: 试听/编辑/删除） ----
+    editingPinyin: null,          // 编辑中的读音索引（-1 = 添加新读音）
+    pinyinDraft: '',
+    audio: null,                  // 当前试听音频
+
+    // 数字声调拼音 → 符号声调（展示用）
+    symbolPinyin: numberToSymbolTonePinyin,
+
+    // 试听读音（内置音频 assets/audio/pinyin/{拼音}.mp3）
+    playPinyin(p) {
+      this.stopAudio()
+      const url = `${PINYIN_AUDIO_DIR}/${encodeURIComponent(p)}.mp3`
+      const audio = new Audio(url)
+      this.audio = audio
+      audio.onerror = () => {
+        this.error = `音频 ${p}.mp3 不存在`
+      }
+      audio.play().catch(() => {
+        this.error = `音频 ${p}.mp3 播放失败`
+      })
+    },
+
+    // 停止试听
+    stopAudio() {
+      if (this.audio) {
+        this.audio.pause()
+        this.audio = null
+      }
+    },
+
+    // 进入读音编辑（index = -1 时为添加新读音）
+    startEditPinyin(index) {
+      this.editingPinyin = index
+      this.pinyinDraft = index === -1 ? '' : this.zi.pinyin[index]
+    },
+
+    // 保存读音编辑（修改/新增）
+    savePinyinEdit(index) {
+      if (this.editingPinyin === null) return
+      const value = this.pinyinDraft.trim().toLowerCase()
+      const pinyin = [...this.zi.pinyin]
+      if (index === -1) {
+        if (value && !pinyin.includes(value)) pinyin.push(value)
+      } else {
+        pinyin[index] = value || pinyin[index]
+      }
+      this.editingPinyin = null
+      this.pinyinDraft = ''
+      if (JSON.stringify(pinyin) === JSON.stringify(this.zi.pinyin)) return
+      this.patchPinyin(pinyin)
+    },
+
+    // 取消读音编辑
+    cancelPinyinEdit() {
+      this.editingPinyin = null
+      this.pinyinDraft = ''
+    },
+
+    // 删除读音
+    deletePinyin(index) {
+      if (index < 0 || index >= this.zi.pinyin.length) return
+      const pinyin = this.zi.pinyin.filter((_, i) => i !== index)
+      this.patchPinyin(pinyin)
+    },
+
+    // 读音变更同步后端
+    async patchPinyin(pinyin) {
       try {
-        const res = await api.patch(`/api/zi/${zi.id}`, { pinyin })
+        const res = await api.patch(`/api/zi/${this.zi.id}`, { pinyin })
         this.zi = res.data || this.zi
       } catch (e) {
         this.error = e.message
