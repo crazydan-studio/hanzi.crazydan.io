@@ -68,15 +68,92 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
         }
     }
 
+    /** 扫描笔画数据库中的潜在安全风险对象（只读）; 空列表表示内容干净 */
+    override fun scanStrokeDbRisks(path: String): List<String> {
+        return try {
+            val sdb = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY)
+            try {
+                scanRisks(sdb)
+            } finally {
+                sdb.close()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "扫描笔画库风险失败: $path", e)
+            emptyList()
+        }
+    }
+
+    // 收集库内风险对象描述:
+    //   - 除 strokes 外的表/视图/触发器（sqlite_ 内部对象除外）
+    //   - 不属于 strokes 的独立索引
+    //   - strokes 上的外键/级联配置
+    private fun scanRisks(sdb: SQLiteDatabase): List<String> {
+        val risks = ArrayList<String>()
+        sdb.rawQuery(
+            "SELECT type, name FROM sqlite_master " +
+                "WHERE type IN ('table','view','trigger') AND name NOT LIKE 'sqlite_%' " +
+                "ORDER BY type, name",
+            null
+        ).use { c ->
+            while (c.moveToNext()) {
+                val type = c.getString(0)
+                val name = c.getString(1)
+                if (type == "table" && name == "strokes") continue
+                risks.add("${objectTypeName(type)}: $name")
+            }
+        }
+        sdb.rawQuery(
+            "SELECT name, tbl_name FROM sqlite_master " +
+                "WHERE type = 'index' AND name NOT LIKE 'sqlite_autoindex_%'",
+            null
+        ).use { c ->
+            while (c.moveToNext()) {
+                if (c.getString(1) == "strokes") continue   // 笔画表附属索引保留
+                risks.add("索引: ${c.getString(0)}（表 ${c.getString(1)}）")
+            }
+        }
+        foreignKeys(sdb, "strokes").forEach { fk ->
+            risks.add("外键/级联: strokes.${fk[3]} → ${fk[2]}(${fk[4]})")
+        }
+        return risks
+    }
+
+    // sqlite_master 对象类型 → 展示名
+    private fun objectTypeName(type: String): String = when (type) {
+        "table" -> "表"
+        "view" -> "视图"
+        "trigger" -> "触发器"
+        else -> type
+    }
+
+    // strokes 表上的外键引用（PRAGMA foreign_key_list: id, seq, table, from, to, on_update, on_delete, match）
+    private fun foreignKeys(sdb: SQLiteDatabase, table: String): List<Array<String>> {
+        val out = ArrayList<Array<String>>()
+        sdb.rawQuery("PRAGMA foreign_key_list('$table')", null).use { c ->
+            while (c.moveToNext()) {
+                out.add(Array(8) { c.getString(it) })
+            }
+        }
+        return out
+    }
+
     /** 导入到固定位置: 复制 + 替换，成功后立即生效；失败返回 false */
-    override fun importStrokeDb(sourcePath: String): Boolean {
+    override fun importStrokeDb(sourcePath: String, sanitize: Boolean): Boolean {
         return try {
             val target = fixedStrokeDbFile()
             val tmp = File(target.parentFile, "hanzi_stroke.db.tmp")
             File(sourcePath).inputStream().use { input ->
                 tmp.outputStream().use { output -> input.copyTo(output) }
             }
-            // 复制后再次校验，确认导入内容有效
+            // 复制后先消除风险对象（仅在副本上执行，源文件不受影响）
+            if (sanitize) {
+                val sanitized = sanitizeStrokeDb(tmp.absolutePath)
+                if (!sanitized) {
+                    tmp.delete()
+                    return false
+                }
+            }
+            // 消除后再次校验，确认导入内容有效
             val info = validateStrokeDb(tmp.absolutePath)
             if (info == null) {
                 tmp.delete()
@@ -101,6 +178,107 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
             Log.e(TAG, "导入笔画库失败: $sourcePath", e)
             false
         }
+    }
+
+    /** 消除笔画库风险对象（读写打开）: 删除 strokes 表以外的表/视图/触发器/多余索引，重建去外键的 strokes 表 */
+    private fun sanitizeStrokeDb(path: String): Boolean {
+        return try {
+            val sdb = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READWRITE)
+            try {
+                sdb.beginTransaction()
+                try {
+                    // 0. 先删除全部视图/触发器（视图可能引用 strokes，DROP 表时会冲突）
+                    sdb.rawQuery(
+                        "SELECT type, name FROM sqlite_master " +
+                            "WHERE type IN ('view','trigger') AND name NOT LIKE 'sqlite_%'",
+                        null
+                    ).use { c ->
+                        while (c.moveToNext()) {
+                            dropObject(sdb, c.getString(0), c.getString(1))
+                        }
+                    }
+                    // 1. 重建去外键的 strokes 表——
+                    //    避免后续 DROP 被引用表时在 foreign_keys=ON 下触发级联删除清空笔画数据
+                    if (foreignKeys(sdb, "strokes").isNotEmpty()) {
+                        rebuildStrokesWithoutForeignKeys(sdb)
+                    }
+                    // 2. 删除非核心表（sqlite_ 内部对象除外）
+                    sdb.rawQuery(
+                        "SELECT type, name FROM sqlite_master " +
+                            "WHERE type = 'table' AND name NOT LIKE 'sqlite_%' " +
+                            "AND name != 'strokes'",
+                        null
+                    ).use { c ->
+                        while (c.moveToNext()) {
+                            dropObject(sdb, c.getString(0), c.getString(1))
+                        }
+                    }
+                    // 3. 删除不属于 strokes 的独立索引
+                    sdb.rawQuery(
+                        "SELECT name, tbl_name FROM sqlite_master " +
+                            "WHERE type = 'index' AND name NOT LIKE 'sqlite_autoindex_%'",
+                        null
+                    ).use { c ->
+                        while (c.moveToNext()) {
+                            if (c.getString(1) == "strokes") continue
+                            sdb.execSQL("DROP INDEX IF EXISTS \"${c.getString(0)}\"")
+                        }
+                    }
+                    sdb.setTransactionSuccessful()
+                } finally {
+                    sdb.endTransaction()
+                }
+                true
+            } finally {
+                sdb.close()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "消除笔画库风险失败: $path", e)
+            false
+        }
+    }
+
+    private fun dropObject(sdb: SQLiteDatabase, type: String, name: String) {
+        val verb = when (type) {
+            "table" -> "TABLE"
+            "view" -> "VIEW"
+            "trigger" -> "TRIGGER"
+            else -> return
+        }
+        sdb.execSQL("DROP $verb IF EXISTS \"$name\"")
+    }
+
+    /** 重建 strokes 表（去除外键/级联）: 按原列定义建新表 + 拷贝数据 + 替换 + 重建原索引 */
+    private fun rebuildStrokesWithoutForeignKeys(sdb: SQLiteDatabase) {
+        // 收集原列定义（PRAGMA table_info: cid, name, type, notnull, dflt_value, pk）
+        val cols = ArrayList<Array<String>>()
+        sdb.rawQuery("PRAGMA table_info('strokes')", null).use { c ->
+            while (c.moveToNext()) {
+                cols.add(Array(6) { c.getString(it) })
+            }
+        }
+        if (cols.isEmpty()) return
+        val colNames = cols.joinToString(", ") { "\"${it[1]}\"" }
+        val defs = cols.joinToString(", ") { col ->
+            buildString {
+                append("\"${col[1]}\" ${col[2]}")
+                if (col[3] == "1") append(" NOT NULL")
+                if (col[5] == "1") append(" PRIMARY KEY")
+            }
+        }
+        // 原 strokes 附属索引的建表语句（替换表后重建）
+        val indexes = ArrayList<String>()
+        sdb.rawQuery(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'strokes' AND sql IS NOT NULL",
+            null
+        ).use { c ->
+            while (c.moveToNext()) indexes.add(c.getString(0))
+        }
+        sdb.execSQL("CREATE TABLE strokes_new ($defs)")
+        sdb.execSQL("INSERT INTO strokes_new ($colNames) SELECT $colNames FROM strokes")
+        sdb.execSQL("DROP TABLE strokes")
+        sdb.execSQL("ALTER TABLE strokes_new RENAME TO strokes")
+        indexes.forEach { sdb.execSQL(it) }
     }
 
     override fun strokeDbStatus(): StrokeDbStatus {

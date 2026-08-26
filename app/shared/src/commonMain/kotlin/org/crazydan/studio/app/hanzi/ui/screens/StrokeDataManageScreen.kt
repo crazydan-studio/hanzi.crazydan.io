@@ -95,19 +95,25 @@ fun StrokeDataManageScreen(
                     dialog = null
                     notice = "所选文件无效或数据损坏，无法导入"
                 } else {
-                    dialog = ImportDialog.Confirm(path, info)
+                    // 扫描库内潜在安全风险（除笔画数据外的表/触发器/外键等）
+                    val risks = withContext(Dispatchers.Default) { db.scanStrokeDbRisks(path) }
+                    dialog = if (risks.isEmpty()) {
+                        ImportDialog.Confirm(path, info)
+                    } else {
+                        ImportDialog.Risk(path, info, risks)
+                    }
                 }
             }
         }
     }
 
-    fun doImport(d: ImportDialog.Confirm) {
+    fun doImport(sourcePath: String, info: StrokeDbInfo, sanitize: Boolean) {
         dialog = ImportDialog.Importing
         scope.launch {
-            val ok = withContext(Dispatchers.Default) { db.importStrokeDb(d.sourcePath) }
+            val ok = withContext(Dispatchers.Default) { db.importStrokeDb(sourcePath, sanitize) }
             if (ok) {
                 refreshStatus()
-                dialog = ImportDialog.Done(d.info)
+                dialog = ImportDialog.Done(info)
                 notice = null
             } else {
                 dialog = null
@@ -245,10 +251,32 @@ fun StrokeDataManageScreen(
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = { doImport(d) }) { Text("确认导入") }
+                    TextButton(onClick = { doImport(d.sourcePath, d.info, sanitize = false) }) { Text("确认导入") }
                 },
                 dismissButton = {
                     TextButton(onClick = { dialog = null }) { Text("取消") }
+                }
+            )
+            is ImportDialog.Risk -> AlertDialog(
+                onDismissRequest = { dialog = null },
+                title = { Text("检测到安全风险") },
+                text = {
+                    Text(
+                        "所选文件除笔画数据（strokes 表）外还包含以下内容，可能存在安全风险：\n\n" +
+                            d.risks.joinToString("\n") { "· $it" } +
+                            "\n\n建议消除后再导入（仅修改导入副本，不影响原文件），" +
+                            "或放弃导入并清理临时文件。"
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { doImport(d.sourcePath, d.info, sanitize = true) }) { Text("消除风险并继续") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        dialog = null
+                        Platform.cleanStrokeImportCache()
+                        notice = "已放弃导入，并清理所选临时文件"
+                    }) { Text("放弃导入") }
                 }
             )
             is ImportDialog.Done -> AlertDialog(
@@ -310,6 +338,7 @@ fun StrokeDataManageScreen(
 private sealed interface ImportDialog {
     data object Checking : ImportDialog
     data class Confirm(val sourcePath: String, val info: StrokeDbInfo) : ImportDialog
+    data class Risk(val sourcePath: String, val info: StrokeDbInfo, val risks: List<String>) : ImportDialog
     data object Importing : ImportDialog
     data class Done(val info: StrokeDbInfo) : ImportDialog
 }

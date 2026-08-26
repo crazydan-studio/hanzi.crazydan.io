@@ -80,10 +80,21 @@ interface HanziDb : AutoCloseable {
     fun validateStrokeDb(path: String): StrokeDbInfo?
 
     /**
+     * 扫描笔画数据库中的潜在安全风险对象（只读）:
+     * 返回非核心内容（除 strokes 表外的表/触发器/视图/多余索引、strokes 外键/级联配置）描述列表；
+     * 空列表表示库内容干净（仅 strokes 表及其索引）
+     */
+    fun scanStrokeDbRisks(path: String): List<String>
+
+    /**
      * 导入笔画数据库到固定位置（应用数据目录的 hanzi_stroke.db）:
      * 复制源文件并替换现有库，成功后即处于 READY 状态；失败返回 false
+     *
+     * @param sanitize 为 true 时先消除复制副本上的风险对象
+     *（删除 strokes 表以外的表/触发器/视图/多余索引、重建去除外键的 strokes 表）再导入;
+     * 源文件不被修改
      */
-    fun importStrokeDb(sourcePath: String): Boolean
+    fun importStrokeDb(sourcePath: String, sanitize: Boolean = false): Boolean
 
     /** 当前笔画数据库状态（固定位置的库 + 可用性 + 可访问规模） */
     fun strokeDbStatus(): StrokeDbStatus

@@ -264,6 +264,16 @@ actual object Platform {
 
     actual fun isOnlineVariant(): Boolean = AppContextHolder.onlineVariant
 
+    // 清理导入临时副本（文件选择器兜底复制到缓存目录的文件）
+    actual fun cleanStrokeImportCache() {
+        val context = AppContextHolder.appContext ?: return
+        val dir = File(context.cacheDir, "stroke-import")
+        if (dir.isDirectory) {
+            dir.listFiles()?.forEach { it.delete() }
+            dir.delete()
+        }
+    }
+
     actual fun appVersion(): String = AppContextHolder.appVersion
 
     actual fun downloadToFile(url: String, destFileName: String): DownloadResult {

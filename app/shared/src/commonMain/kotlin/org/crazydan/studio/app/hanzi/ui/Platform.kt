@@ -46,6 +46,12 @@ expect object Platform {
      */
     fun pickStrokeDb(onPicked: (path: String?) -> Unit)
 
+    /**
+     * 清理笔画库导入的临时文件（文件选择器无法解析时复制到应用缓存目录的副本）;
+     * 放弃导入时调用
+     */
+    fun cleanStrokeImportCache()
+
     /** 当前构建是否为可联网变体（纯净版为 false; 用于检查更新/在线下载笔画数据） */
     fun isOnlineVariant(): Boolean
 
