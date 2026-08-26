@@ -124,15 +124,17 @@ async function main() {
   const isCovered = (word) =>
     kaiFont ? kaiFont.glyphForCodePoint(word.codePointAt(0)).id !== 0 : true
 
+  // 已存在汉字的信息（读音/结构/部首/笔画数）优先保留——
+  // 经 web 端书写页更新的汉字信息不被词典数据覆盖; 使用权重随词典更新
   const upsert = dst.prepare(`
     INSERT INTO zi (id, zi, pinyin, used_weight, structure, radical, total_stroke_count)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
-      pinyin = excluded.pinyin,
+      pinyin = zi.pinyin,
       used_weight = excluded.used_weight,
-      structure = CASE WHEN excluded.structure != 0 THEN excluded.structure ELSE zi.structure END,
-      radical = CASE WHEN excluded.radical != '' THEN excluded.radical ELSE zi.radical END,
-      total_stroke_count = excluded.total_stroke_count
+      structure = zi.structure,
+      radical = zi.radical,
+      total_stroke_count = zi.total_stroke_count
   `)
 
   const BATCH = 500
