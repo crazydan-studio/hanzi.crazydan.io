@@ -9,6 +9,7 @@ import { createSyncClient } from '@services/syncClient.js'
 import { strokeTypesMap } from '@components/StrokeTypes.js'
 import { ZI_STRUCTURES, structureLabel } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
+import { copyText } from '@services/clipboard.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { TRAJECTORY_VERSION } from '@components/Constants.js'
 import { PINYIN_AUDIO_DIR, STROKE_REF_URL, ZDIC_URL } from '../../config.js'
@@ -245,10 +246,22 @@ export function registerStrokeEditor() {
     // ---- 读音编辑（与汉字信息页一致的 chip 形式: 试听/编辑/删除） ----
     editingPinyin: null,          // 编辑中的读音索引（-1 = 添加新读音）
     pinyinDraft: '',
+    copiedValue: null,            // 最近复制成功的值（用于「已复制」反馈）
+    _copyTimer: null,
     audio: null,                  // 当前试听音频
 
     // 数字声调拼音 → 符号声调（展示用）
     symbolPinyin: numberToSymbolTonePinyin,
+
+    // 复制到剪贴板（含非安全上下文回退），成功后提示「已复制」
+    async copy(value) {
+      const ok = await copyText(value)
+      if (ok) {
+        this.copiedValue = String(value)
+        clearTimeout(this._copyTimer)
+        this._copyTimer = setTimeout(() => { this.copiedValue = null }, 1500)
+      }
+    },
 
     // 试听读音（内置音频 assets/audio/pinyin/{拼音}.mp3）
     playPinyin(p) {
