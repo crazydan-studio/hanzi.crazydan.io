@@ -9,7 +9,7 @@ async function loadJson(url) {
 }
 
 // meta.json 紧凑结构 → 完整字段
-// { c: 汉字, p: 读音[], n: 笔画数, r: 部首, s: 结构编码 }
+// { c: 汉字, p: 读音[], n: 笔画数, r: 部首, s: 结构编码, t: 繁体标记 }
 // unicode 不存储，按汉字直接计算；结构编码映射为展示名（不含「结构」与示例）
 function normalizeMeta(raw) {
   if (!raw) return raw
@@ -19,7 +19,8 @@ function normalizeMeta(raw) {
     pinyin: raw.p,
     total_stroke_count: raw.n,
     radical: raw.r,
-    structure: structureDisplayName(raw.s)
+    structure: structureDisplayName(raw.s),
+    is_traditional: raw.t === 1
   }
 }
 

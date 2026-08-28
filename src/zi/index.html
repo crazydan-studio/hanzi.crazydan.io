@@ -36,7 +36,14 @@
           <div class="mb-4 rounded border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
             <!-- 读音行与左侧汉字作为一个整体做流式布局: 溢出时读音行整体独占一行 -->
             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span class="text-5xl md:text-6xl font-kaiti leading-none" x-text="meta.zi"></span>
+              <span class="relative inline-block text-5xl md:text-6xl font-kaiti leading-none"
+                :class="meta.is_traditional ? 'pr-6' : ''">
+                <span x-text="meta.zi"></span>
+                <!-- 繁体角标（醒目配色: 琥珀底深色字; 位于容器内右上角不悬出，
+                     容器预留角标宽度，与右侧组件保持间隔） -->
+                <span x-show="meta.is_traditional" x-cloak
+                  class="absolute top-0 right-0 text-[11px] font-bold leading-none text-amber-700 bg-amber-200 rounded px-1 py-0.5 dark:text-amber-100 dark:bg-amber-600">繁</span>
+              </span>
               <button @click="copy(meta.zi)" class="btn-sm"
                 x-text="copiedValue === meta.zi ? '已复制' : '复制'"></button>
               <!-- 读音（整体作为一行单元）: 试听 + 复制 -->

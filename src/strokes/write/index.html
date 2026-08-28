@@ -27,7 +27,14 @@
               </a>
             </div>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <span class="text-4xl font-bold font-kaiti" x-text="zi.zi"></span>
+              <span class="relative inline-block text-4xl font-bold font-kaiti"
+                :class="zi.is_traditional ? 'pr-6' : ''">
+                <span x-text="zi.zi"></span>
+                <!-- 繁体角标（醒目配色: 琥珀底深色字; 位于容器内右上角不悬出，
+                     容器预留角标宽度，与右侧组件保持间隔） -->
+                <span x-show="zi.is_traditional" x-cloak
+                  class="absolute top-0 right-0 text-[10px] font-bold leading-none text-amber-700 bg-amber-200 rounded px-1 py-0.5 dark:text-amber-100 dark:bg-amber-600">繁</span>
+              </span>
               <button @click="copy(zi.zi)" class="btn-sm"
                 x-text="copiedValue === zi.zi ? '已复制' : '复制'"></button>
               <!-- 读音: 与汉字信息页一致（chip: 符号声调 + 试听/编辑/删除） -->

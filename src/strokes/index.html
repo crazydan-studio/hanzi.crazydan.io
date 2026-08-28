@@ -45,7 +45,14 @@
               <tr class="border-b border-gray-200 cursor-pointer hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700" @click="openWriter(c)">
                 <td class="px-3 py-2 text-2xl font-bold font-kaiti"
                   :title="'笔画数: ' + c.total_stroke_count">
-                  <span x-text="c.zi"></span>
+                  <span class="relative inline-block"
+                    :class="c.is_traditional ? 'pr-6' : ''">
+                    <span x-text="c.zi"></span>
+                    <!-- 繁体角标（醒目配色: 琥珀底深色字; 位于容器内右上角不悬出，
+                         容器预留角标宽度，与右侧组件保持间隔） -->
+                    <span x-show="c.is_traditional" x-cloak
+                      class="absolute top-0 right-0 text-[10px] font-bold leading-none text-amber-700 bg-amber-200 rounded px-1 py-0.5 dark:text-amber-100 dark:bg-amber-600">繁</span>
+                  </span>
                   <span class="text-xs text-gray-400 font-normal ml-1 dark:text-gray-500"
                     x-text="'(' + c.total_stroke_count + ' 笔)'"></span>
                 </td>
