@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -68,6 +69,7 @@ import org.crazydan.studio.app.hanzi.ui.components.OpenInNewIcon
 import org.crazydan.studio.app.hanzi.ui.components.SectionCard
 import org.crazydan.studio.app.hanzi.ui.components.ThemeIconButton
 import org.crazydan.studio.app.hanzi.ui.components.TopBar
+import org.crazydan.studio.app.hanzi.ui.components.TradBadge
 import org.crazydan.studio.app.hanzi.ui.components.StrokeCellCanvas
 import org.crazydan.studio.app.hanzi.ui.components.WritingAnimationCanvas
 import org.crazydan.studio.app.hanzi.ui.components.WritingPlayer
@@ -205,12 +207,23 @@ fun ZiDetailScreen(
                             .padding(vertical = 12.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = m.zi,
-                                style = MaterialTheme.typography.displayMedium,
-                                fontFamily = KaiTiFontFamily,
-                                modifier = Modifier.padding(end = 10.dp)
-                            )
+                            Box(
+                                modifier = if (m.isTraditional) Modifier.padding(end = 20.dp) else Modifier
+                            ) {
+                                Text(
+                                    text = m.zi,
+                                    style = MaterialTheme.typography.displayMedium,
+                                    fontFamily = KaiTiFontFamily,
+                                    modifier = Modifier.padding(end = 10.dp)
+                                )
+                                if (m.isTraditional) {
+                                    TradBadge(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .offset(x = 6.dp)
+                                    )
+                                }
+                            }
                             SmallButton(
                                 text = if (copied == "zi") "已复制" else "复制",
                                 onClick = {

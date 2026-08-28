@@ -348,7 +348,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
     override fun queryCommons(limit: Int): List<ZiEntry> {
         val out = ArrayList<ZiEntry>(limit)
         queryAll(db,
-            "SELECT zi, pinyin FROM zi " +
+            "SELECT zi, pinyin, is_traditional FROM zi " +
                 "ORDER BY used_weight DESC, zi ASC LIMIT ?",
             arrayOf(limit.toString())
         ) { cursor ->
@@ -361,7 +361,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
         val out = ArrayList<ZiEntry>()
         // 走端侧拼音关联表（ensurePinyinIndexes 创建），避免全表扫描与读音 JSON 解析
         queryAll(db,
-            "SELECT c.zi, p.value AS reading " +
+            "SELECT c.zi, p.value AS reading, c.is_traditional " +
                 "FROM pinyin_plain pp " +
                 "JOIN pinyin_map pm ON pm.plain_id = pp.id " +
                 "JOIN pinyin p ON p.id = pm.pinyin_id " +
@@ -371,14 +371,14 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                 "ORDER BY cp.used_weight DESC, c.zi ASC",
             arrayOf(plainPinyin)
         ) { cursor ->
-            out.add(ZiEntry(cursor.getString(0), cursor.getString(1)))
+            out.add(ZiEntry(cursor.getString(0), cursor.getString(1), cursor.getInt(2) == 1))
         }
         return out
     }
 
     override fun queryZiMeta(unicode: Int): ZiMeta? {
         return queryFirst(db,
-            "SELECT zi, pinyin, total_stroke_count, radical, structure " +
+            "SELECT zi, pinyin, total_stroke_count, radical, structure, is_traditional " +
                 "FROM zi WHERE id = ?",
             arrayOf(unicode.toString())
         ) { cursor ->
@@ -389,7 +389,8 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                 pinyin = List(pinyin.length()) { pinyin.getString(it) },
                 totalStrokeCount = cursor.getInt(2),
                 radical = cursor.getString(3),
-                structure = cursor.getInt(4)
+                structure = cursor.getInt(4),
+                isTraditional = cursor.getInt(5) == 1
             )
         }
     }
@@ -538,11 +539,11 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
         db.close()
     }
 
-    // 列表条目 [字, 第一个读音]
+    // 列表条目 [字, 第一个读音, 繁体标记]
     private fun entry(cursor: Cursor): ZiEntry {
         val readings = JSONArray(cursor.getString(1))
         val first = if (readings.length() > 0) readings.getString(0) else ""
-        return ZiEntry(cursor.getString(0), first)
+        return ZiEntry(cursor.getString(0), first, cursor.getInt(2) == 1)
     }
 
     // 数字声调拼音 → 无声调拼音（去掉尾部声调数字）

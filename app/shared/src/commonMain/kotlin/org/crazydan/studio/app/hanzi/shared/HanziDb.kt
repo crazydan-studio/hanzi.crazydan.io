@@ -14,7 +14,8 @@ package org.crazydan.studio.app.hanzi.shared
 /** 列表条目（常用字 / 拼音字列表）: [字, 读音] */
 data class ZiEntry(
     val zi: String,
-    val pinyin: String
+    val pinyin: String,
+    val isTraditional: Boolean = false
 )
 
 /** 汉字信息（对应前端 meta.json） */
@@ -24,7 +25,8 @@ data class ZiMeta(
     val pinyin: List<String>,
     val totalStrokeCount: Int,
     val radical: String,
-    val structure: Int          // 结构编码 0-9（展示名见 HanziLabels.structureNames）
+    val structure: Int,          // 结构编码 0-9（展示名见 HanziLabels.structureNames）
+    val isTraditional: Boolean = false
 )
 
 /** 轨迹坐标点（绝对坐标，x/y 盒相对归一化 0..1000；pressure 0..1；timestamp 毫秒） */
