@@ -25,6 +25,8 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
   migrateZiTable()
   // 结构编码范围迁移: 半包围按包围方向细分（编码 10-16）后扩展 CHECK 取值
   migrateStructureRange()
+  // 繁体字标记列补充（旧库升级; 新库建表时已含）
+  migrateTraditionalColumn()
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS zi (
@@ -34,7 +36,8 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
       used_weight INTEGER NOT NULL DEFAULT 0,   -- 使用频率权重
       structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 99),
       radical TEXT NOT NULL DEFAULT '',         -- 部首（书写页可编辑）
-      total_stroke_count INTEGER NOT NULL DEFAULT 0    -- 笔画数
+      total_stroke_count INTEGER NOT NULL DEFAULT 0,  -- 笔画数
+      is_traditional INTEGER NOT NULL DEFAULT 0        -- 是否为繁体字（以 pinyin-dict 为准）
     );
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_zi_zi_unique
@@ -55,7 +58,16 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
       ON strokes(zi_id);
   `)
 
-  // 轨迹数据校验: 不删除任何数据——v1（无光栅实测盒 r）轨迹保留，
+  // 繁体字标记列补充（幂等）: 旧库的 zi 表无 is_traditional 列，补列并默认 0;
+// 标记值本身由 import-pinyin 以 pinyin-dict 为准写入
+function migrateTraditionalColumn() {
+  const cols = db.prepare('PRAGMA table_info(zi)').all()
+  if (cols.some(c => c.name === 'is_traditional')) return
+  db.exec('ALTER TABLE zi ADD COLUMN is_traditional INTEGER NOT NULL DEFAULT 0')
+  console.log('DB migrated: zi 表补充 is_traditional 列')
+}
+
+// 轨迹数据校验: 不删除任何数据——v1（无光栅实测盒 r）轨迹保留，
   // 等待 web 端书写页在获得真实背景字光栅实测盒后升级（见 strokeEditor.js）;
   // 解压失败/字段异常仅记录日志，避免误删
   checkStrokeTrajectories()
@@ -107,12 +119,13 @@ function migrateStructureRange() {
             used_weight INTEGER NOT NULL DEFAULT 0,
             structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 99),
             radical TEXT NOT NULL DEFAULT '',
-            total_stroke_count INTEGER NOT NULL DEFAULT 0
+            total_stroke_count INTEGER NOT NULL DEFAULT 0,
+            is_traditional INTEGER NOT NULL DEFAULT 0
           )
         `)
         db.exec(`INSERT INTO zi_new
-          (id, zi, pinyin, used_weight, structure, radical, total_stroke_count)
-          SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count FROM zi`)
+          (id, zi, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional)
+          SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional FROM zi`)
         db.exec('DROP TABLE zi')
         db.exec('ALTER TABLE zi_new RENAME TO zi')
         db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_zi_zi_unique ON zi(zi)')

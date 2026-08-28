@@ -82,18 +82,18 @@ async function main() {
 
   // 读取全部 pinyin_zi（按字聚合）
   const rows = src.prepare(`
-    SELECT zi_, spell_value_, spell_tone_, used_weight_, total_stroke_count_, glyph_struct_, radical_
+    SELECT zi_, spell_value_, spell_tone_, used_weight_, total_stroke_count_, glyph_struct_, radical_, traditional_
     FROM pinyin_zi
     ORDER BY id_
   `).all()
 
-  // 聚合: zi_ → { readings:Map(数字声调拼音 → 权重), weight, strokes, struct, radical }
+  // 聚合: zi_ → { readings:Map(数字声调拼音 → 权重), weight, strokes, struct, radical, traditional }
   const agg = new Map()
   for (const r of rows) {
     if (!r.zi_ || r.zi_.length !== 1) continue
     let e = agg.get(r.zi_)
     if (!e) {
-      e = { readings: new Map(), weight: 0, strokes: 0, struct: 0, radical: '' }
+      e = { readings: new Map(), weight: 0, strokes: 0, struct: 0, radical: '', traditional: false }
       agg.set(r.zi_, e)
     }
     // 权重: 该汉字各带声调拼音组合 used_weight_ 的最大值
@@ -109,6 +109,8 @@ async function main() {
     if (r.glyph_struct_ && STRUCTURE_MAP[r.glyph_struct_] !== undefined) {
       e.struct = STRUCTURE_MAP[r.glyph_struct_]
     }
+    // 繁体字标记（以词典为准）: 任一条记录标记为繁体即为繁体
+    if (r.traditional_ === 1) e.traditional = true
   }
 
   // 读音按 used_weight_ 降序（该汉字读音的排序结果）
@@ -125,16 +127,17 @@ async function main() {
     kaiFont ? kaiFont.glyphForCodePoint(word.codePointAt(0)).id !== 0 : true
 
   // 已存在汉字的信息（读音/结构/部首/笔画数）优先保留——
-  // 经 web 端书写页更新的汉字信息不被词典数据覆盖; 使用权重随词典更新
+  // 经 web 端书写页更新的汉字信息不被词典数据覆盖; 使用权重与繁体标记随词典更新
   const upsert = dst.prepare(`
-    INSERT INTO zi (id, zi, pinyin, used_weight, structure, radical, total_stroke_count)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO zi (id, zi, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       pinyin = zi.pinyin,
       used_weight = excluded.used_weight,
       structure = zi.structure,
       radical = zi.radical,
-      total_stroke_count = zi.total_stroke_count
+      total_stroke_count = zi.total_stroke_count,
+      is_traditional = excluded.is_traditional
   `)
 
   const BATCH = 500
@@ -153,7 +156,7 @@ async function main() {
         const unicode = word.codePointAt(0)
         upsert.run(unicode, word,
           JSON.stringify(e.readings),
-          e.weight, e.struct, e.radical, e.strokes)
+          e.weight, e.struct, e.radical, e.strokes, e.traditional ? 1 : 0)
         count++
       }
       dst.exec('COMMIT')
