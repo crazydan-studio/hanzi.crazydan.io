@@ -46,17 +46,18 @@ function main() {
             used_weight INTEGER NOT NULL DEFAULT 0,
             structure INTEGER DEFAULT 0,
             radical TEXT NOT NULL DEFAULT '',
-            total_stroke_count INTEGER NOT NULL DEFAULT 0
+            total_stroke_count INTEGER NOT NULL DEFAULT 0,
+            is_traditional INTEGER NOT NULL DEFAULT 0
           )
         `)
         out.exec(`CREATE UNIQUE INDEX idx_zi_zi_unique ON zi(zi)`)
         const ins = out.prepare(`
-          INSERT INTO zi (id, zi, pinyin, used_weight, structure, radical, total_stroke_count)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`)
-        const rows = db.prepare('SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count FROM zi').all()
+          INSERT INTO zi (id, zi, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        const rows = db.prepare('SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional FROM zi').all()
         for (const r of rows) {
           ins.run(r.id, r.zi, r.pinyin, r.used_weight ?? 0,
-            r.structure ?? 0, r.radical ?? '', r.total_stroke_count ?? 0)
+            r.structure ?? 0, r.radical ?? '', r.total_stroke_count ?? 0, r.is_traditional ?? 0)
         }
       } finally {
         out.close()

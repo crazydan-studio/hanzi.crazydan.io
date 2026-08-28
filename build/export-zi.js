@@ -68,11 +68,11 @@ function main() {
   // ---- 1. 读取汉字信息（zi 表: 由 pnpm import:pinyin 从词典导入聚合） ----
   // 读音为已按权重降序排列的数字声调拼音 JSON 数组; 权重为该字所有读音的最大值
   const rows = src.prepare(`
-    SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count
+    SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional
     FROM zi
   `).all()
 
-  const words = new Map()   // zi → { zi, weight, readings[], plainSet, totalStrokes, radical, structure }
+  const words = new Map()   // zi → { zi, weight, readings[], plainSet, totalStrokes, radical, structure, traditional }
   for (const r of rows) {
     let readings = []
     try { readings = JSON.parse(r.pinyin) } catch { /* 忽略 */ }
@@ -84,7 +84,8 @@ function main() {
       plainSet: new Set(readings.map(stripTone).filter(Boolean)),
       totalStrokes: r.total_stroke_count ?? 0,
       radical: r.radical ?? '',
-      structure: r.structure ?? 0
+      structure: r.structure ?? 0,
+      traditional: (r.is_traditional ?? 0) === 1
     })
   }
 
@@ -114,9 +115,11 @@ function main() {
   // ---- 3. 常用字（按权重排序，取前 count 个） ----
   const byWeight = [...words.values()].sort((a, b) => b.weight - a.weight || (a.zi < b.zi ? -1 : 1))
 
-  // 列表条目（数组格式 [汉字, 读音]，降低 json 体积）
-  //  - 常用字: 字 + 第一个读音
-  const commons = byWeight.slice(0, count).map(w => [w.zi, w.readings[0] || ''])
+  // 列表条目（数组格式 [汉字, 读音, 繁体标记?]，降低 json 体积）:
+  //   - 繁体字追加第 3 元素 1（如 ["馬","ma3",1]），简体字无第 3 元素
+  //   - 常用字: 字 + 第一个读音
+  const tradFlag = w => (w.traditional ? [1] : [])
+  const commons = byWeight.slice(0, count).map(w => [w.zi, w.readings[0] || '', ...tradFlag(w)])
 
   // 输出目录结构固定为 {out}/assets/{zi,pinyin}（out 默认 public/，可经 --out 指定）
   const ziDir = path.join(out, 'assets', 'zi')
@@ -144,7 +147,7 @@ function main() {
   for (const [plain, list] of pinyinGroups) {
     list.sort((a, b) => b.weight - a.weight || (a.zi < b.zi ? -1 : 1))
     writeJson(path.join(pinyinDir, plain, 'meta.json'),
-      list.map(w => [w.zi, readingForPlain(w, plain)]))
+      list.map(w => [w.zi, readingForPlain(w, plain), ...tradFlag(w)]))
   }
   console.log(`已导出拼音字列表: ${pinyinGroups.size} 个拼音 → ${pinyinDir}`)
 
@@ -160,14 +163,15 @@ function main() {
     for (const w of batch) {
       const cp = w.zi.codePointAt(0)
       const dir = path.join(ziDir, String(cp))
-      // 单字母紧凑结构（c 汉字/p 读音/n 笔画数/r 部首/s 结构编码），降低存储开销
+      // 单字母紧凑结构（c 汉字/p 读音/n 笔画数/r 部首/s 结构编码/t 繁体标记），降低存储开销
       // unicode 不存储，由前端按汉字直接计算
       writeJson(path.join(dir, 'meta.json'), {
         c: w.zi,
         p: w.readings,
         n: w.totalStrokes,
         r: w.radical,
-        s: w.structure
+        s: w.structure,
+        t: w.traditional ? 1 : undefined
       })
       metaCount++
       // 笔画数据（上层共享结构: 版本与光栅实测盒 r 置于顶层，笔画条目不含重复字段）:
