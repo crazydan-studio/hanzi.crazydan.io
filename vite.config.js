@@ -201,8 +201,9 @@ export default defineConfig({
   server: {
     // 绑定所有网络接口（0.0.0.0），支持局域网/容器访问
     // 仅本机访问可传 --host localhost 覆盖
-    host: true,
+    host: 'localhost',
     port: FRONTEND_PORT,   // 前端端口: 可用 `pnpm dev --port <n>` 覆盖
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: `http://localhost:${apiPort()}`,

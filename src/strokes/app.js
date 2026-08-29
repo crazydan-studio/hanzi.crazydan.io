@@ -19,7 +19,7 @@ Alpine.data('ziList', () => ({
   hasStrokes: '',          // ''全部 | '1'完整 | '2'仅含部分笔画图 | '0'无笔画图
   totalPages: 1,
   jumpPage: 1,             // 分页跳转输入
-  LIMIT_OPTIONS: [20, 50, 100],
+  LIMIT_OPTIONS: [20, 50, 100, 500],
   themeVersion: 0,         // 主题版本号（x-effect 依赖，主题切换时重绘笔画缩略图）
   loadError: '',           // 列表加载失败提示（与加载中/无结果互斥）
   structureLabel: structureLabel,               // 结构名显示

@@ -16,7 +16,7 @@ export const ziParamSchema = z.object({
 
 export const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(200).default(20),
+  limit: z.coerce.number().int().min(1).max(500).default(20),
   search: z.string().max(50).optional(),        // 按字或拼音(无声调)过滤
   // 笔画图过滤: '1' 完整(cnt==total) | '2' 仅含部分笔画图(cnt>0且不等) | '0' 无笔画图(cnt=0)
   has_strokes: z.enum(['0', '1', '2']).optional()
