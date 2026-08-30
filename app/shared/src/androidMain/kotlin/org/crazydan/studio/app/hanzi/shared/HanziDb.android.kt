@@ -347,9 +347,10 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
 
     override fun queryCommons(limit: Int): List<ZiEntry> {
         val out = ArrayList<ZiEntry>(limit)
+        // zi 为视图（char(id) 计算）: 排序用 id（码点序 == 汉字序），命中 idx_zi_weight 索引
         queryAll(db,
             "SELECT zi, pinyin, is_traditional FROM zi " +
-                "ORDER BY used_weight DESC, zi ASC LIMIT ?",
+                "ORDER BY used_weight DESC, id ASC LIMIT ?",
             arrayOf(limit.toString())
         ) { cursor ->
             out.add(entry(cursor))
@@ -368,7 +369,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                 "JOIN zi_pinyin cp ON cp.pinyin_id = p.id " +
                 "JOIN zi c ON c.id = cp.zi_id " +
                 "WHERE pp.value = ? " +
-                "ORDER BY cp.used_weight DESC, c.zi ASC",
+                "ORDER BY cp.used_weight DESC, c.id ASC",
             arrayOf(plainPinyin)
         ) { cursor ->
             out.add(ZiEntry(cursor.getString(0), cursor.getString(1), cursor.getInt(2) == 1))
@@ -471,7 +472,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                     "pinyin_id INTEGER NOT NULL, " +
                     "used_weight INTEGER NOT NULL DEFAULT 0)"
             )
-            db.execSQL("CREATE INDEX idx_zi_weight ON zi(used_weight DESC, zi ASC)")
+            db.execSQL("CREATE INDEX idx_zi_weight ON meta_zi(used_weight DESC, id ASC)")
             db.execSQL("CREATE INDEX idx_pinyin_map_plain ON pinyin_map(plain_id, pinyin_id)")
             db.execSQL("CREATE INDEX idx_zi_pinyin_pinyin ON zi_pinyin(pinyin_id, used_weight, zi_id)")
 
@@ -511,7 +512,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
             return id
         }
 
-        queryAll(db, "SELECT id, pinyin, used_weight FROM zi", null) { cursor ->
+        queryAll(db, "SELECT id, pinyin, used_weight FROM meta_zi", null) { cursor ->
             val ziId = cursor.getLong(0)
             val weight = cursor.getInt(2)
             val readings = JSONArray(cursor.getString(1))

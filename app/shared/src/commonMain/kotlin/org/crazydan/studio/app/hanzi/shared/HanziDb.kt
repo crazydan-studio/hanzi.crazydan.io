@@ -4,7 +4,8 @@ package org.crazydan.studio.app.hanzi.shared
  * 汉字本地数据源（sqlite）
  *
  * 数据源拆分:
- *   - 汉字信息库（内置）: build/app-db-pack.js 打包的 hanzi.db（仅 zi 表），
+ *   - 汉字信息库（内置）: build/app-db-pack.js 打包的 hanzi.db
+ *     （meta_zi 实体表 + zi 视图: 汉字由 id 码点经 char(id) 计算），
  *     提供 常用字/拼音/汉字信息 查询
  *   - 笔画数据库（独立下载）: build/export-stroke-db.js 导出的 hanzi-stroke-{数量}.db，
  *     仅包含 strokes 表，由用户下载后经 [validateStrokeDb]/[importStrokeDb] 导入到
@@ -109,7 +110,7 @@ interface HanziDb : AutoCloseable {
      *   - pinyin_plain:  无声调拼音 id → 无声调拼音（如 di）
      *   - pinyin_map:    带声调拼音 id → 无声调拼音 id
      *   - zi_pinyin:   汉字 id + 带声调拼音 id + 权重（按字去重，每字每无声调拼音仅首条读音）
-     * 另建 zi 权重索引（idx_zi_weight）。
+     * 另建 meta_zi 权重索引（idx_zi_weight）。
      */
     fun ensurePinyinIndexes()
 }
