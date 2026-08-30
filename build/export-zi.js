@@ -163,10 +163,9 @@ function main() {
     for (const w of batch) {
       const cp = w.zi.codePointAt(0)
       const dir = path.join(ziDir, String(cp))
-      // 单字母紧凑结构（c 汉字/p 读音/n 笔画数/r 部首/s 结构编码/t 繁体标记），降低存储开销
-      // unicode 不存储，由前端按汉字直接计算
+      // 单字母紧凑结构（p 读音/n 笔画数/r 部首/s 结构编码/t 繁体标记），降低存储开销
+      // 汉字与 unicode 均不存储: 目录名即该字 unicode 码点，前端按入参 String.fromCodePoint 还原
       writeJson(path.join(dir, 'meta.json'), {
-        c: w.zi,
         p: w.readings,
         n: w.totalStrokes,
         r: w.radical,
