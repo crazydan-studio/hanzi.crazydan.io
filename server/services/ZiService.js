@@ -10,10 +10,17 @@ export const ziService = {
     const params = []
 
     if (search) {
-      // 匹配字 或 拼音（无声调 JSON 数组）或 读音
-      conditions.push(`(z.zi LIKE ? OR z.pinyin LIKE ?)`)
-      const term = `%${search}%`
-      params.push(term, term)
+      // zi 恒为单字符（schema 强制）: LIKE 的 %term% 对单字即精确匹配，多字符输入不可能命中，
+      // 故单字符搜索直接按 unicode（id = 码点）查询——命中 rowid 主键索引，避免视图全表扫描;
+      // 其余输入仅可能命中拼音（读音 JSON 文本）
+      const chars = [...search]
+      if (chars.length === 1) {
+        conditions.push('(z.id = ? OR z.pinyin LIKE ?)')
+        params.push(search.codePointAt(0), `%${search}%`)
+      } else {
+        conditions.push('z.pinyin LIKE ?')
+        params.push(`%${search}%`)
+      }
     }
 
     let strokeJoin = ''
@@ -80,7 +87,8 @@ export const ziService = {
 
   findByZi(zi) {
     const db = getDb()
-    const row = db.prepare('SELECT * FROM zi WHERE zi = ?').get(zi)
+    // 按字查询 = 按 unicode 查询（id 即码点，命中 rowid 主键）; 无须 LIKE
+    const row = db.prepare('SELECT * FROM zi WHERE id = ?').get(zi.codePointAt(0))
     if (!row) return null
     return this.findById(row.id)
   },
@@ -89,9 +97,9 @@ export const ziService = {
     const db = getDb()
     const id = data.zi.codePointAt(0)
     db.prepare(`
-      INSERT INTO zi (id, zi, pinyin, used_weight, structure, total_stroke_count)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, data.zi,
+      INSERT INTO meta_zi (id, pinyin, used_weight, structure, total_stroke_count)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id,
       JSON.stringify(data.pinyin || []),
       data.used_weight ?? 0, data.structure ?? 0, data.total_stroke_count ?? 0)
     return this.findById(id)
@@ -121,7 +129,7 @@ export const ziService = {
     if (updates.length === 0) return this.findById(id)
     params.push(id)
     db.prepare(`
-      UPDATE zi SET ${updates.join(', ')}
+      UPDATE meta_zi SET ${updates.join(', ')}
       WHERE id = ?
     `).run(...params)
     const updated = this.findById(id)
@@ -131,7 +139,7 @@ export const ziService = {
   },
 
   delete(id) {
-    getDb().prepare('DELETE FROM zi WHERE id = ?').run(id)
+    getDb().prepare('DELETE FROM meta_zi WHERE id = ?').run(id)
     return { success: true }
   }
 }

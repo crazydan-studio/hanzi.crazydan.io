@@ -11,7 +11,7 @@
 //           按 used_weight_ 降序排序（该汉字读音的排序结果）
 //   - 权重: 该汉字带声调拼音组合 used_weight_ 的最大值
 //   - 结构: glyph_struct_ 按数字编码存储（前端映射展示名与示例）
-// 存储: zi 表（id = 汉字 unicode 数值）；已存在记录更新（保留已有笔画）
+// 存储: meta_zi 表（id = 汉字 unicode 数值，不含 zi 列）；已存在记录更新（保留已有笔画）
 // 字体覆盖检查: 导入前检查自带中易楷体是否包含该字，缺失则不导入并输出告警
 import { DatabaseSync } from 'node:sqlite'
 import * as fontkit from 'fontkit'
@@ -128,15 +128,16 @@ async function main() {
 
   // 已存在汉字的信息（读音/结构/部首/笔画数）优先保留——
   // 经 web 端书写页更新的汉字信息不被词典数据覆盖; 使用权重与繁体标记随词典更新
+  // 写实体表 meta_zi（zi 为视图，不可写）; id = 汉字 unicode 数值
   const upsert = dst.prepare(`
-    INSERT INTO zi (id, zi, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO meta_zi (id, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
-      pinyin = zi.pinyin,
+      pinyin = meta_zi.pinyin,
       used_weight = excluded.used_weight,
-      structure = zi.structure,
-      radical = zi.radical,
-      total_stroke_count = zi.total_stroke_count,
+      structure = meta_zi.structure,
+      radical = meta_zi.radical,
+      total_stroke_count = meta_zi.total_stroke_count,
       is_traditional = excluded.is_traditional
   `)
 
@@ -154,7 +155,7 @@ async function main() {
           continue
         }
         const unicode = word.codePointAt(0)
-        upsert.run(unicode, word,
+        upsert.run(unicode,
           JSON.stringify(e.readings),
           e.weight, e.struct, e.radical, e.strokes, e.traditional ? 1 : 0)
         count++
@@ -192,7 +193,7 @@ async function main() {
     if (isCovered(w)) keep.run(w.codePointAt(0))
   }
   const { changes } = dst.prepare(
-    'DELETE FROM zi WHERE id NOT IN (SELECT id FROM _keep)'
+    'DELETE FROM meta_zi WHERE id NOT IN (SELECT id FROM _keep)'
   ).run()
   dst.exec('DROP TABLE _keep')
   if (changes > 0) console.log(`已清理词典外汉字: ${changes} 个`)
