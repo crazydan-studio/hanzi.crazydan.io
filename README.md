@@ -76,7 +76,7 @@
    node build/app-db-pack.js
    ```
 
-   产物：`app/android/src/main/assets/db/hanzi.db`（App 内置库，`zi` 表）。
+   产物：`app/android/src/main/assets/db/hanzi.db`（App 内置库，`meta_zi` 实体表 + `zi` 视图）。
 
 ### 启动开发环境
 
