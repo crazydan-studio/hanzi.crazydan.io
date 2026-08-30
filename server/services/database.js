@@ -23,15 +23,14 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
 
   // 旧表名迁移: characters → zi（含列 character → zi、character_id → zi_id）
   migrateZiTable()
-  // 结构编码范围迁移: 半包围按包围方向细分（编码 10-16）后扩展 CHECK 取值
-  migrateStructureRange()
   // 繁体字标记列补充（旧库升级; 新库建表时已含）
   migrateTraditionalColumn()
+  // 实体表迁移: zi → meta_zi（去掉 zi 列，汉字由视图经 char(id) 计算）
+  migrateMetaZiTable()
 
   db.exec(`
-    CREATE TABLE IF NOT EXISTS zi (
+    CREATE TABLE IF NOT EXISTS meta_zi (
       id INTEGER PRIMARY KEY,                   -- id = 汉字 unicode 数值
-      zi TEXT NOT NULL UNIQUE,
       pinyin TEXT NOT NULL DEFAULT '[]',        -- 读音 JSON 数组（数字声调，可多音）
       used_weight INTEGER NOT NULL DEFAULT 0,   -- 使用频率权重
       structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 99),
@@ -40,8 +39,11 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
       is_traditional INTEGER NOT NULL DEFAULT 0        -- 是否为繁体字（以 pinyin-dict 为准）
     );
 
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_zi_zi_unique
-      ON zi(zi);
+    -- zi 为视图: 汉字由 id（unicode 数值）经 char(id) 计算，不在实体表冗余存储
+    CREATE VIEW IF NOT EXISTS zi AS
+      SELECT id, char(id) AS zi,
+             pinyin, used_weight, structure, radical, total_stroke_count, is_traditional
+      FROM meta_zi;
 
     CREATE TABLE IF NOT EXISTS strokes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,7 +51,7 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
       stroke_order INTEGER NOT NULL CHECK(stroke_order >= 1),
       stroke_type INTEGER NOT NULL DEFAULT 0 CHECK(stroke_type BETWEEN 0 AND 35),
       trajectory_data BLOB NOT NULL,            -- 轨迹 JSON 经 zlib 压缩存储
-      FOREIGN KEY (zi_id) REFERENCES zi(id) ON DELETE CASCADE
+      FOREIGN KEY (zi_id) REFERENCES meta_zi(id) ON DELETE CASCADE
     );
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_strokes_order_unique
@@ -59,13 +61,18 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
   `)
 
   // 繁体字标记列补充（幂等）: 旧库的 zi 表无 is_traditional 列，补列并默认 0;
-// 标记值本身由 import-pinyin 以 pinyin-dict 为准写入
-function migrateTraditionalColumn() {
-  const cols = db.prepare('PRAGMA table_info(zi)').all()
-  if (cols.some(c => c.name === 'is_traditional')) return
-  db.exec('ALTER TABLE zi ADD COLUMN is_traditional INTEGER NOT NULL DEFAULT 0')
-  console.log('DB migrated: zi 表补充 is_traditional 列')
-}
+  // 标记值本身由 import-pinyin 以 pinyin-dict 为准写入
+  function migrateTraditionalColumn() {
+    // 旧库的 zi 表才需要补列; meta_zi 已存在（新结构）或 zi 为视图/不存在时跳过
+    const ziIsTable = db.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'zi'"
+    ).all().length > 0
+    if (!ziIsTable) return
+    const cols = db.prepare('PRAGMA table_info(zi)').all()
+    if (cols.some(c => c.name === 'is_traditional')) return
+    db.exec('ALTER TABLE zi ADD COLUMN is_traditional INTEGER NOT NULL DEFAULT 0')
+    console.log('DB migrated: zi 表补充 is_traditional 列')
+  }
 
 // 轨迹数据校验: 不删除任何数据——v1（无光栅实测盒 r）轨迹保留，
   // 等待 web 端书写页在获得真实背景字光栅实测盒后升级（见 strokeEditor.js）;
@@ -89,70 +96,51 @@ function migrateZiTable() {
   console.log('DB migrated: characters table → zi')
 }
 
-// 结构编码范围迁移（幂等）: 旧库 CHECK 限制 0-9 无法存入半包围细分（10-16），
-// 重建 zi 表扩展取值范围；同时修复此前迁移可能破坏的 strokes 外键
-// （ALTER TABLE RENAME 会把外键改写为 REFERENCES zi_old，须检测并重建）
-function migrateStructureRange() {
-  const ziSql = db.prepare(
-    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'zi'"
-  ).get()?.sql
-  const strokesSql = db.prepare(
-    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'strokes'"
-  ).get()?.sql
-  // 精确匹配旧约束（注意: BETWEEN 0 AND 99 含子串 BETWEEN 0 AND 9，须带边界）
-  const needZi = ziSql && !/CHECK\(structure BETWEEN 0 AND 99\)/.test(ziSql)
-  const badFk = strokesSql && !/REFERENCES zi\(id\)/.test(strokesSql)
-  if (!needZi && !badFk) return
-  // 重建期间关闭外键: DROP TABLE zi 会隐式执行 DELETE FROM zi，
-  // 触发 strokes 的 ON DELETE CASCADE 级联清空——关闭后级联不生效，strokes 数据保留
+// 实体表迁移: zi → meta_zi（幂等）
+// 目标结构: 实体表 meta_zi 不含 zi 列（id 即 unicode 数值），汉字由视图 zi 经 char(id) 计算。
+// 去除 zi 列可省去每行 4 字节存储与两个重复的唯一索引（UNIQUE 约束自动索引 + idx_zi_zi_unique）；
+// 查询改走 id（rowid 主键），性能不降反升。
+function migrateMetaZiTable() {
+  const hasMeta = db.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'meta_zi'"
+  ).all().length > 0
+  if (hasMeta) return
+  const hasLegacy = db.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'zi'"
+  ).all().length > 0
+  if (!hasLegacy) return   // 全新库: 建表块直接创建 meta_zi + 视图
+
+  // 重建期间关闭外键: DROP TABLE 会隐式执行 DELETE FROM，触发 strokes 的
+  // ON DELETE CASCADE 级联清空——关闭后级联不生效，strokes 数据保留
   // （外键为连接级设置，须在事务外切换）
   db.exec('PRAGMA foreign_keys = OFF')
   try {
     withTransaction(() => {
-      if (needZi) {
-        // 用新表名重建后替换，避免 RENAME 改写其他表的外键引用
-        db.exec(`
-          CREATE TABLE zi_new (
-            id INTEGER PRIMARY KEY,
-            zi TEXT NOT NULL UNIQUE,
-            pinyin TEXT NOT NULL DEFAULT '[]',
-            used_weight INTEGER NOT NULL DEFAULT 0,
-            structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 99),
-            radical TEXT NOT NULL DEFAULT '',
-            total_stroke_count INTEGER NOT NULL DEFAULT 0,
-            is_traditional INTEGER NOT NULL DEFAULT 0
-          )
-        `)
-        db.exec(`INSERT INTO zi_new
-          (id, zi, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional)
-          SELECT id, zi, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional FROM zi`)
-        db.exec('DROP TABLE zi')
-        db.exec('ALTER TABLE zi_new RENAME TO zi')
-        db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_zi_zi_unique ON zi(zi)')
-      }
-      if (badFk) {
-        // 重建 strokes（外键正确指向 zi），原数据保留
-        db.exec(`
-          CREATE TABLE strokes_new (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            zi_id INTEGER NOT NULL,
-            stroke_order INTEGER NOT NULL CHECK(stroke_order >= 1),
-            stroke_type INTEGER NOT NULL DEFAULT 0 CHECK(stroke_type BETWEEN 0 AND 35),
-            trajectory_data BLOB NOT NULL,
-            FOREIGN KEY (zi_id) REFERENCES zi(id) ON DELETE CASCADE
-          )
-        `)
-        db.exec('INSERT INTO strokes_new SELECT * FROM strokes')
-        db.exec('DROP TABLE strokes')
-        db.exec('ALTER TABLE strokes_new RENAME TO strokes')
-        db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_strokes_order_unique ON strokes(zi_id, stroke_order)')
-        db.exec('CREATE INDEX IF NOT EXISTS idx_strokes_zi_id ON strokes(zi_id)')
-      }
+      // 1. 旧表更名: SQLite 自动把 strokes 等表的外键引用改写为 meta_zi
+      db.exec('ALTER TABLE zi RENAME TO meta_zi')
+      // 2. 重建去 zi 列（DROP COLUMN 不支持含 UNIQUE 约束的列，整体重建）;
+      //    DROP TABLE 顺带删除旧 zi 列上的两个重复唯一索引
+      db.exec(`
+        CREATE TABLE meta_zi_new (
+          id INTEGER PRIMARY KEY,
+          pinyin TEXT NOT NULL DEFAULT '[]',
+          used_weight INTEGER NOT NULL DEFAULT 0,
+          structure INTEGER DEFAULT 0 CHECK(structure BETWEEN 0 AND 99),
+          radical TEXT NOT NULL DEFAULT '',
+          total_stroke_count INTEGER NOT NULL DEFAULT 0,
+          is_traditional INTEGER NOT NULL DEFAULT 0
+        )
+      `)
+      db.exec(`INSERT INTO meta_zi_new
+        (id, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional)
+        SELECT id, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional FROM meta_zi`)
+      db.exec('DROP TABLE meta_zi')
+      db.exec('ALTER TABLE meta_zi_new RENAME TO meta_zi')
     })
   } finally {
     db.exec('PRAGMA foreign_keys = ON')
   }
-  console.log('DB migrated: zi.structure 取值范围扩展 / strokes 外键修复')
+  console.log('DB migrated: zi 表 → meta_zi 实体表 + zi 视图（zi 列改由 char(id) 计算）')
 }
 
 // 轨迹数据校验（幂等）: 不删除任何数据——
