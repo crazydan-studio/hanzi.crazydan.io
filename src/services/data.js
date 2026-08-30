@@ -9,13 +9,14 @@ async function loadJson(url) {
 }
 
 // meta.json 紧凑结构 → 完整字段
-// { c: 汉字, p: 读音[], n: 笔画数, r: 部首, s: 结构编码, t: 繁体标记 }
-// unicode 不存储，按汉字直接计算；结构编码映射为展示名（不含「结构」与示例）
-function normalizeMeta(raw) {
+// { p: 读音[], n: 笔画数, r: 部首, s: 结构编码, t: 繁体标记 }
+// 汉字与 unicode 不存储（文件目录名即码点），由入参 unicode 经 String.fromCodePoint 还原;
+// 结构编码映射为展示名（不含「结构」与示例）
+function normalizeMeta(raw, unicode) {
   if (!raw) return raw
   return {
-    zi: raw.c,
-    unicode: `U+${raw.c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`,
+    zi: String.fromCodePoint(unicode),
+    unicode: `U+${unicode.toString(16).toUpperCase().padStart(4, '0')}`,
     pinyin: raw.p,
     total_stroke_count: raw.n,
     radical: raw.r,
@@ -72,7 +73,7 @@ export async function loadPinyinList(plain) {
 
 // 单个汉字信息（public/assets/zi/{Unicode}/meta.json）
 export async function loadZiMeta(unicode) {
-  return normalizeMeta(await loadJson(`/assets/zi/${unicode}/meta.json`))
+  return normalizeMeta(await loadJson(`/assets/zi/${unicode}/meta.json`), unicode)
 }
 
 // 笔画数据（仅常用字存在；无则返回 null）
