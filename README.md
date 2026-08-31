@@ -37,7 +37,7 @@
    ```
 
    导入时校验中易楷体（`public/fonts/ZhongYiKaiTi.woff2`）是否包含每个汉字：字体不包含的汉字不导入，
-   并从静态数据（`public/assets/zi/`）中删除对应数据目录。
+   并从静态数据（`public/assets/zi/` 的 `index.json` 与 `strokes/` 分片）中删除对应条目。
 
 2. 打包中易楷体（全量，不做精简以避免页面乱码）：
 
@@ -57,7 +57,7 @@
    pnpm export:zi -- --out /path/to/dir            # 可指定输出目录（默认 public）
    ```
 
-   导出的数据位于 `public/assets/`：`zi/commons.json`（常用字）、`pinyin/{拼音}/meta.json`（拼音字列表）、`zi/{Unicode}/meta.json`（汉字信息）与 `zi/{Unicode}/strokes.json`（笔画数据，仅该汉字存在笔画时生成）。
+   导出的数据位于 `public/assets/`：`zi/commons.json`（常用字）、`pinyin/{拼音}/meta.json`（拼音字列表）、`zi/index.json`（全部汉字信息单文件字典化：读音/部首/结构三字典 + 每字紧凑行）与 `zi/strokes/{码点>>12}.json`（笔画数据码点分片，每字一条目，序号由数组下标推出，仅存在笔画数据的码点分片才生成）。
 
 4. 导出「汉字笔画数据」独立数据库（App 端按需下载使用）：
 
