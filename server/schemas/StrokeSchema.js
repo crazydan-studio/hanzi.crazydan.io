@@ -28,7 +28,7 @@ const inkBoxSchema = z.object({
   h: z.number().int().positive()
 })
 
-// 轨迹对象采用单字符属性（与静态 strokes.json 紧凑结构一致）: v 版本 / b 笔刷 / r 光栅实测盒 / p 点
+// 轨迹对象采用单字符属性（与静态 strokes 分片紧凑结构一致）: v 版本 / b 笔刷 / r 光栅实测盒 / p 点
 export const trajectorySchema = z.object({
   v: z.number().int().positive(),                 // 轨迹格式版本（数字，从 1 开始）
   b: z.number().int().min(0).max(BRUSH_MAX),      // 笔刷面积/背景字面积 ×BRUSH_SCALE

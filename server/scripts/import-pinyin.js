@@ -168,22 +168,43 @@ async function main() {
     console.log(`已导入 ${count}/${entries.length}`)
   }
 
-  // 告警: 字体未覆盖的汉字（不导入），并从静态数据（public/assets/zi/{unicode}/）
-  // 中删除（web 端无法以楷体显示该字，且光栅实测盒需字体真实渲染）
+  // 告警: 字体未覆盖的汉字（不导入），并从静态数据中删除其条目
+  // （web 端无法以楷体显示该字，且光栅实测盒需字体真实渲染）:
+  //   - index.json 移除对应行
+  //   - strokes 分片移除对应条目（仅该分片存在时更新）
   if (missing.length > 0) {
-    const ziDir = ZI_ASSETS_DIR
-    let removed = 0
+    const indexFile = path.join(ZI_ASSETS_DIR, 'index.json')
+    const removed = []
+    if (fs.existsSync(indexFile)) {
+      try {
+        const index = JSON.parse(fs.readFileSync(indexFile, 'utf8'))
+        const ids = new Set(missing.map(w => w.codePointAt(0)))
+        const before = index.z.length
+        index.z = index.z.filter(r => !ids.has(r[0]))
+        if (index.z.length < before) {
+          fs.writeFileSync(indexFile, JSON.stringify(index))
+          removed.push(...ids)
+        }
+      } catch { /* 索引文件异常时跳过清理 */ }
+    }
     for (const word of missing) {
-      const dir = path.join(ziDir, String(word.codePointAt(0)))
-      if (fs.existsSync(dir)) {
-        fs.rmSync(dir, { recursive: true, force: true })
-        removed++
+      const cp = word.codePointAt(0)
+      const shardFile = path.join(ZI_ASSETS_DIR, 'strokes', `${cp >> 12}.json`)
+      if (fs.existsSync(shardFile)) {
+        try {
+          const shard = JSON.parse(fs.readFileSync(shardFile, 'utf8'))
+          if (shard.z?.[String(cp)] !== undefined) {
+            delete shard.z[String(cp)]
+            fs.writeFileSync(shardFile, JSON.stringify(shard))
+            removed.push(cp)
+          }
+        } catch { /* 分片异常时跳过清理 */ }
       }
     }
     const sample = missing.slice(0, 20).join('')
     const more = missing.length > 20 ? ` 等 ${missing.length} 个` : ''
     console.warn(`[告警] 自带中易楷体未包含 ${missing.length} 个汉字，已跳过导入并删除其静态数据: ${sample}${more}`)
-    if (removed > 0) console.log(`已从 public/assets/zi/ 删除 ${removed} 个汉字的数据目录`)
+    if (removed.length > 0) console.log(`已从 public/assets/zi/ 删除 ${removed.length} 个汉字的静态数据条目`)
   }
 
   // 清理: 新词典中不存在的汉字标记删除（保持与数据源一致）
