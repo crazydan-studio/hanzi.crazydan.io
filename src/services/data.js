@@ -1,5 +1,5 @@
 // ============ 静态数据加载（public/assets，由 build/export-zi.js 导出生成） ============
-// 静态文件采用单字母紧凑结构（降低存储开销），在此归一化为完整字段供页面使用
+// 静态文件采用紧凑结构（降低存储开销），在此归一化为完整字段供页面使用
 import { structureDisplayName } from '@components/ZiStructures.js'
 
 async function loadJson(url) {
@@ -8,24 +8,61 @@ async function loadJson(url) {
   return res.json()
 }
 
-// meta.json 紧凑结构 → 完整字段
-// { p: 读音[], n: 笔画数, r: 部首, s: 结构编码, t: 繁体标记 }
-// 汉字与 unicode 不存储（文件目录名即码点），由入参 unicode 经 String.fromCodePoint 还原;
-// 结构编码映射为展示名（不含「结构」与示例）
-function normalizeMeta(raw, unicode) {
-  if (!raw) return raw
+// ---------- 汉字信息索引（index.json 单文件字典化） ----------
+// 结构: { v, p: 读音字典, r: 部首字典, s: 结构字典, z: 每字紧凑行 }
+// 行: [id, 读音索引(多音为数组), 笔画数, 部首索引, 结构索引, 繁体标记]
+// 汉字与 unicode 不存储，由 id（码点）经 String.fromCodePoint 还原; 行按 id 升序，二分查找
+let ziIndexCache = null
+
+async function loadZiIndex() {
+  if (!ziIndexCache) ziIndexCache = await loadJson('/assets/zi/index.json')
+  return ziIndexCache
+}
+
+// 行查找: 二分查找（行按 id 升序）
+function findIndexRow(rows, id) {
+  let lo = 0
+  let hi = rows.length - 1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    const rowId = rows[mid][0]
+    if (rowId === id) return rows[mid]
+    if (rowId < id) lo = mid + 1
+    else hi = mid - 1
+  }
+  return null
+}
+
+// index.json 紧凑行 → 完整字段（结构编码映射为展示名，不含「结构」与示例）
+function normalizeMeta(index, row) {
+  const [id, p, n, rIdx, sIdx, t] = row
+  const pIndices = Array.isArray(p) ? p : [p]
   return {
-    zi: String.fromCodePoint(unicode),
-    unicode: `U+${unicode.toString(16).toUpperCase().padStart(4, '0')}`,
-    pinyin: raw.p,
-    total_stroke_count: raw.n,
-    radical: raw.r,
-    structure: structureDisplayName(raw.s),
-    is_traditional: raw.t === 1
+    zi: String.fromCodePoint(id),
+    unicode: `U+${id.toString(16).toUpperCase().padStart(4, '0')}`,
+    pinyin: pIndices.map(i => index.p[i]),
+    total_stroke_count: n,
+    radical: index.r[rIdx],
+    structure: structureDisplayName(index.s[sIdx]),
+    is_traditional: t === 1
   }
 }
 
-// 轨迹增量编码点 → 绝对坐标点（strokes.json 存储增量格式以降低体积）
+// ---------- 笔画数据（strokes/{码点>>12}.json 码点分片） ----------
+// 分片结构: { v, z: { 码点: [r, [[t, [b, 扁平点阵]], ...]] } }
+// 轨迹点为增量编码的扁平一维数组（每 4 个一组: x/y/pr/t）;
+// 笔画序号由数组下标推出; r 为光栅实测盒 [w, h] 或 null
+
+// 扁平点阵 → 增量编码点数组
+function unflattenPoints(flat) {
+  const out = []
+  for (let i = 0; i + 3 < flat.length; i += 4) {
+    out.push([flat[i], flat[i + 1], flat[i + 2], flat[i + 3]])
+  }
+  return out
+}
+
+// 增量编码点 → 绝对坐标点
 function deltaDecode(points) {
   const out = []
   let prev = null
@@ -39,22 +76,17 @@ function deltaDecode(points) {
   return out
 }
 
-// strokes.json 紧凑结构 → 完整字段（单字符属性，与轨迹数据一致）:
-// 静态文件为上层共享结构（避免每笔画重复存放）:
-//   { v: 轨迹版本, r: { w, h }: 光栅实测盒（同字所有笔画共享）, s: [{ o, t, d }] }
-//   d = { b: 笔刷面积比, p: 点（增量编码，解码为绝对坐标）}
-// 旧格式（笔画数组 / strokes / box 字段名）亦兼容解析
-function normalizeStrokes(payload) {
-  const list = Array.isArray(payload) ? payload : (payload?.s ?? payload?.strokes)
-  const shared = Array.isArray(payload) ? {} : payload
-  return (list || []).map(s => ({
-    stroke_order: s.o,
-    stroke_type: s.t,
+// 分片条目 → 完整笔画数组（trajectory_data 含 v/b/r/p 绝对坐标）
+function normalizeStrokes(v, entry) {
+  const [r, strokes] = entry
+  return strokes.map((st, i) => ({
+    stroke_order: i + 1,
+    stroke_type: st[0],
     trajectory_data: {
-      v: s.d?.v ?? shared.v,
-      b: s.d?.b ?? 0,
-      r: s.d?.r ?? s.d?.box ?? shared.r ?? shared.box ?? null,
-      p: deltaDecode(s.d?.p || [])
+      v,
+      b: st[1][0],
+      r: r ? { w: r[0], h: r[1] } : null,
+      p: deltaDecode(unflattenPoints(st[1][1]))
     }
   }))
 }
@@ -71,14 +103,21 @@ export async function loadPinyinList(plain) {
   return res.json()
 }
 
-// 单个汉字信息（public/assets/zi/{Unicode}/meta.json）
+// 单个汉字信息（index.json 单文件字典化，二分查找）; 不存在时抛错（页面据此显示未找到）
 export async function loadZiMeta(unicode) {
-  return normalizeMeta(await loadJson(`/assets/zi/${unicode}/meta.json`), unicode)
+  const index = await loadZiIndex()
+  const row = findIndexRow(index.z, unicode)
+  if (!row) throw new Error(`未找到汉字信息: ${unicode}`)
+  return normalizeMeta(index, row)
 }
 
-// 笔画数据（仅常用字存在；无则返回 null）
+// 笔画数据（strokes 码点分片; 无笔画数据/分片不存在时返回 null）
 export async function loadZiStrokes(unicode) {
-  const res = await fetch(`/assets/zi/${unicode}/strokes.json`)
+  const shard = unicode >> 12
+  const res = await fetch(`/assets/zi/strokes/${shard}.json`)
   if (!res.ok) return null
-  return normalizeStrokes(await res.json())
+  const data = await res.json()
+  const entry = data.z[String(unicode)]
+  if (!entry) return null
+  return normalizeStrokes(data.v, entry)
 }

@@ -3,7 +3,7 @@ export const BASE_WIDTH = 4
 export const CANVAS_SIZE = { width: 500, height: 500 }
 // 笔画动画高亮色（正在绘制的笔画）
 export const STROKE_HIGHLIGHT_COLOR = '#dc2626'
-// 笔画轨迹存储格式（版本号为数字，从 1 开始; 属性采用单字符，与静态 strokes.json 一致）:
+// 笔画轨迹存储格式（版本号为数字，从 1 开始; 属性采用单字符，与静态 strokes 分片一致）:
 //   v: 版本号; b: 笔刷面积/背景字面积 比值 ×BRUSH_SCALE 存整数（整轨迹共享笔宽），
 //      还原笔宽 = sqrt(b / BRUSH_SCALE × 盒面积)
 //   r: 绘制时背景字光栅实测盒 { w, h }（内部坐标系像素，整数; v2 起记录）——

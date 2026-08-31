@@ -26,7 +26,7 @@ export const ZI_STRUCTURES = [
 export const ziStructuresMap = Object.fromEntries(
   ZI_STRUCTURES.map(s => [s.code, s]))
 
-// 结构展示名（不含「结构/字/形」后缀、无示例；对应静态数据 meta.json 中存储的结构编码）
+// 结构展示名（不含「结构/字/形」后缀、无示例；对应静态数据 index.json 中存储的结构编码）
 // 由 ZI_STRUCTURES.name 派生（单一来源，避免两表漂移）: 如「品字形结构」→「品字」
 const STRUCTURE_DISPLAY_NAMES = Object.fromEntries(
   ZI_STRUCTURES.map(s => [s.code, s.name.replace(/结构$/, '').replace(/字$/, '').replace(/形$/, '')]))
