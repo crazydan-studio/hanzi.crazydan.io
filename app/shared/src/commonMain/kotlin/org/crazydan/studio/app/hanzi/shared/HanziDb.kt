@@ -19,7 +19,7 @@ data class ZiEntry(
     val isTraditional: Boolean = false
 )
 
-/** 汉字信息（对应前端 meta.json） */
+/** 汉字信息（对应前端 index.json 字典化条目） */
 data class ZiMeta(
     val zi: String,
     val unicode: Int,
@@ -38,7 +38,7 @@ data class StrokePoint(
     val timestamp: Float
 )
 
-/** 单个笔画（对应前端 strokes.json 条目） */
+/** 单个笔画（对应前端 strokes 分片条目） */
 data class ZiStroke(
     val strokeOrder: Int,
     val strokeType: Int,

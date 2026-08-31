@@ -47,9 +47,8 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'strokes'", null
                 ).use { it.moveToFirst() }
                 if (!hasStrokes) return null
-                val ziCount = sdb.rawQuery(
-                    "SELECT COUNT(*) FROM (SELECT DISTINCT zi_id FROM strokes)", null
-                ).use {
+                // 单字单行: 每行即一个汉字的整字笔画（zi_id 主键），行数即汉字数
+                val ziCount = sdb.rawQuery("SELECT COUNT(*) FROM strokes", null).use {
                     it.moveToFirst()
                     it.getInt(0)
                 }
@@ -399,44 +398,53 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
     override fun queryZiStrokes(unicode: Int): List<ZiStroke> {
         ensureStrokeDbOpen()   // 未导入/无效时返回空列表
         val sdb = strokeDb ?: return emptyList()
-        val out = ArrayList<ZiStroke>()
-        queryAll(sdb,
-            "SELECT stroke_order, stroke_type, trajectory_data FROM strokes " +
-                "WHERE zi_id = ? ORDER BY stroke_order",
+        // 单字单行: 整字笔画聚合为单 BLOB（{v, r, s: [[t, [b, 扁平点阵]], ...]}），
+        // 笔画序号由数组下标推出; 扁平点阵为增量编码（每 4 个一组: x/y/pr/t）
+        return queryFirst(sdb,
+            "SELECT trajectory_data FROM strokes WHERE zi_id = ?",
             arrayOf(unicode.toString())
         ) { cursor ->
             val traj = try {
-                decompress(cursor.getBlob(2))
+                decompress(cursor.getBlob(0))
             } catch (e: Exception) {
-                Log.w(TAG, "解压笔画轨迹失败（数据损坏，跳过该笔画）: unicode=$unicode", e)
-                return@queryAll
+                Log.w(TAG, "解压笔画轨迹失败（数据损坏，返回空）: unicode=$unicode", e)
+                return@queryFirst emptyList()
             }
-            // 轨迹属性为单字符（v/b/r/p），兼容旧完整词字段名（version/brush/points）
-            val points = traj.optJSONArray("p") ?: traj.getJSONArray("points")
-            val list = ArrayList<StrokePoint>(points.length())
-            var prev: StrokePoint? = null
-            for (i in 0 until points.length()) {
-                val p = points.getJSONArray(i)
-                // 增量编码: 首点绝对，后续为与上一点的差值（与 server/services/Trajectory.js 一致）；
-                // x/y 盒相对归一化 ×1000、时间戳 ×10 存储，还原为盒相对浮点与毫秒
-                val point = prev?.let {
-                    StrokePoint(
-                        x = it.x + p.getDouble(0).toFloat(),
-                        y = it.y + p.getDouble(1).toFloat(),
-                        pressure = p.getDouble(2).toFloat() / StrokeFormat.PRESSURE_SCALE,
-                        timestamp = it.timestamp + p.getDouble(3).toFloat() / StrokeFormat.TIMESTAMP_SCALE
-                    )
-                } ?: StrokePoint(
-                    x = p.getDouble(0).toFloat(),
-                    y = p.getDouble(1).toFloat(),
-                    pressure = p.getDouble(2).toFloat() / StrokeFormat.PRESSURE_SCALE,
-                    timestamp = p.getDouble(3).toFloat() / StrokeFormat.TIMESTAMP_SCALE
+            val strokes = traj.optJSONArray("s") ?: return@queryFirst emptyList()
+            val out = ArrayList<ZiStroke>(strokes.length())
+            for (i in 0 until strokes.length()) {
+                val st = strokes.getJSONArray(i)
+                val d = st.getJSONArray(1)
+                out.add(ZiStroke(i + 1, st.getInt(0), d.getInt(0), decodeFlatPoints(d.getJSONArray(1))))
+            }
+            out
+        } ?: emptyList()
+    }
+
+    // 扁平点阵增量编码 → 绝对坐标点（首点绝对，后续为与上一点的差值，
+    // 与 server/services/Trajectory.js 一致）; x/y 盒相对归一化 ×1000、时间戳 ×10 存储，
+    // 还原为盒相对浮点与毫秒
+    private fun decodeFlatPoints(flat: JSONArray): List<StrokePoint> {
+        val out = ArrayList<StrokePoint>(flat.length() / 4)
+        var prev: StrokePoint? = null
+        var i = 0
+        while (i + 3 < flat.length()) {
+            val point = prev?.let {
+                StrokePoint(
+                    x = it.x + flat.getDouble(i).toFloat(),
+                    y = it.y + flat.getDouble(i + 1).toFloat(),
+                    pressure = flat.getDouble(i + 2).toFloat() / StrokeFormat.PRESSURE_SCALE,
+                    timestamp = it.timestamp + flat.getDouble(i + 3).toFloat() / StrokeFormat.TIMESTAMP_SCALE
                 )
-                list.add(point)
-                prev = point
-            }
-            val brush = if (traj.has("b")) traj.optInt("b", 0) else traj.optInt("brush", 0)
-            out.add(ZiStroke(cursor.getInt(0), cursor.getInt(1), brush, list))
+            } ?: StrokePoint(
+                x = flat.getDouble(i).toFloat(),
+                y = flat.getDouble(i + 1).toFloat(),
+                pressure = flat.getDouble(i + 2).toFloat() / StrokeFormat.PRESSURE_SCALE,
+                timestamp = flat.getDouble(i + 3).toFloat() / StrokeFormat.TIMESTAMP_SCALE
+            )
+            out.add(point)
+            prev = point
+            i += 4
         }
         return out
     }
