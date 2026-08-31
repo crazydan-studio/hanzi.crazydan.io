@@ -1,19 +1,22 @@
 // 从笔画数据库导出静态数据到 public/assets（供前端页面直接加载）
-// 数据源: server/data/hanzi_stroke.db（zi 表: 汉字信息；strokes 表: 笔画轨迹，
+// 数据源: server/data/hanzi_stroke.db（zi 表: 汉字信息；strokes 表: 笔画轨迹单字单行，
 //         由 pnpm import:pinyin 导入维护）
 // 导出内容:
 //   - public/assets/zi/commons.json          常用字列表（[字, 读音][]，按权重排序，仅字+第一个读音）
 //   - public/assets/pinyin/{拼音}/meta.json  拼音字列表（[字, 读音][]，按权重排序；
 //                                            读音为该无声调拼音对应的第一个带声调拼音）
-//   - public/assets/zi/{Unicode}/meta.json   单个汉字信息（读音/笔画数/部首/结构/Unicode）
-//   - public/assets/zi/{Unicode}/strokes.json 笔画数据（与 meta.json 同时导出；
-//     仅该汉字存在笔画数据时创建；轨迹点为增量编码，含笔刷面积比）
+//   - public/assets/zi/index.json            全部汉字信息单文件字典化
+//    （读音/部首/结构三字典 + 每字紧凑行 [id, 读音索引, 笔画数, 部首索引, 结构索引, 繁体]；
+//     汉字与 unicode 不存储，由码点经 String.fromCodePoint 还原）
+//   - public/assets/zi/strokes/{码点>>12}.json 笔画数据码点分片（每字一条目:
+//     [r, [[t, [b, 扁平点阵]], ...]]，序号由数组下标推出，轨迹点为增量编码;
+//     仅该汉字存在笔画数据时创建分片）
 // 用法:
 //   pnpm export:zi                                      # 默认导出 1500 个常用字 + 全量拼音
 //   pnpm export:zi -- --count 200                       # 指定常用字数量
 //   pnpm export:zi -- --db b.db --out public            # 指定库与输出目录
 import { DatabaseSync } from 'node:sqlite'
-import { decompressTrajectory, deltaEncode, TRAJECTORY_VERSION } from '../server/services/Trajectory.js'
+import { decompressCharTrajectory, deltaEncode, flattenPoints, TRAJECTORY_VERSION } from '../server/services/Trajectory.js'
 import { stripTone } from '../server/services/PinyinDict.js'
 import path from 'path'
 import fs from 'fs'
@@ -89,27 +92,19 @@ function main() {
     })
   }
 
-  // ---- 2. 读取笔画数据（全部汉字的笔画轨迹） ----
+  // ---- 2. 读取笔画数据（全部汉字的笔画轨迹，单字单行） ----
   const strokeRows = src.prepare(`
-    SELECT zi_id, stroke_order, stroke_type, trajectory_data
-    FROM strokes ORDER BY zi_id, stroke_order
+    SELECT zi_id, trajectory_data
+    FROM strokes
   `).all()
 
-  // unicode → strokes
+  // unicode → { r, strokes: [{t, d:{b,p}}] }（绝对坐标）
   const strokeMap = new Map()
   for (const s of strokeRows) {
     let traj = null
-    try { traj = decompressTrajectory(s.trajectory_data) } catch { continue }
-    if (!traj || !Array.isArray(traj.p) || traj.p.length === 0) continue
-    if (!strokeMap.has(s.zi_id)) strokeMap.set(s.zi_id, [])
-    strokeMap.get(s.zi_id).push({
-      stroke_order: s.stroke_order,
-      stroke_type: s.stroke_type,
-      trajectory_data: traj
-    })
-  }
-  for (const list of strokeMap.values()) {
-    list.sort((a, b) => a.stroke_order - b.stroke_order)
+    try { traj = decompressCharTrajectory(s.trajectory_data) } catch { continue }
+    if (!traj || !Array.isArray(traj.strokes) || traj.strokes.length === 0) continue
+    strokeMap.set(s.zi_id, traj)
   }
 
   // ---- 3. 常用字（按权重排序，取前 count 个） ----
@@ -125,7 +120,7 @@ function main() {
   const ziDir = path.join(out, 'assets', 'zi')
   const pinyinDir = path.join(out, 'assets', 'pinyin')
 
-  // 清理旧导出（先删除现有目录与文件，含 meta.json/strokes.json，
+  // 清理旧导出（先删除现有目录与文件，含 index.json/strokes 分片，
   // 防止常用字范围/数据变更后残留过期文件）
   fs.rmSync(ziDir, { recursive: true, force: true })
   fs.rmSync(pinyinDir, { recursive: true, force: true })
@@ -151,52 +146,67 @@ function main() {
   }
   console.log(`已导出拼音字列表: ${pinyinGroups.size} 个拼音 → ${pinyinDir}`)
 
-  // ---- 6. 单个汉字信息（全部汉字）: 与 meta.json 同时导出该汉字笔画数据 ----
-  // 笔画数据不限于常用字——凡笔画库中存在笔画的汉字均导出 strokes.json，
-  // 无笔画数据的汉字不创建该文件；轨迹点为增量编码，降低存储占用
-  let metaCount = 0
+  // ---- 6. 全部汉字信息: 单文件字典化（读音/部首/结构三字典 + 每字紧凑行） ----
+  // 行结构 [id, 读音索引(多音为数组), 笔画数, 部首索引, 结构索引, 繁体标记]，
+  // 按 id（码点）升序排列，前端二分查找; 汉字与 unicode 均不存储，由码点还原
+  const dictP = []
+  const dictR = ['']   // 索引 0 = 无部首
+  const dictS = []
+  const ziIndexRows = []
+  for (const w of [...words.values()].sort((a, b) => a.zi.codePointAt(0) - b.zi.codePointAt(0))) {
+    const p = w.readings.map(reading => {
+      let idx = dictP.indexOf(reading)
+      if (idx === -1) { dictP.push(reading); idx = dictP.length - 1 }
+      return idx
+    })
+    let rIdx = dictR.indexOf(w.radical)
+    if (rIdx === -1) { dictR.push(w.radical); rIdx = dictR.length - 1 }
+    let sIdx = dictS.indexOf(w.structure)
+    if (sIdx === -1) { dictS.push(w.structure); sIdx = dictS.length - 1 }
+    const row = [w.zi.codePointAt(0), p.length === 1 ? p[0] : p, w.totalStrokes, rIdx, sIdx]
+    if (w.traditional) row.push(1)
+    ziIndexRows.push(row)
+  }
+  writeJson(path.join(ziDir, 'index.json'), {
+    v: 1,
+    p: dictP,
+    r: dictR,
+    s: dictS,
+    z: ziIndexRows
+  })
+  console.log(`已导出汉字信息索引: ${ziIndexRows.length} 字 → ${path.join(ziDir, 'index.json')}（读音 ${dictP.length} / 部首 ${dictR.length} / 结构 ${dictS.length}）`)
+
+  // ---- 7. 笔画数据: 码点分片合并（每字一条目，序号由数组下标推出，点阵扁平化） ----
+  // 分片路径 strokes/{码点>>12}.json，仅存在笔画数据的码点分片才创建;
+  // 条目结构: { 码点: [r, [[t, [b, 扁平点阵]], ...]] }，r 为 [w,h] 或 null
   let strokeCount = 0
-  const BATCH = 2000
-  const entries = [...words.values()]
-  for (let i = 0; i < entries.length; i += BATCH) {
-    const batch = entries.slice(i, i + BATCH)
-    for (const w of batch) {
-      const cp = w.zi.codePointAt(0)
-      const dir = path.join(ziDir, String(cp))
-      // 单字母紧凑结构（p 读音/n 笔画数/r 部首/s 结构编码/t 繁体标记），降低存储开销
-      // 汉字与 unicode 均不存储: 目录名即该字 unicode 码点，前端按入参 String.fromCodePoint 还原
-      writeJson(path.join(dir, 'meta.json'), {
-        p: w.readings,
-        n: w.totalStrokes,
-        r: w.radical,
-        s: w.structure,
-        t: w.traditional ? 1 : undefined
-      })
-      metaCount++
-      // 笔画数据（上层共享结构: 版本与光栅实测盒 r 置于顶层，笔画条目不含重复字段）:
-      //   { v, r, s: [{ o, t, d: { b, p } }] }
-      const strokes = strokeMap.get(cp)
-      if (strokes && strokes.length > 0) {
-        const r = strokes[0].trajectory_data.r
-        writeJson(path.join(dir, 'strokes.json'), {
-          v: TRAJECTORY_VERSION,
-          ...(r ? { r } : {}),
-          s: strokes.map(st => ({
-            o: st.stroke_order,
-            t: st.stroke_type,
-            d: {
-              b: st.trajectory_data.b ?? 0,
-              p: deltaEncode(st.trajectory_data.p)
-            }
-          }))
-        })
-        strokeCount++
-      }
+  const shardDir = path.join(ziDir, 'strokes')
+  fs.mkdirSync(shardDir, { recursive: true })
+  const shards = new Map()   // cp>>12 → { v, z: {} }
+  for (const [cp, traj] of strokeMap) {
+    const shardKey = cp >> 12
+    let shard = shards.get(shardKey)
+    if (!shard) {
+      shard = { v: TRAJECTORY_VERSION, z: {} }
+      shards.set(shardKey, shard)
     }
-    console.log(`已导出汉字信息 ${metaCount}/${entries.length}`)
+    shard.z[String(cp)] = [
+      traj.r ? [traj.r.w, traj.r.h] : null,
+      traj.strokes.map(s => [
+        s.t,
+        [s.d.b ?? 0, flattenPoints(deltaEncode(s.d.p))]
+      ])
+    ]
+    strokeCount++
+  }
+  for (const [shardKey, shard] of shards) {
+    writeJson(path.join(shardDir, `${shardKey}.json`), shard)
+  }
+  if (shards.size > 0) {
+    console.log(`已导出笔画数据: ${strokeCount} 字 → ${shards.size} 个分片（${shardDir}）`)
   }
 
-  console.log(`导出完成: 汉字信息 ${metaCount} 个，笔画数据 ${strokeCount} 个`)
+  console.log(`导出完成: 汉字信息 ${ziIndexRows.length} 个，笔画数据 ${strokeCount} 个`)
 }
 
 main()

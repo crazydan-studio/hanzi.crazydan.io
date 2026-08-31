@@ -37,15 +37,14 @@ function parseArgs() {
 }
 
 // 重建表结构（仅笔画表; 汉字信息由 App 内置库 hanzi.db 提供）
+// 单字单行: 一汉字一行，整字笔画聚合为单 BLOB（与静态 strokes 分片同构）;
+// stroke_count 单独成列供查询，序号由数组下标推出
 const CREATE_STROKES = `
   CREATE TABLE strokes (
-    id INTEGER PRIMARY KEY,
-    zi_id INTEGER NOT NULL,
-    stroke_order INTEGER NOT NULL,
-    stroke_type INTEGER NOT NULL DEFAULT 0,
+    zi_id INTEGER PRIMARY KEY,
+    stroke_count INTEGER NOT NULL,
     trajectory_data BLOB NOT NULL
-  );
-  CREATE INDEX idx_strokes_zi_id ON strokes(zi_id)`
+  )`
 
 function main() {
   const { count, out: OUT_DIR } = parseArgs()
@@ -73,10 +72,10 @@ function main() {
     return
   }
 
-  // 2. 读取所选汉字的笔画轨迹（BLOB 原样拷贝，增量编码+压缩格式不变）
+  // 2. 读取所选汉字的笔画轨迹（整字 BLOB 原样拷贝，压缩格式不变）
   const idSet = new Set(selected.map(c => c.id))
   const strokes = src.prepare(
-    'SELECT zi_id, stroke_order, stroke_type, trajectory_data FROM strokes ORDER BY zi_id, stroke_order'
+    'SELECT zi_id, stroke_count, trajectory_data FROM strokes ORDER BY zi_id'
   ).all().filter(s => idSet.has(s.zi_id))
   src.close()
 
@@ -95,10 +94,10 @@ function main() {
     try {
       out.exec(CREATE_STROKES)
       const insStroke = out.prepare(`
-        INSERT INTO strokes (zi_id, stroke_order, stroke_type, trajectory_data)
-        VALUES (?, ?, ?, ?)`)
+        INSERT INTO strokes (zi_id, stroke_count, trajectory_data)
+        VALUES (?, ?, ?)`)
       for (const s of strokes) {
-        insStroke.run(s.zi_id, s.stroke_order, s.stroke_type, s.trajectory_data)
+        insStroke.run(s.zi_id, s.stroke_count, s.trajectory_data)
       }
     } finally {
       out.close()
@@ -111,7 +110,7 @@ function main() {
   const size = fs.statSync(outFile).size
   console.log(`已导出笔画库 → ${outFile}`)
   console.log(`  汉字数量: ${selected.length}${count != null ? `（笔画库共有 ${zis.length} 个有笔画数据的汉字）` : ''}`)
-  console.log(`  笔画总数: ${strokes.length}`)
+  console.log(`  笔画总数: ${strokes.reduce((sum, s) => sum + s.stroke_count, 0)}`)
   console.log(`  文件大小: ${(size / 1024 / 1024).toFixed(2)} MB`)
 }
 
