@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import path from 'path'
 import fs from 'fs'
-import { compressTrajectory, decompressTrajectory, TRAJECTORY_VERSION } from './Trajectory.js'
+import { decompressCharTrajectory } from './Trajectory.js'
 import { HANZI_DB_PATH } from '../../paths.js'
 
 let db
@@ -45,19 +45,15 @@ export function initDatabase(dbPath = HANZI_DB_PATH) {
              pinyin, used_weight, structure, radical, total_stroke_count, is_traditional
       FROM meta_zi;
 
+    -- 笔画单字单行: 一汉字一行，整字笔画聚合为单 BLOB（结构同静态 strokes 分片:
+    --   { v, r: [w,h], s: [[t, [b, flatPts]], ...] }，序号由数组下标推出）;
+    -- stroke_count 单独成列供过滤/关联查询，无需解压 BLOB
     CREATE TABLE IF NOT EXISTS strokes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      zi_id INTEGER NOT NULL,
-      stroke_order INTEGER NOT NULL CHECK(stroke_order >= 1),
-      stroke_type INTEGER NOT NULL DEFAULT 0 CHECK(stroke_type BETWEEN 0 AND 35),
-      trajectory_data BLOB NOT NULL,            -- 轨迹 JSON 经 zlib 压缩存储
+      zi_id INTEGER PRIMARY KEY,
+      stroke_count INTEGER NOT NULL,
+      trajectory_data BLOB NOT NULL,            -- 整字轨迹经 zlib 压缩存储
       FOREIGN KEY (zi_id) REFERENCES meta_zi(id) ON DELETE CASCADE
     );
-
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_strokes_order_unique
-      ON strokes(zi_id, stroke_order);
-    CREATE INDEX IF NOT EXISTS idx_strokes_zi_id
-      ON strokes(zi_id);
   `)
 
   // 繁体字标记列补充（幂等）: 旧库的 zi 表无 is_traditional 列，补列并默认 0;
@@ -144,23 +140,23 @@ function migrateMetaZiTable() {
 }
 
 // 轨迹数据校验（幂等）: 不删除任何数据——
-// v1（无光栅实测盒 r）轨迹保留，等待 web 端书写页在获得真实光栅实测盒后升级;
 // 解压失败/字段异常仅记录日志（数据保留待人工处理，避免误删）
 function checkStrokeTrajectories() {
-  const rows = db.prepare('SELECT id, trajectory_data FROM strokes').all()
+  const rows = db.prepare('SELECT zi_id, trajectory_data FROM strokes').all()
   let broken = 0
   for (const r of rows) {
     let traj
     try {
-      traj = decompressTrajectory(r.trajectory_data)
+      traj = decompressCharTrajectory(r.trajectory_data)
     } catch (e) {
       broken++
-      console.warn(`笔画 ${r.id} 轨迹解压失败（保留待处理）: ${e.message}`)
+      console.warn(`汉字 ${r.zi_id} 轨迹解压失败（保留待处理）: ${e.message}`)
       continue
     }
-    if (!traj || !Number.isInteger(traj.b) || traj.b < 0) {
+    if (!traj || !Array.isArray(traj.strokes) || traj.strokes.length === 0 ||
+        traj.strokes.some(s => !Number.isInteger(s.d.b) || s.d.b < 0)) {
       broken++
-      console.warn(`笔画 ${r.id} 轨迹字段异常（保留待处理）`)
+      console.warn(`汉字 ${r.zi_id} 轨迹字段异常（保留待处理）`)
     }
   }
   if (broken > 0) {
@@ -199,14 +195,5 @@ export function serializeZi(row) {
   return {
     ...rest,
     pinyin: pinyinArr
-  }
-}
-
-export function serializeStroke(row) {
-  if (!row) return null
-  const { trajectory_data, ...rest } = row
-  return {
-    ...rest,
-    trajectory_data: decompressTrajectory(trajectory_data)
   }
 }

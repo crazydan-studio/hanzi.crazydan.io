@@ -60,7 +60,7 @@ router.patch('/:id', validateParams(strokeIdParamsSchema),
     // 校验笔画属于该汉字（防止跨字符误改）
     strokeNotFoundIfMissing(strokeService.findByIdAndZi(
       req.params.id, req.params.ziId))
-    const stroke = strokeService.update(req.params.id, req.body)
+    const stroke = strokeService.update(req.params.ziId, req.params.id, req.body)
     strokesChanged(req.params.ziId)
     return ok(res, stroke)
   })
@@ -68,7 +68,7 @@ router.patch('/:id', validateParams(strokeIdParamsSchema),
 router.delete('/:id', validateParams(strokeIdParamsSchema), (req, res) => {
   strokeNotFoundIfMissing(strokeService.findByIdAndZi(
     req.params.id, req.params.ziId))
-  strokeService.delete(req.params.id)
+  strokeService.delete(req.params.ziId, req.params.id)
   strokesChanged(req.params.ziId)
   return ok(res, null)
 })

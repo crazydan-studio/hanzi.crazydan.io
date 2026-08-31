@@ -1,4 +1,5 @@
-import { getDb, serializeZi, serializeStroke } from './database.js'
+import { getDb, serializeZi } from './database.js'
+import { strokeService } from './StrokeService.js'
 import { syncZiMeta } from './staticSync.js'
 
 export const ziService = {
@@ -27,21 +28,17 @@ export const ziService = {
     if (has_strokes !== undefined) {
       const wantComplete = has_strokes === '1'
       const wantPartial = has_strokes === '2'
-      // 完整: 实际笔画记录数 == total_stroke_count
-      // 仅含部分笔画图: 已有笔画记录 且 数量与预期不相等
-      // 无笔画图: 笔画记录数为 0
-      strokeJoin = `
-        LEFT JOIN (
-          SELECT zi_id, COUNT(*) AS cnt FROM strokes
-          GROUP BY zi_id
-        ) sc ON sc.zi_id = z.id
-      `
+      // 笔画单字单行: stroke_count 列直接比较，无需聚合子查询
+      // 完整: 实际笔画数 == total_stroke_count
+      // 仅含部分笔画图: 有笔画记录 且 数量与预期不相等
+      // 无笔画图: 无笔画记录（单行表无行）或笔画数为 0
+      strokeJoin = 'LEFT JOIN strokes sc ON sc.zi_id = z.id'
       if (wantComplete) {
-        conditions.push('sc.cnt = z.total_stroke_count')
+        conditions.push('sc.stroke_count = z.total_stroke_count')
       } else if (wantPartial) {
-        conditions.push('sc.cnt > 0 AND sc.cnt != z.total_stroke_count')
+        conditions.push('sc.stroke_count > 0 AND sc.stroke_count != z.total_stroke_count')
       } else {
-        conditions.push('(sc.cnt IS NULL OR sc.cnt = 0)')
+        conditions.push('(sc.stroke_count IS NULL OR sc.stroke_count = 0)')
       }
     }
 
@@ -61,9 +58,7 @@ export const ziService = {
     // 附带每字的笔画（trajectory 供前端小图渲染）
     const data = rows.map(row => {
       const zi = serializeZi(row)
-      const strokes = db.prepare(
-        'SELECT * FROM strokes WHERE zi_id = ? ORDER BY stroke_order'
-      ).all(zi.id).map(serializeStroke)
+      const strokes = strokeService.findByZi(zi.id)
       return { ...zi, strokes }
     })
 
@@ -78,9 +73,7 @@ export const ziService = {
     const row = db.prepare('SELECT * FROM zi WHERE id = ?').get(id)
     if (!row) return null
 
-    const strokes = db.prepare(
-      'SELECT * FROM strokes WHERE zi_id = ? ORDER BY stroke_order'
-    ).all(id).map(serializeStroke)
+    const strokes = strokeService.findByZi(id)
 
     return { ...serializeZi(row), strokes }
   },
@@ -133,7 +126,7 @@ export const ziService = {
       WHERE id = ?
     `).run(...params)
     const updated = this.findById(id)
-    // 同步到静态数据 meta.json（仅文件已存在时更新）
+    // 同步到静态数据 index.json（仅文件已存在时更新）
     syncZiMeta(updated)
     return updated
   },

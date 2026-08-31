@@ -1,13 +1,14 @@
 // 笔画轨迹压缩（最大限度降低 trajectory_data 存储占用）
-// 存储: 轨迹经 增量编码 + zlib deflate 压缩为 BLOB；序列化输出时透明解压，
-//       API 与导出仍为绝对坐标 JSON 对象
-// 轨迹属性采用单字符（与静态 strokes.json 的紧凑结构一致）:
+// 存储: 一汉字一行，整字笔画聚合为单 BLOB；轨迹经 增量编码 + 点阵扁平化 + zlib deflate 压缩。
+//       API 与导出时透明解压为绝对坐标 JSON 对象
+// 单字单行结构（与静态 strokes 分片一致）:
 //   v: 格式版本（数字，从 1 开始）
-//   b: 笔刷面积 / 背景字面积 的比值 ×BRUSH_SCALE（整轨迹共享一个笔宽）
-//   r: 绘制时背景字光栅实测盒 { w, h }（内部坐标系像素，整数; v2 起记录）——
+//   r: 背景字光栅实测盒 [w, h]（同字所有笔画共享; v2 起记录）——
 //      盒的位置按约定为画布中心对齐，笔画可脱离字体/背景字按盒还原与按比例缩放
 //      （如列表缩略图、无字体环境的回放）
-//   p: 轨迹点 [x, y, pressure, timestamp]（绝对坐标）
+//   s: 笔画数组（数组下标 + 1 = stroke_order）; 每项 [stroke_type, [brush, flatPoints]]
+//   flatPoints: 轨迹点 [x, y, pressure, timestamp] 增量编码后展平的一维数组（每 4 个一组，
+//               去掉每点的 [ ] 开销）
 // x/y 以【背景汉字墨迹盒】为坐标系分别归一化 ×1000（x 按盒宽、y 按盒高），
 // 范围放宽至 [-2000, 3000]（允许写在盒外）
 import zlib from 'node:zlib'
@@ -53,40 +54,52 @@ export function deltaDecode(points) {
   return out
 }
 
-// 与前端布局约定的墨迹盒测量参数（见 src/components/StrokeBackground.js ziBoxLayout）:
-//   画布内部坐标系 500×500; 统一字号 = 短边 92%; 盒不超出画布 92% 区域（必要时按比例缩小字号）
-// （仅用于说明盒的测量约定; 盒由前端光栅实测，服务端不测量）
-export const INKBOX_CANVAS = 500
-
-// 读取兼容旧字段名（version/brush/box/points）: 归一化为单字符
-function readField(traj, short, long) {
-  return traj[short] ?? traj[long]
+// 点阵扁平化: [[x,y,pr,t],...] → [x,y,pr,t, ...]（每 4 个一组）
+export function flattenPoints(points) {
+  return points.flat()
 }
 
-export function compressTrajectory(trajectory) {
+// 点阵还原: [x,y,pr,t, ...] → [[x,y,pr,t],...]（每 4 个一组）
+export function unflattenPoints(flat) {
+  const out = []
+  for (let i = 0; i + 3 < flat.length; i += 4) {
+    out.push([flat[i], flat[i + 1], flat[i + 2], flat[i + 3]])
+  }
+  return out
+}
+
+// 压缩整字笔画为单 BLOB（单字单行）:
+// strokes: [{ o, t, d: { b, p } }]，p 为绝对坐标点; r 为光栅实测盒 { w, h } 或 null
+// 输出结构 s 中笔画序号由数组下标推出（o 不存储），保存前须按 stroke_order 排序
+export function compressCharTrajectory(r, strokes) {
   const encoded = {
-    v: readField(trajectory, 'v', 'version'),
-    b: readField(trajectory, 'b', 'brush'),
-    p: deltaEncode(trajectory.p ?? trajectory.points)
+    v: TRAJECTORY_VERSION,
+    ...(r ? { r: [r.w, r.h] } : {}),
+    s: strokes.map(st => [
+      st.t,
+      [st.d.b ?? 0, flattenPoints(deltaEncode(st.d.p ?? []))]
+    ])
   }
-  const r = readField(trajectory, 'r', 'box')
-  if (r) {
-    encoded.r = r
-  }
-  return zlib.deflateSync(JSON.stringify(encoded))
+  return zlib.deflateSync(JSON.stringify(encoded), { level: 9 })
 }
 
-export function decompressTrajectory(data) {
-  // 存储轨迹均为 compressTrajectory 产物（BLOB 压缩 + 增量编码），
-  // 统一解码为单字符字段的绝对坐标点（旧完整词字段名亦兼容）
+// 解压单字单行 BLOB → 绝对坐标笔画数组
+// 返回 { v, r: [w,h]|null, strokes: [{ o, t, d: { b, p } }] }
+export function decompressCharTrajectory(data) {
   if (!Buffer.isBuffer(data) && !(data instanceof Uint8Array)) {
     throw new Error('轨迹数据须为压缩 BLOB')
   }
   const parsed = JSON.parse(zlib.inflateSync(Buffer.from(data)).toString('utf8'))
-  return {
-    v: readField(parsed, 'v', 'version'),
-    b: readField(parsed, 'b', 'brush'),
-    r: readField(parsed, 'r', 'box'),
-    p: deltaDecode(parsed.p ?? parsed.points)
-  }
+  const r = parsed.r ? { w: parsed.r[0], h: parsed.r[1] } : null
+  const strokes = (parsed.s || []).map((st, i) => ({
+    o: i + 1,
+    t: st[0],
+    d: { b: st[1][0], p: deltaDecode(unflattenPoints(st[1][1] ?? [])) }
+  }))
+  return { v: parsed.v, r, strokes }
 }
+
+// 与前端布局约定的墨迹盒测量参数（见 src/components/StrokeBackground.js ziBoxLayout）:
+//   画布内部坐标系 500×500; 统一字号 = 短边 92%; 盒不超出画布 92% 区域（必要时按比例缩小字号）
+// （仅用于说明盒的测量约定; 盒由前端光栅实测，服务端不测量）
+export const INKBOX_CANVAS = 500
