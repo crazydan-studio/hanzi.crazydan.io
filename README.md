@@ -57,7 +57,7 @@
    pnpm export:zi -- --out /path/to/dir            # 可指定输出目录（默认 public）
    ```
 
-   导出的数据位于 `public/assets/`：`zi/commons.json`（常用字）、`pinyin/{拼音}/meta.json`（拼音字列表）、`zi/index.json`（全部汉字信息单文件字典化：读音/部首/结构三字典 + 每字紧凑行）与 `zi/strokes/{码点>>12}.json`（笔画数据码点分片，每字一条目，序号由数组下标推出，仅存在笔画数据的码点分片才生成）。
+   导出的数据位于 `public/assets/`：`zi/commons.json`（常用字）、`pinyin/index.json`（拼音字列表单文件，条目为 `[字, 声调数字, 繁体?]`，读音由无声调拼音键 + 声调还原）、`zi/index.json`（全部汉字信息单文件字典化：读音/部首/结构三字典 + 每字紧凑行）与 `zi/strokes/{码点>>12}.json`（笔画数据码点分片，每字一条目，序号由数组下标推出，仅存在笔画数据的码点分片才生成）。
 
 4. 导出「汉字笔画数据」独立数据库（App 端按需下载使用）：
 
