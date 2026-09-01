@@ -96,11 +96,18 @@ export function loadCommons() {
   return loadJson('/assets/zi/commons.json')
 }
 
-// 拼音字列表（[字, 读音][]，按权重排序）；无该拼音数据时返回 null
+// 拼音字列表（pinyin/index.json 单文件，键为无声调拼音）; 无该拼音数据时返回 null
+// 条目 [字, 声调数字(0=轻声), 繁体?]: 读音 = 键 + 声调，按列表页所需格式还原为 [字, 读音, 繁体?]
+let pinyinIndexCache = null
 export async function loadPinyinList(plain) {
-  const res = await fetch(`/assets/pinyin/${encodeURIComponent(plain)}/meta.json`)
-  if (!res.ok) return null
-  return res.json()
+  if (!pinyinIndexCache) pinyinIndexCache = await loadJson('/assets/pinyin/index.json')
+  const list = pinyinIndexCache[plain]
+  if (!list) return null
+  return list.map(([zi, tone, trad]) => [
+    zi,
+    tone ? `${plain}${tone}` : plain,
+    ...(trad ? [trad] : [])
+  ])
 }
 
 // 单个汉字信息（index.json 单文件字典化，二分查找）; 不存在时抛错（页面据此显示未找到）

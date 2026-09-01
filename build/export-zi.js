@@ -3,8 +3,9 @@
 //         由 pnpm import:pinyin 导入维护）
 // 导出内容:
 //   - public/assets/zi/commons.json          常用字列表（[字, 读音][]，按权重排序，仅字+第一个读音）
-//   - public/assets/pinyin/{拼音}/meta.json  拼音字列表（[字, 读音][]，按权重排序；
-//                                            读音为该无声调拼音对应的第一个带声调拼音）
+//   - public/assets/pinyin/index.json        拼音字列表单文件（键为无声调拼音，条目
+//                                            [字, 声调数字(0=轻声), 繁体?]，
+//                                            读音由键+声调还原，按权重排序）
 //   - public/assets/zi/index.json            全部汉字信息单文件字典化
 //    （读音/部首/结构三字典 + 每字紧凑行 [id, 读音索引, 笔画数, 部首索引, 结构索引, 繁体]；
 //     汉字与 unicode 不存储，由码点经 String.fromCodePoint 还原）
@@ -129,7 +130,9 @@ function main() {
   writeJson(path.join(ziDir, 'commons.json'), commons)
   console.log(`已导出常用字列表: ${count} 个 → ${path.join(ziDir, 'commons.json')}`)
 
-  // ---- 5. 拼音字列表（全量拼音） ----
+  // ---- 5. 拼音字列表（全量拼音，单文件按无声调拼音分键） ----
+  // 条目 [字, 声调数字(0=轻声), 繁体?]: 读音 = 键（无声调拼音）+ 声调，
+  // 由前端还原，无需逐条存储读音字符串（30143 条全部满足该关系）
   const pinyinGroups = new Map()   // plain → [word...]
   for (const w of words.values()) {
     for (const plain of w.plainSet) {
@@ -137,14 +140,18 @@ function main() {
       pinyinGroups.get(plain).push(w)
     }
   }
-  // 该字在某无声调拼音下的读音 = 第一个带声调的匹配读音
-  const readingForPlain = (w, plain) => w.readings.find(r => stripTone(r) === plain) || ''
+  // 该字在某无声调拼音下的读音 = 第一个带声调的匹配读音; 声调取尾随数字（轻声为 0）
+  const toneForPlain = (w, plain) => {
+    const reading = w.readings.find(r => stripTone(r) === plain) || ''
+    return reading === plain ? 0 : Number(reading.slice(plain.length)) || 0
+  }
+  const pinyinIndex = {}
   for (const [plain, list] of pinyinGroups) {
     list.sort((a, b) => b.weight - a.weight || (a.zi < b.zi ? -1 : 1))
-    writeJson(path.join(pinyinDir, plain, 'meta.json'),
-      list.map(w => [w.zi, readingForPlain(w, plain), ...tradFlag(w)]))
+    pinyinIndex[plain] = list.map(w => [w.zi, toneForPlain(w, plain), ...tradFlag(w)])
   }
-  console.log(`已导出拼音字列表: ${pinyinGroups.size} 个拼音 → ${pinyinDir}`)
+  writeJson(path.join(pinyinDir, 'index.json'), pinyinIndex)
+  console.log(`已导出拼音字列表: ${pinyinGroups.size} 个拼音 → ${path.join(pinyinDir, 'index.json')}`)
 
   // ---- 6. 全部汉字信息: 单文件字典化（读音/部首/结构三字典 + 每字紧凑行） ----
   // 行结构 [id, 读音索引(多音为数组), 笔画数, 部首索引, 结构索引, 繁体标记]，
