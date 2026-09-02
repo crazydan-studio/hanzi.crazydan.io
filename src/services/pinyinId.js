@@ -1,6 +1,6 @@
 // 拼音分量编码（与 App 端 PinyinId 一致，跨端数值恒等）:
 // 数字声调拼音 → 唯一整数。不要求可逆，只保证唯一性——
-// 利用拼音结构: 声母(24, 含零声母) × 韵母(40) × 声调(5: 0-3 = 1~4 声, 4 = 轻声)
+// 利用拼音结构: 声母(24, 含零声母) × 韵母(40) × 声调(5: 0 = 轻声, 1-4 = 1~4 声)
 //   id = ((声母下标 × 韵母步长 + 韵母下标) × 5 + 声调槽) < 7680（13 位，uint16 容纳）
 // 解析规则: 整字命中韵母表 → 零声母; 否则取最长匹配声母剥离，余部须在韵母表
 //   （jue/xue/que/yue 的 ü 按拼写规则写 u → 韵母 ue; 叹词 n/m/ng/hm/hng 为整字韵母）
@@ -14,13 +14,12 @@ const FINALS = ['a', 'o', 'e', 'i', 'u', 'ü',
   'ia', 'ie', 'iao', 'ian', 'iang', 'iong', 'in', 'ing',
   'ua', 'uo', 'uai', 'uan', 'uang', 'ui', 'un', 'ong',
   'ue', 'üe', 'ün', 'iu', 'n', 'm', 'ng', 'hm', 'hng']
-const FINAL_SET = new Set(FINALS)
 // 韵母步长: 发布常量（预留余量），韵母表追加不改变既有 id
 const FSTRIDE = 64
 
-// 拼音 → 整数（如 "a" → 4、"de" → 2574、"di4" → 2578、"lü4" → 3548; 上限 7679）; 非法拼音抛错
+// 拼音（带数字声调） → 整数（如 "a" → 0、"de" → 2570、"di4" → 2579、"lü4" → 3549; 上限 7679）; 非法拼音抛错
 export function pinyinToId(reading) {
-  const tone = /\d$/.test(reading) ? Number(reading.slice(-1)) - 1 : 4
+  const tone = /\d$/.test(reading) ? Number(reading.slice(-1)) : 0
   const plain = /\d$/.test(reading) ? reading.slice(0, -1) : reading
 
   let i = 0
@@ -29,7 +28,7 @@ export function pinyinToId(reading) {
     i = INITIALS.findIndex(x => x && plain.startsWith(x))
     if (i !== -1) f = FINALS.indexOf(plain.slice(INITIALS[i].length))
   }
-  if (i === -1 || f === -1 || f >= FSTRIDE) {
+  if (tone > 4 || i === -1 || f === -1 || f >= FSTRIDE) {
     throw new Error(`非法拼音: ${reading}`)
   }
   return (i * FSTRIDE + f) * 5 + tone
