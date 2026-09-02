@@ -59,15 +59,17 @@ object Pinyin {
  * 拼音分量编码（与前端 src/services/pinyinId.js 一致，跨端数值恒等）:
  * 数字声调拼音 → 唯一整数。不要求可逆，只保证唯一性——
  * 利用拼音结构: 声母(24, 含零声母) × 韵母(40) × 声调(5: 0-3 = 1~4 声, 4 = 轻声)
- *   id = ((声母下标 × 韵母数 + 韵母下标) × 5 + 声调槽) < 4800（13 位）
+ *   id = ((声母下标 × 韵母步长 + 韵母下标) × 5 + 声调槽) < 7680（13 位）
  * 解析规则: 整字命中韵母表 → 零声母; 否则取最长匹配声母剥离，余部须在韵母表
  *   （jue/xue/que/yue 的 ü 按拼写规则写 u → 韵母 ue; 叹词 n/m/ng/hm/hng 为整字韵母）
- * 注意: 声母/韵母表一经发布不可变，新增只追加到末尾（否则既有 id 变化）;
- *       入参须为规范数字声调拼音（ü 原样，v 需先归一化为 ü），含 v 将抛 IllegalArgumentException。
+ * 稳定性: 乘法步长 FSTRIDE 为发布常量（非数组长度）——韵母表追加不改变既有下标与步长，
+ *   故既有 id 不变（总量须 < FSTRIDE = 64，超出需版本升级）;
+ *   声母表同样只追加（公式不依赖其长度）; 声调 5 为封闭集合。
+ * 注意: 入参须为规范数字声调拼音（ü 原样，v 需先归一化为 ü），含 v 将抛 IllegalArgumentException。
  */
 object PinyinId {
 
-    // 与前端 INITIALS/FINALS 逐项一致（顺序不可变）
+    // 与前端 INITIALS/FINALS 逐项一致（顺序不可变，只允许追加）
     private val INITIALS = listOf(
         "", "zh", "ch", "sh", "b", "p", "m", "f", "d", "t", "n", "l", "g", "k", "h",
         "j", "q", "x", "r", "z", "c", "s", "y", "w"
@@ -80,7 +82,10 @@ object PinyinId {
         "ue", "üe", "ün", "iu", "n", "m", "ng", "hm", "hng"
     )
 
-    /** 拼音 → 整数（如 "a" → 4、"de" → 1614、"di4" → 1618、"lü4" → 2228; 上限 4799）; 非法拼音抛异常 */
+    // 韵母步长: 发布常量（预留余量），韵母表追加不改变既有 id
+    private const val FSTRIDE = 64
+
+    /** 拼音 → 整数（如 "a" → 4、"de" → 2574、"di4" → 2578、"lü4" → 3548; 上限 7679）; 非法拼音抛异常 */
     fun toId(reading: String): Int {
         val tone = if (reading.last().isDigit()) reading.last().digitToInt() - 1 else 4
         val plain = if (reading.last().isDigit()) reading.dropLast(1) else reading
@@ -91,7 +96,7 @@ object PinyinId {
             i = INITIALS.indexOfFirst { it.isNotEmpty() && plain.startsWith(it) }
             if (i != -1) f = FINALS.indexOf(plain.removePrefix(INITIALS[i]))
         }
-        require(i != -1 && f != -1) { "非法拼音: $reading" }
-        return (i * FINALS.size + f) * 5 + tone
+        require(i != -1 && f != -1 && f < FSTRIDE) { "非法拼音: $reading" }
+        return (i * FSTRIDE + f) * 5 + tone
     }
 }
