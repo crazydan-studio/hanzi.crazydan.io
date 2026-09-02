@@ -42,9 +42,11 @@ actual object Platform {
     private var pickLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>? = null
     private var pickCallback: ((String?) -> Unit)? = null
 
-    // 拼音雪碧图偏移索引（audio/pinyin/index.json）: { v, 读音: [起始毫秒, 时长毫秒] }，
-    // 分片 = 读音首字母（由键推导，不存储）
+    // 拼音雪碧图索引（audio/pinyin/index.json）: { v, z: { 无声调拼音: [5 槽位时长] } }，
+    // 槽位 0-3 = 一声至四声、4 = 零声（0 = 缺失）; 分片 = 拼音首字母;
+    // 起始不存储，由片内排序 + 20ms 帧补齐逐片段推导
     private var pinyinAudioIndex: JSONObject? = null
+    private var pinyinAudioClips: HashMap<String, LongArray>? = null   // 读音 → [起始ms, 时长ms]
 
     private fun readPinyinAudioIndex(context: android.content.Context): JSONObject? {
         pinyinAudioIndex?.let { return it }
@@ -57,16 +59,43 @@ actual object Platform {
         return pinyinAudioIndex
     }
 
+    // 解析声调槽位索引并推导每个读音的起始/时长（键序排序与打包拼接序一致）
+    private fun derivePinyinAudioClips(context: android.content.Context): HashMap<String, LongArray>? {
+        pinyinAudioClips?.let { return it }
+        val index = readPinyinAudioIndex(context) ?: return null
+        val z = index.optJSONObject("z") ?: return null
+        val map = HashMap<String, LongArray>()
+        val plains = z.keys().asSequence().sorted().toList()
+        var letter = '\u0000'
+        var start = 0L
+        for (plain in plains) {
+            val first = plain[0]
+            if (first != letter) {
+                letter = first
+                start = 0
+            }
+            val slots = z.getJSONArray(plain)
+            for (t in 0 until 5) {
+                val dur = slots.optLong(t)
+                if (dur <= 0) continue
+                val reading = if (t < 4) "$plain${t + 1}" else plain
+                map[reading] = longArrayOf(start, dur)
+                start += dur + (20 - (dur % 20)) % 20
+            }
+        }
+        pinyinAudioClips = map
+        return map
+    }
+
     actual fun playPinyin(pinyin: String): Boolean {
         stopPinyin()
         val context = AppContextHolder.appContext ?: return false
         return try {
-            // 雪碧图: 索引定位片段，seekTo 播放（分片 = 读音首字母 + .ogg）
-            val index = readPinyinAudioIndex(context) ?: return false
-            val clip = index.optJSONArray(pinyin) ?: return false
+            // 雪碧图: 读音起始/时长由声调槽位索引推导，seekTo 播放（分片 = 拼音首字母 + .ogg）
+            val clip = derivePinyinAudioClips(context)?.get(pinyin) ?: return false
+            val startMs = clip[0].toInt()
+            val durMs = clip[1]
             val shard = pinyin.substring(0, 1)
-            val startMs = clip.getLong(0).toInt()
-            val durMs = clip.getLong(1)
             val fd = context.assets.openFd("audio/pinyin/$shard.ogg")
             val p = MediaPlayer()
             try {
