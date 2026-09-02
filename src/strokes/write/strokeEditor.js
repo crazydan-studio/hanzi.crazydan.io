@@ -12,7 +12,8 @@ import { takeBackUrl } from '@services/session.js'
 import { copyText } from '@services/clipboard.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { TRAJECTORY_VERSION } from '@components/Constants.js'
-import { PINYIN_AUDIO_DIR, STROKE_REF_URL, ZDIC_URL } from '../../config.js'
+import { STROKE_REF_URL, ZDIC_URL } from '../../config.js'
+import { playPinyinAudio, stopPinyinAudio } from '@services/pinyinAudio.js'
 
 export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
@@ -263,26 +264,18 @@ export function registerStrokeEditor() {
       }
     },
 
-    // 试听读音（内置音频 assets/audio/pinyin/{拼音}.mp3）
-    playPinyin(p) {
+    // 试听读音（雪碧图分片 + 偏移索引定位）
+    async playPinyin(p) {
       this.stopAudio()
-      const url = `${PINYIN_AUDIO_DIR}/${encodeURIComponent(p)}.mp3`
-      const audio = new Audio(url)
-      this.audio = audio
-      audio.onerror = () => {
-        this.error = `音频 ${p}.mp3 不存在`
-      }
-      audio.play().catch(() => {
-        this.error = `音频 ${p}.mp3 播放失败`
+      this.audio = await playPinyinAudio(p, () => {
+        this.error = `音频 ${p} 不存在`
       })
     },
 
     // 停止试听
     stopAudio() {
-      if (this.audio) {
-        this.audio.pause()
-        this.audio = null
-      }
+      stopPinyinAudio(this.audio)
+      this.audio = null
     },
 
     // 进入读音编辑（index = -1 时为添加新读音）

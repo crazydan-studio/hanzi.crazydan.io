@@ -7,10 +7,11 @@ import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
 import { strokeTypeName } from '@components/StrokeTypes.js'
 import { loadZiMeta, loadZiStrokes } from '@services/data.js'
+import { playPinyinAudio, stopPinyinAudio } from '@services/pinyinAudio.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { copyText } from '@services/clipboard.js'
 import { setBackUrl } from '@services/session.js'
-import { GITHUB_ISSUES, PINYIN_AUDIO_DIR, ZDIC_URL } from '../config.js'
+import { GITHUB_ISSUES, ZDIC_URL } from '../config.js'
 
 Alpine.data('ziApp', () => ({
   zi: '',
@@ -191,25 +192,17 @@ Alpine.data('ziApp', () => ({
     this.engine?.setSpeed(s)
   },
 
-  // 读音试听: 音频 url 为 {PINYIN_AUDIO_DIR}/{数字声调拼音}.mp3（如 di4.mp3）
-  playPinyin(p) {
+  // 读音试听: 雪碧图分片 + 偏移索引定位（audio/pinyin/index.json）
+  async playPinyin(p) {
     this.stopAudio()
-    const url = `${PINYIN_AUDIO_DIR}/${encodeURIComponent(p)}.mp3`
-    const audio = new Audio(url)
-    this.audio = audio
-    audio.onerror = () => {
-      this.audioHint = `音频 ${p}.mp3 不存在`
-    }
-    audio.play().catch(() => {
-      this.audioHint = `音频 ${p}.mp3 播放失败`
+    this.audio = await playPinyinAudio(p, () => {
+      this.audioHint = `音频 ${p} 不存在`
     })
   },
 
   stopAudio() {
-    if (this.audio) {
-      this.audio.pause()
-      this.audio = null
-    }
+    stopPinyinAudio(this.audio)
+    this.audio = null
   },
 
   // 记录返回地址（书写页"返回"按钮据此回到汉字信息页）
