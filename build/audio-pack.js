@@ -1,4 +1,4 @@
-// 拼音读音音频打包: 导入 mp3/wav → Opus 雪碧图（按首字母分片）+ 二维声调索引
+// 拼音读音音频打包: 导入 mp3/wav → Opus 雪碧图（按首字母分片）+ 定长双数组索引
 // 用法:
 //   node build/audio-pack.js                                 # 打包 public/assets/audio/pinyin 内既有 mp3/wav
 //   node build/audio-pack.js --source <音频目录>               # 从指定目录导入后打包
@@ -8,10 +8,10 @@
 //   - ü 可写作 v: lv4 → lü4, nve4 → nüe4
 // 产物（public/assets/audio/pinyin/）:
 //   - {首字母}.ogg   按读音首字母分片的 Opus 雪碧图（48kHz 单声道 32kbps）
-//   - index.json     声调槽位索引: { v, z: { 无声调拼音: [5 槽位时长] } }
-//     槽位下标 0-3 = 一声至四声、4 = 零声，缺失以 0 占位;
-//     时长 ms 精确（内容截尾到 1ms 粒度），分片起始不存储——
-//     片内按拼音排序、组内按声调序拼接，起始 = 前序时长 + 帧补齐（20ms 帧长）逐片段累加;
+//   - index.json     定长双数组索引: { v:1, p: 无声调拼音有序数组, d: 时长扁平数组 }
+//     定长布局: 每个拼音固定占 d 中 5 个连续元素，槽位 0 = 零声、1-4 = 一至四声
+//     （零声在前），定位 = 拼音在 p 的下标 × 5 + 声调槽; 无音频的声调置 0
+//     分片起始不存储: 片内按 p 顺序、组内按槽位序拼接，起始 = 前序时长 + 帧补齐（20ms）累加;
 //     每片段末尾补齐到帧边界，起始与帧边界（granule）严格对齐，
 //     播放端经 HTTP Range / MediaPlayer seekTo 定位
 import { execFileSync } from 'node:child_process'
@@ -26,10 +26,7 @@ const CHANNELS = 1
 const OPUS_BITRATE = '32k'
 const FRAME_MS = 20   // Opus 帧长（granule 粒度）; 片段结尾补齐到帧长整数倍
 const MS_BYTES = SAMPLE_RATE * CHANNELS * 2 / 1000   // 96 字节 = 1ms PCM
-
-// 声调槽位顺序: 0-3 = 一声至四声, 4 = 零声
-const TONE_SLOT = { 1: 0, 2: 1, 3: 2, 4: 3 }
-const TONE_OF_SLOT = { 0: 1, 1: 2, 2: 3, 3: 4, 4: 0 }   // 0 = 零声
+const SLOT_COUNT = 5   // 每拼音定长槽位数: 0=零声, 1-4=一至四声
 
 // 符号声调 → 数字声调（基字符 + 声调数字）
 const SYMBOL_TONES = {
@@ -66,13 +63,13 @@ function normalizeReading(name) {
   return READING_RE.test(out) ? out : null
 }
 
-// 数字声调拼音 → { plain: 无声调拼音, slot: 声调槽位(0-3 一声至四声, 4 零声) }
+// 数字声调拼音 → { plain: 无声调拼音, slot: 声调槽(0=零声, 1-4=一至四声) }
 function splitReading(reading) {
   const last = reading[reading.length - 1]
   if (last >= '1' && last <= '4') {
-    return { plain: reading.slice(0, -1), slot: TONE_SLOT[last] }
+    return { plain: reading.slice(0, -1), slot: Number(last) }
   }
-  return { plain: reading, slot: 4 }
+  return { plain: reading, slot: 0 }
 }
 
 // ffmpeg 解码为 PCM（s16le, 48kHz, 单声道），返回 Buffer
@@ -150,16 +147,17 @@ function main() {
   }
   console.log(`导入 ${clips.size} 个读音（跳过 ${skipped.length}: ${skipped.slice(0, 5).join('、')}${skipped.length > 5 ? ' 等' : ''}）`)
 
-  // 2. 按 无声调拼音 + 声调槽位 组织，片内按拼音排序、组内按声调序拼接
-  //    （槽位顺序固定，起始可由时长推导，无需存储）
-  const byPlain = new Map()   // plain → [5 槽位]: null/undefined 缺失, { pcm, durMs }
+  // 2. 按 无声调拼音 + 声调槽位(0=零声, 1-4=一至四声) 组织，
+  //    片内按拼音顺序、组内按槽位序拼接（定长布局，起始可由时长推导，无需存储）
+  const byPlain = new Map()   // plain → [5 槽位]: null 缺失, { pcm, durMs }
   for (const [reading, clip] of clips) {
     const { plain, slot } = splitReading(reading)
-    if (!byPlain.has(plain)) byPlain.set(plain, new Array(5).fill(null))
+    if (!byPlain.has(plain)) byPlain.set(plain, new Array(SLOT_COUNT).fill(null))
     byPlain.get(plain)[slot] = clip
   }
+  const plains = [...byPlain.keys()].sort()
   const shards = new Map()   // 首字母 → { buffers: [], count }
-  for (const plain of [...byPlain.keys()].sort()) {
+  for (const plain of plains) {
     const slots = byPlain.get(plain)
     for (const clip of slots) {
       if (!clip) continue
@@ -174,9 +172,12 @@ function main() {
     }
   }
 
-  // 3. 编码 Opus 分片 + 写声调槽位索引
+  // 3. 编码 Opus 分片 + 写定长双数组索引（版本号 1）
   fs.mkdirSync(OUT_DIR, { recursive: true })
-  const index = { v: 2, z: {} }
+  const index = { v: 1, p: plains, d: [] }
+  for (const plain of plains) {
+    for (const clip of byPlain.get(plain)) index.d.push(clip?.durMs ?? 0)
+  }
   let totalBytes = 0
   for (const [letter, shard] of shards) {
     const pcm = Buffer.concat(shard.buffers)
@@ -184,9 +185,6 @@ function main() {
     encodePcmToOpus(pcm, outFile)
     totalBytes += fs.statSync(outFile).size
     console.log(`已编码 ${letter}.ogg: ${shard.count} 个读音, ${(fs.statSync(outFile).size / 1024).toFixed(1)} KB`)
-  }
-  for (const [plain, slots] of byPlain) {
-    index.z[plain] = slots.map(clip => clip?.durMs ?? 0)
   }
   fs.writeFileSync(path.join(OUT_DIR, 'index.json'), JSON.stringify(index))
 
