@@ -10,19 +10,22 @@ import { PINYIN_AUDIO_DIR } from '../config.js'
 const FRAME_MS = 20
 const SLOT_COUNT = 5
 
-let clipsCache = null
+let clipsPromise = null
 
-async function loadAudioClips() {
-  if (clipsCache === null) {
-    try {
-      const res = await fetch(`${PINYIN_AUDIO_DIR}/index.json`)
-      const raw = res.ok ? await res.json() : null
-      clipsCache = raw?.p && raw?.d ? deriveClips(raw.p, raw.d) : new Map()
-    } catch {
-      clipsCache = new Map()
-    }
+// 单例加载（缓存 Promise: 并发调用共享同一次 fetch，避免多个读音重复加载索引）
+function loadAudioClips() {
+  if (!clipsPromise) {
+    clipsPromise = (async () => {
+      try {
+        const res = await fetch(`${PINYIN_AUDIO_DIR}/index.json`)
+        const raw = res.ok ? await res.json() : null
+        return raw?.p && raw?.d ? deriveClips(raw.p, raw.d) : new Map()
+      } catch {
+        return new Map()
+      }
+    })()
   }
-  return clipsCache
+  return clipsPromise
 }
 
 // 由定长双数组推导每个读音的分片与起始/时长（p/d 顺序 = 打包拼接序）
