@@ -13,7 +13,7 @@ import { copyText } from '@services/clipboard.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { TRAJECTORY_VERSION } from '@components/Constants.js'
 import { STROKE_REF_URL, ZDIC_URL } from '../../config.js'
-import { playPinyinAudio, stopPinyinAudio } from '@services/pinyinAudio.js'
+import { playPinyinAudio, stopPinyinAudio, hasPinyinAudio } from '@services/pinyinAudio.js'
 
 export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
@@ -250,6 +250,15 @@ export function registerStrokeEditor() {
     copiedValue: null,            // 最近复制成功的值（用于「已复制」反馈）
     _copyTimer: null,
     audio: null,                  // 当前试听音频
+    audioMap: {},                 // 读音试听可用性（无音频的读音禁用试听按钮）: 读音 → 是否有音频
+
+    // 读音试听可用性刷新（读音可编辑，变更后重查）
+    async refreshPinyinAudio() {
+      const list = this.zi?.pinyin || []
+      this.audioMap = Object.fromEntries(await Promise.all(
+        list.map(async p => [p, await hasPinyinAudio(p)])
+      ))
+    },
 
     // 数字声调拼音 → 符号声调（展示用）
     symbolPinyin: numberToSymbolTonePinyin,
@@ -318,6 +327,7 @@ export function registerStrokeEditor() {
       try {
         const res = await api.patch(`/api/zi/${this.zi.id}`, { pinyin })
         this.zi = res.data || this.zi
+        this.refreshPinyinAudio()
       } catch (e) {
         this.error = e.message
       }
@@ -374,6 +384,7 @@ export function registerStrokeEditor() {
       }
       this.zi = res.data || null
       this.strokes = res.data?.strokes || []
+      this.refreshPinyinAudio()
       // 数据重载后清空重绘状态（目标笔画可能已变化）
       // 注意: 不清空重做栈与清空备份 —— 本端写操作（撤销/删除/清空）会触发服务端
       // 广播回环重载，若清空则重做/恢复永远不可用；恢复与重做对笔顺冲突有兜底处理

@@ -51,7 +51,9 @@
                         @keydown.esc="cancelPinyinEdit()"
                         @blur="savePinyinEdit(i)">
                     </template>
-                    <button @click="playPinyin(p)" class="text-blue-500 hover:text-blue-700">试听</button>
+                    <button @click="playPinyin(p)" :disabled="audioMap[p] === false"
+                      class="text-blue-500 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      title="无该读音音频">试听</button>
                     <template x-if="editingPinyin === i">
                       <button @click="savePinyinEdit(i)" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">保存</button>
                     </template>

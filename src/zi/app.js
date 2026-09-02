@@ -7,7 +7,7 @@ import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
 import { strokeTypeName } from '@components/StrokeTypes.js'
 import { loadZiMeta, loadZiStrokes } from '@services/data.js'
-import { playPinyinAudio, stopPinyinAudio } from '@services/pinyinAudio.js'
+import { playPinyinAudio, stopPinyinAudio, hasPinyinAudio } from '@services/pinyinAudio.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { copyText } from '@services/clipboard.js'
 import { setBackUrl } from '@services/session.js'
@@ -33,6 +33,8 @@ Alpine.data('ziApp', () => ({
   strokeName: '',
   audio: null,
   audioHint: '',
+  // 读音试听可用性（无音频的读音禁用试听按钮）: 读音 → 是否有音频
+  audioMap: {},
   copiedValue: null,
   _copyTimer: null,
   // 本地开发模式下显示跳转笔画书写页的浮动按钮
@@ -65,6 +67,10 @@ Alpine.data('ziApp', () => ({
       this.strokes = []
     }
     this.hasStrokes = Array.isArray(this.strokes) && this.strokes.length > 0
+    // 读音试听可用性（加载音频索引，无音频的试听按钮置灰）
+    this.audioMap = Object.fromEntries(await Promise.all(
+      this.meta.pinyin.map(async p => [p, await hasPinyinAudio(p)])
+    ))
     this.loading = false
     await this.ensureFont()
     this.$nextTick(() => this.initEngine())
