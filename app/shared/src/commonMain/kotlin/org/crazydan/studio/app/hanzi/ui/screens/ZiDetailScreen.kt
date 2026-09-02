@@ -261,7 +261,7 @@ fun ZiDetailScreen(
                                             highlighted = true,
                                             onClick = {
                                                 val ok = Platform.playPinyin(p)
-                                                audioHint = if (ok) null else "音频 ${p}.mp3 不存在"
+                                                audioHint = if (ok) null else "音频 ${p} 不存在"
                                             }
                                         )
                                         SmallTextButton(

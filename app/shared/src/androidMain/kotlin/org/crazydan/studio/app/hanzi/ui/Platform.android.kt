@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -34,16 +35,38 @@ actual fun logError(tag: String, message: String, throwable: Throwable) {
 actual object Platform {
 
     private var player: MediaPlayer? = null
+    private var playerStopRunnable: Runnable? = null
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     /** 文件选择器（复用同一 launcher，避免重复注册） */
     private var pickLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>? = null
     private var pickCallback: ((String?) -> Unit)? = null
 
+    // 拼音雪碧图偏移索引（audio/pinyin/index.json）: { v, 读音: [分片, 起始毫秒, 时长毫秒] }
+    private var pinyinAudioIndex: JSONObject? = null
+
+    private fun readPinyinAudioIndex(context: android.content.Context): JSONObject? {
+        pinyinAudioIndex?.let { return it }
+        pinyinAudioIndex = try {
+            context.assets.open("audio/pinyin/index.json").bufferedReader().use { JSONObject(it.readText()) }
+        } catch (e: Exception) {
+            Log.w(TAG, "读取拼音音频索引失败", e)
+            null
+        }
+        return pinyinAudioIndex
+    }
+
     actual fun playPinyin(pinyin: String): Boolean {
         stopPinyin()
         val context = AppContextHolder.appContext ?: return false
         return try {
-            val fd = context.assets.openFd("audio/pinyin/$pinyin.mp3")
+            // 雪碧图: 按索引定位分片与片段，seekTo 播放（分片首字母 + .ogg）
+            val index = readPinyinAudioIndex(context) ?: return false
+            val clip = index.optJSONArray(pinyin) ?: return false
+            val shard = clip.getString(0)
+            val startMs = clip.getLong(1).toInt()
+            val durMs = clip.getLong(2)
+            val fd = context.assets.openFd("audio/pinyin/$shard.ogg")
             val p = MediaPlayer()
             try {
                 p.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
@@ -51,6 +74,7 @@ actual object Platform {
             } finally {
                 fd.close()   // prepare 完成后关闭（早于 prepare 关闭在部分设备会失败）
             }
+            p.seekTo(startMs)
             p.setOnCompletionListener { it.release() }
             p.setOnErrorListener { _, _, _ ->
                 p.release()
@@ -58,14 +82,20 @@ actual object Platform {
             }
             p.start()
             player = p
+            // 片段播完即停（雪碧图整体更长，由定时器接管停止）
+            val stopRunnable = Runnable { stopPinyin() }
+            playerStopRunnable = stopRunnable
+            mainHandler.postDelayed(stopRunnable, durMs)
             true
         } catch (e: Exception) {
             Log.w(TAG, "播放拼音失败: $pinyin", e)
-            false   // 音频文件不存在或播放失败
+            false   // 音频索引缺失/文件不存在或播放失败
         }
     }
 
     actual fun stopPinyin() {
+        playerStopRunnable?.let { mainHandler.removeCallbacks(it) }
+        playerStopRunnable = null
         player?.let {
             try { it.stop() } catch (e: Exception) {
                 Log.w(TAG, "停止拼音播放失败", e)

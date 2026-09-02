@@ -60,7 +60,10 @@ prepare_dest() {
 
 echo "==> [1/6] 拷贝拼音读音资源到 app 资源目录"
 mkdir -p "${ASSETS_DIR}/audio/pinyin"
-cp -f "${ROOT}/public/assets/audio/pinyin/"*.mp3 "${ASSETS_DIR}/audio/pinyin/"
+# 先清空旧文件（避免 mp3→ogg 迁移后的陈旧文件残留）
+rm -f "${ASSETS_DIR}/audio/pinyin/"*
+cp -f "${ROOT}/public/assets/audio/pinyin/"*.ogg "${ASSETS_DIR}/audio/pinyin/"
+cp -f "${ROOT}/public/assets/audio/pinyin/index.json" "${ASSETS_DIR}/audio/pinyin/"
 
 echo "==> [2/6] 拷贝赞助页收款码图片到 app 资源目录"
 (cd "${ROOT}" && node build/app-assets-pack.js)

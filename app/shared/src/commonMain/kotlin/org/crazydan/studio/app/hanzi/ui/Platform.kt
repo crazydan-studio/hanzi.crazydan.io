@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 
 /**
  * 平台能力（Android 实现，见 androidMain/Platform.android.kt）
- *  - 拼音读音试听（内置 assets/audio/pinyin/{拼音}.mp3，由 app-pack.sh 拷贝）
+ *  - 拼音读音试听（内置 assets/audio/pinyin/ 雪碧图分片，由 app-pack.sh 拷贝）
  *  - 剪贴板、外部链接打开
  *  - 内置资源图片加载（如赞助收款码，位于 assets/donate 目录，由 app-pack.sh 拷贝/下载）
  */
