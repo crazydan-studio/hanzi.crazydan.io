@@ -39,7 +39,18 @@
    导入时校验中易楷体（`public/fonts/ZhongYiKaiTi.woff2`）是否包含每个汉字：字体不包含的汉字不导入，
    并从静态数据（`public/assets/zi/` 的 `index.json` 与 `strokes/` 分片）中删除对应条目。
 
-2. 打包中易楷体（全量，不做精简以避免页面乱码）：
+2. 打包/导入拼音读音音频为 Opus 雪碧图（按首字母分片 + 偏移索引）：
+
+   ```bash
+   pnpm audio:pack                                    # 打包 public/assets/audio/pinyin 内既有 mp3/wav
+   pnpm audio:pack -- --source /path/to/音频目录        # 从指定目录导入后打包
+   ```
+
+   源文件命名支持符号声调（`dì`、`lǜ`）或数字声调（`di4`、`lv4`），`ü` 可写作 `v`，
+   自动归一化为数字声调拼音。产物为 `public/assets/audio/pinyin/{首字母}.ogg`（Opus 雪碧图）
+   与 `index.json`（偏移索引，片段结尾补齐 Opus 帧长保证 seek 对齐）；Safari 不支持 Ogg/Opus，不做兼容。
+
+3. 打包中易楷体（全量，不做精简以避免页面乱码）：
 
    ```bash
    pnpm app:font
