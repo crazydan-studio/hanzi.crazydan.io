@@ -13,6 +13,9 @@ expect object Platform {
     /** 播放拼音读音; 音频文件不存在时返回 false */
     fun playPinyin(pinyin: String): Boolean
 
+    /** 读音是否有音频（试听按钮可用性） */
+    fun hasPinyinAudio(pinyin: String): Boolean
+
     /** 停止播放 */
     fun stopPinyin()
 

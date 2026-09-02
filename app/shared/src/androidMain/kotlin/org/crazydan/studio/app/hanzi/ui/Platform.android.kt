@@ -42,10 +42,12 @@ actual object Platform {
     private var pickLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>? = null
     private var pickCallback: ((String?) -> Unit)? = null
 
-    // 拼音雪碧图索引（audio/pinyin/index.json）: { v, z: { 无声调拼音: [5 槽位时长] } }，
-    // 槽位 0-3 = 一声至四声、4 = 零声（0 = 缺失）; 分片 = 拼音首字母;
-    // 起始不存储，由片内排序 + 20ms 帧补齐逐片段推导
+    // 拼音雪碧图索引（audio/pinyin/index.json）: { v:1, p: 无声调拼音有序数组,
+    // d: 时长扁平数组 }，每拼音固定占 d 中 5 个元素，槽位 0 = 零声、1-4 = 一至四声（0 = 缺失）;
+    // 分片 = 拼音首字母; 起始不存储，由 p/d 顺序 + 20ms 帧补齐逐片段推导
+    @Volatile
     private var pinyinAudioIndex: JSONObject? = null
+    @Volatile
     private var pinyinAudioClips: HashMap<String, LongArray>? = null   // 读音 → [起始ms, 时长ms]
 
     private fun readPinyinAudioIndex(context: android.content.Context): JSONObject? {
@@ -59,32 +61,38 @@ actual object Platform {
         return pinyinAudioIndex
     }
 
-    // 解析声调槽位索引并推导每个读音的起始/时长（键序排序与打包拼接序一致）
+    // 解析定长双数组索引并推导每个读音的起始/时长（p/d 顺序 = 打包拼接序）
     private fun derivePinyinAudioClips(context: android.content.Context): HashMap<String, LongArray>? {
         pinyinAudioClips?.let { return it }
         val index = readPinyinAudioIndex(context) ?: return null
-        val z = index.optJSONObject("z") ?: return null
+        val plains = index.optJSONArray("p") ?: return null
+        val durs = index.optJSONArray("d") ?: return null
         val map = HashMap<String, LongArray>()
-        val plains = z.keys().asSequence().sorted().toList()
         var letter = '\u0000'
         var start = 0L
-        for (plain in plains) {
+        for (pi in 0 until plains.length()) {
+            val plain = plains.getString(pi)
             val first = plain[0]
             if (first != letter) {
                 letter = first
                 start = 0
             }
-            val slots = z.getJSONArray(plain)
-            for (t in 0 until 5) {
-                val dur = slots.optLong(t)
+            val base = pi * 5
+            for (slot in 0 until 5) {
+                val dur = durs.optLong(base + slot)
                 if (dur <= 0) continue
-                val reading = if (t < 4) "$plain${t + 1}" else plain
+                val reading = if (slot == 0) plain else "$plain$slot"
                 map[reading] = longArrayOf(start, dur)
                 start += dur + (20 - (dur % 20)) % 20
             }
         }
         pinyinAudioClips = map
         return map
+    }
+
+    actual fun hasPinyinAudio(pinyin: String): Boolean {
+        val context = AppContextHolder.appContext ?: return false
+        return derivePinyinAudioClips(context)?.containsKey(pinyin) == true
     }
 
     actual fun playPinyin(pinyin: String): Boolean {

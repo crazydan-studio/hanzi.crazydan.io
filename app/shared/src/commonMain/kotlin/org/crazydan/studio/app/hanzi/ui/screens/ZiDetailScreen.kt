@@ -97,6 +97,8 @@ fun ZiDetailScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var audioHint by remember { mutableStateOf<String?>(null) }
     var copied by remember { mutableStateOf<String?>(null) }
+    // 读音试听可用性（无音频的读音禁用试听按钮）; null = 尚未确定（保守禁用）
+    var audioSet by remember { mutableStateOf<Set<String>?>(null) }
     // 笔画分解图单笔播放（与 web 一致）: 在格子自身内循环播放，点击停止或继续
     var cellPlayIndex by remember { mutableIntStateOf(-1) }
     var cellProgress by remember { mutableFloatStateOf(0f) }
@@ -105,11 +107,16 @@ fun ZiDetailScreen(
     LaunchedEffect(zi) {
         loading = true
         error = null
+        audioSet = null
         try {
             val m = withContext(Dispatchers.Default) { db.queryZiMeta(unicode) }
             val s = withContext(Dispatchers.Default) { db.queryZiStrokes(unicode) }
             meta = m
             strokes = s
+            // 读音试听可用性（音频索引内置资产，查询后置灰无音频读音的试听按钮）
+            audioSet = withContext(Dispatchers.Default) {
+                m?.pinyin?.filter { Platform.hasPinyinAudio(it) }?.toSet() ?: emptySet()
+            }
         } catch (e: Exception) {
             logError("ZiDetailScreen", "查询汉字信息失败: $zi", e)
             error = "数据加载失败"
@@ -259,6 +266,7 @@ fun ZiDetailScreen(
                                         SmallTextButton(
                                             text = "试听",
                                             highlighted = true,
+                                            enabled = audioSet?.contains(p) == true,
                                             onClick = {
                                                 val ok = Platform.playPinyin(p)
                                                 audioHint = if (ok) null else "音频 ${p} 不存在"
@@ -596,14 +604,20 @@ private fun SmallTextButton(
     text: String,
     onClick: () -> Unit,
     highlighted: Boolean = false,
+    enabled: Boolean = true,
     icon: ImageVector? = null,
     modifier: Modifier = Modifier
 ) {
+    val tint = when {
+        !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+        highlighted -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
-            .clickable(onClick = onClick)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 6.dp, vertical = 4.dp)
     ) {
         if (icon != null) {
@@ -611,15 +625,13 @@ private fun SmallTextButton(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(14.dp),
-                tint = if (highlighted) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant
+                tint = tint
             )
             Spacer(Modifier.width(3.dp))
         }
         Text(
             text = text,
-            color = if (highlighted) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = tint,
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Normal
             )
