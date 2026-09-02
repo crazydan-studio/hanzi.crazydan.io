@@ -42,7 +42,8 @@ actual object Platform {
     private var pickLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>? = null
     private var pickCallback: ((String?) -> Unit)? = null
 
-    // 拼音雪碧图偏移索引（audio/pinyin/index.json）: { v, 读音: [分片, 起始毫秒, 时长毫秒] }
+    // 拼音雪碧图偏移索引（audio/pinyin/index.json）: { v, 读音: [起始毫秒, 时长毫秒] }，
+    // 分片 = 读音首字母（由键推导，不存储）
     private var pinyinAudioIndex: JSONObject? = null
 
     private fun readPinyinAudioIndex(context: android.content.Context): JSONObject? {
@@ -60,12 +61,12 @@ actual object Platform {
         stopPinyin()
         val context = AppContextHolder.appContext ?: return false
         return try {
-            // 雪碧图: 按索引定位分片与片段，seekTo 播放（分片首字母 + .ogg）
+            // 雪碧图: 索引定位片段，seekTo 播放（分片 = 读音首字母 + .ogg）
             val index = readPinyinAudioIndex(context) ?: return false
             val clip = index.optJSONArray(pinyin) ?: return false
-            val shard = clip.getString(0)
-            val startMs = clip.getLong(1).toInt()
-            val durMs = clip.getLong(2)
+            val shard = pinyin.substring(0, 1)
+            val startMs = clip.getLong(0).toInt()
+            val durMs = clip.getLong(1)
             val fd = context.assets.openFd("audio/pinyin/$shard.ogg")
             val p = MediaPlayer()
             try {

@@ -8,9 +8,9 @@
 //   - ü 可写作 v: lv4 → lü4, nve4 → nüe4
 // 产物（public/assets/audio/pinyin/）:
 //   - {首字母}.ogg   按读音首字母分片的 Opus 雪碧图（48kHz 单声道 32kbps）
-//   - index.json     偏移索引: { v, 读音: [分片, 起始毫秒, 时长毫秒] }
-//     每片段末尾补齐 20ms 静音（Opus 帧长），起始位置与帧边界（granule）严格对齐，
-//     播放端经 HTTP Range / MediaPlayer seekTo 直接定位片段
+//   - index.json     偏移索引: { v, 读音: [起始毫秒, 时长毫秒] }
+//     分片不存储（分片 = 读音首字母，由键推导）; 每片段末尾补齐 20ms 静音（Opus 帧长），
+//     起始位置与帧边界（granule）严格对齐，播放端经 HTTP Range / MediaPlayer seekTo 定位
 import { execFileSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'path'
@@ -153,7 +153,8 @@ function main() {
     const pcm = Buffer.concat(shard.buffers)
     const outFile = path.join(OUT_DIR, `${letter}.ogg`)
     encodePcmToOpus(pcm, outFile)
-    for (const entry of shard.index) index[entry.reading] = [letter, entry.startMs, entry.durMs]
+    // 分片列不存储: 分片 = 读音首字母，由键推导
+    for (const entry of shard.index) index[entry.reading] = [entry.startMs, entry.durMs]
     totalBytes += fs.statSync(outFile).size
     console.log(`已编码 ${letter}.ogg: ${shard.index.length} 个读音, ${(fs.statSync(outFile).size / 1024).toFixed(1)} KB`)
   }

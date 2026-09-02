@@ -1,6 +1,7 @@
 // 读音雪碧图播放（audio/pinyin/{首字母}.ogg 分片 + index.json 偏移索引）:
-// 索引结构 { v, 读音: [分片字母, 起始毫秒, 时长毫秒] }，片段结尾已补齐 Opus 帧长，
-// 起始位置与帧边界对齐; 设置 currentTime 后浏览器经 HTTP Range 仅拉取片段所需字节
+// 索引结构 { v, 读音: [起始毫秒, 时长毫秒] }，分片 = 读音首字母（由键推导）;
+// 片段结尾已补齐 Opus 帧长，起始位置与帧边界对齐;
+// 设置 currentTime 后浏览器经 HTTP Range 仅拉取片段所需字节
 import { PINYIN_AUDIO_DIR } from '../config.js'
 
 let indexCache = null
@@ -25,7 +26,8 @@ export async function playPinyinAudio(p, onError) {
     onError?.(p)
     return null
   }
-  const [shard, start, dur] = clip
+  const [start, dur] = clip
+  const shard = p[0]
   const audio = new Audio(`${PINYIN_AUDIO_DIR}/${shard}.ogg`)
   audio.onerror = () => onError?.(p)
   audio.addEventListener('loadedmetadata', () => {
