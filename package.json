@@ -12,6 +12,7 @@
     "start": "node --disable-warning=ExperimentalWarning server/index.js",
     "seed": "node --disable-warning=ExperimentalWarning server/scripts/seed.js",
     "import:pinyin": "node --disable-warning=ExperimentalWarning server/scripts/import-pinyin.js",
+    "audio:pack": "node --disable-warning=ExperimentalWarning build/audio-pack.js",
     "export:zi": "node --disable-warning=ExperimentalWarning build/export-zi.js",
     "export:stroke-db": "node --disable-warning=ExperimentalWarning build/export-stroke-db.js",
     "app:font": "node --disable-warning=ExperimentalWarning build/app-font-pack.js",
