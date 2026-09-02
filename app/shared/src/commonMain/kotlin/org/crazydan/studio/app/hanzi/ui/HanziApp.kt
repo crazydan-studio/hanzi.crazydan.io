@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import org.crazydan.studio.app.hanzi.shared.ZiEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
+import org.crazydan.studio.app.hanzi.ui.screens.DEFAULT_PAGE_SIZE
 import org.crazydan.studio.app.hanzi.ui.screens.ZiDetailScreen
 import org.crazydan.studio.app.hanzi.ui.screens.CommonsScreen
 import org.crazydan.studio.app.hanzi.ui.screens.DonateScreen
@@ -46,6 +47,14 @@ class AppNavigator(initial: Screen = Screen.Home) {
     /** 常用字/拼音字列表滚动位置（跨页面切换保持，回退后恢复） */
     val commonsGridState = LazyGridState()
     val pinyinGridState = LazyGridState()
+
+    /** 常用字列表分页状态（从汉字信息页回退后恢复所在页） */
+    var commonsPage by mutableStateOf(1)
+    var commonsPageSize by mutableStateOf(DEFAULT_PAGE_SIZE)
+
+    /** 拼音字列表分页状态（从汉字信息页回退后恢复所在页） */
+    var pinyinPage by mutableStateOf(1)
+    var pinyinPageSize by mutableStateOf(DEFAULT_PAGE_SIZE)
 
     /**
      * 列表数据缓存（跨页面切换保持）: 回退时列表立即以缓存数据渲染，
@@ -108,12 +117,14 @@ fun HanziApp(
                     onToggleTheme = toggleTheme,
                     onOpenZi = { navigator.open(Screen.ZiDetail(it)) },
                     onOpenCommons = {
-                        // 从首页进入列表: 无跳转来源，清除上次的选中高亮
+                        // 从首页进入列表: 无跳转来源，清除选中高亮并回到第一页
                         navigator.commonsSelected = ""
+                        navigator.commonsPage = 1
                         navigator.open(Screen.Commons)
                     },
                     onOpenPinyin = {
                         navigator.pinyinSelected = ""
+                        navigator.pinyinPage = 1
                         navigator.open(Screen.PinyinList(it))
                     },
                     onOpenStrokeManage = { navigator.open(Screen.StrokeDataManage) },
@@ -142,14 +153,18 @@ fun HanziApp(
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
                     onOpenZi = { zi ->
-                        // 记录选中字，返回本页时高亮
+                        // 记录选中字与所在页，返回本页时恢复分页并高亮
                         navigator.commonsSelected = zi
                         navigator.open(Screen.ZiDetail(zi))
                     },
                     selected = navigator.commonsSelected,
                     gridState = navigator.commonsGridState,
                     initialEntries = navigator.commonsEntries,
-                    onEntriesLoaded = { navigator.commonsEntries = it }
+                    onEntriesLoaded = { navigator.commonsEntries = it },
+                    page = navigator.commonsPage,
+                    pageSize = navigator.commonsPageSize,
+                    onPageChange = { navigator.commonsPage = it },
+                    onPageSizeChange = { navigator.commonsPageSize = it }
                 )
                 is Screen.PinyinList -> PinyinListScreen(
                     db = db,
@@ -158,14 +173,18 @@ fun HanziApp(
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
                     onOpenZi = { zi ->
-                        // 记录选中字，返回本页时高亮
+                        // 记录选中字与所在页，返回本页时恢复分页并高亮
                         navigator.pinyinSelected = zi
                         navigator.open(Screen.ZiDetail(zi))
                     },
                     selected = navigator.pinyinSelected,
                     gridState = navigator.pinyinGridState,
                     initialEntries = navigator.pinyinEntries[s.pinyin],
-                    onEntriesLoaded = { navigator.pinyinEntries[s.pinyin] = it }
+                    onEntriesLoaded = { navigator.pinyinEntries[s.pinyin] = it },
+                    page = navigator.pinyinPage,
+                    pageSize = navigator.pinyinPageSize,
+                    onPageChange = { navigator.pinyinPage = it },
+                    onPageSizeChange = { navigator.pinyinPageSize = it }
                 )
                 is Screen.Donate -> DonateScreen(
                     dark = darkTheme,
