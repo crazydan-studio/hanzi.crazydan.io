@@ -5,7 +5,8 @@
 # 步骤:
 #   1. 拷贝拼音读音资源 public/assets/audio/pinyin → app/android/src/main/assets/audio/pinyin
 #   2. 拷贝赞助页收款码图片 → app/android/src/main/assets/donate（缺失时从站点下载）
-#   3. 打包中易楷体（全量，不精简; App 用 TTF，web 用 woff2；目标文件已存在则跳过）
+#   3. 拷贝中易楷体（全量 TTF，不精简）到 app 资源目录（已存在则跳过;
+#      web 端 woff2 由 pnpm dev/build/dev:all 前置脚本单独生成，见 build/web-font-pack.js）
 #   4. 打包开发数据库 server/data/hanzi_stroke.db → app/android/src/main/assets/db/hanzi.db
 #   5. 构建 Android App（Gradle，Compose Multiplatform 原生 UI）
 #   6. 移动安装包并写入版本信息文件
@@ -68,8 +69,14 @@ cp -f "${ROOT}/public/assets/audio/pinyin/index.json" "${ASSETS_DIR}/audio/pinyi
 echo "==> [2/6] 拷贝赞助页收款码图片到 app 资源目录"
 (cd "${ROOT}" && node build/app-assets-pack.js)
 
-echo "==> [3/6] 打包中易楷体（全量，App TTF / web woff2）"
-(cd "${ROOT}" && node build/app-font-pack.js)
+echo "==> [3/6] 拷贝中易楷体到 app 资源目录（全量 TTF，App 内置）"
+mkdir -p "${ASSETS_DIR}/fonts"
+if [[ ! -f "${ASSETS_DIR}/fonts/ZhongYiKaiTi.ttf" ]]; then
+  cp -f "${ROOT}/build/fonts/ZhongYiKaiTi.ttf" "${ASSETS_DIR}/fonts/ZhongYiKaiTi.ttf"
+  echo "  已拷贝: ${ASSETS_DIR}/fonts/ZhongYiKaiTi.ttf"
+else
+  echo "目标字体文件已存在，跳过拷贝中易楷体（如需重新生成请删除 ${ASSETS_DIR}/fonts/ZhongYiKaiTi.ttf）"
+fi
 
 echo "==> [4/6] 打包数据库到 app 资源目录"
 (cd "${ROOT}" && node build/app-db-pack.js)

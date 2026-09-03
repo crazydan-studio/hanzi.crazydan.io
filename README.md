@@ -52,17 +52,19 @@
    每拼音固定占 `d` 中 5 个元素，槽位 0 = 零声、1-4 = 一至四声，无音频置 0，
    起始由拼接顺序 + 20ms 帧补齐推导）；Safari 不支持 Ogg/Opus，不做兼容。
 
-3. 打包中易楷体（全量，不做精简以避免页面乱码）：
+3. 生成 web 端中易楷体 woff2（全量 TTF 转 woff2，仅格式转换，保留全部字形，避免页面乱码）：
+
+   `pnpm dev`、`pnpm build`、`pnpm dev:all` 会自动前置执行字体生成（目标文件已存在则跳过）；也可手动执行：
 
    ```bash
-   pnpm app:font
+   pnpm web:font                # 生成 public/fonts/ZhongYiKaiTi.woff2
+   pnpm web:font -- --force     # 强制重新生成
    ```
 
-   产物：
-   - `app/android/src/main/assets/fonts/ZhongYiKaiTi.ttf`：App 内置字体（全量 TTF，`createFromAsset` 直读）
-   - `public/fonts/ZhongYiKaiTi.woff2`：web 端显示字体（全量 TTF 转 woff2，仅格式转换，保留全部字形）
+   产物 `public/fonts/ZhongYiKaiTi.woff2` 为 web 端显示字体（构建产物，不入库，见 .gitignore）；
+   App 内置字体（全量 TTF）无需单独准备，由 App 打包脚本在打包时拷贝（见下文「App 打包」）。
 
-3. 导出前端静态数据（常用字列表、拼音字列表、汉字信息与笔画数据，数据直接取自后端数据库）：
+4. 导出前端静态数据（常用字列表、拼音字列表、汉字信息与笔画数据，数据直接取自后端数据库）：
 
    ```bash
    pnpm export:zi                                  # 默认导出 1500 个常用字
@@ -72,7 +74,7 @@
 
    导出的数据位于 `public/assets/`：`zi/commons.json`（常用字）、`pinyin/index.json`（拼音字列表单文件，条目为 `[字, 声调数字, 繁体?]`，读音由无声调拼音键 + 声调还原）、`zi/index.json`（全部汉字信息单文件字典化：读音/部首/结构三字典 + 每字紧凑行）与 `zi/strokes/{码点>>12}.json`（笔画数据码点分片，每字一条目，序号由数组下标推出，仅存在笔画数据的码点分片才生成）。
 
-4. 导出「汉字笔画数据」独立数据库（App 端按需下载使用）：
+5. 导出「汉字笔画数据」独立数据库（App 端按需下载使用）：
 
    ```bash
    pnpm export:stroke-db                           # 默认导出全部（full）到 dist/assets/
@@ -83,7 +85,7 @@
    产物为 `hanzi-stroke-{数量}.db`（`hanzi-stroke-full.db` 表示全部），仅含 `strokes` 表
    （汉字信息由 App 内置库 `hanzi.db` 提供）。
 
-5. 打包 App 内置数据库（仅汉字信息，数据未变化时不重新生成）：
+6. 打包 App 内置数据库（仅汉字信息，数据未变化时不重新生成）：
 
    ```bash
    node build/app-db-pack.js
@@ -107,13 +109,13 @@ pnpm dev:all
 
 ```bash
 pnpm build            # 构建前端
-pnpm build:server     # 构建后端为单文件（输出 server/dist/index.cjs）
-pnpm start            # 源码直接启动后端
+pnpm server:build     # 构建后端为单文件（输出 server/dist/index.cjs）
+pnpm server:dev       # 源码直接启动后端
 ```
 
 生产模式由后端服务托管前端构建产物与静态数据，访问 http://localhost:3001 。
 
-**后端单文件产物**（`pnpm build:server`，esbuild 打包全部依赖）：
+**后端单文件产物**（`pnpm server:build`，esbuild 打包全部依赖）：
 
 ```bash
 node server/dist/index.cjs                    # 默认端口 3001、默认数据库 data/hanzi.db
@@ -140,16 +142,16 @@ build/app-pack.sh release   # 构建 pure/net 双变体 release 安装包并写�
 - **版本信息**（`pnpm app:version` 生成 `public/assets/app/version`，单行 JSON：
   `{"name":"...","changelog":"...","checksum":{"android":{"pure":"sha256:...","net":"sha256:..."}}}`）：
   联网变体启动时据此检查更新并校验安装包完整性；更新日志可选写入 `app/notes.txt`
-- 打包步骤包含：拷贝拼音读音/收款码资源、打包中易楷体（目标已存在则跳过）、
+- 打包步骤包含：拷贝拼音读音/收款码资源、拷贝中易楷体 TTF（目标已存在则跳过）、
   打包内置数据库（`data/hanzi.db` → `app/android/src/main/assets/db/hanzi.db`）、Gradle 构建、移动安装包
 
 ### 目录结构
 
 ```
-├── build/          # 构建相关脚本（字体打包、数据库打包、静态数据导出、App 打包等）
-│   └── fonts/      # 中易楷体全量 TTF（子集源，不随 App 打包）
+├── build/          # 构建脚本（静态数据导出、音频/字体/数据库打包、App 打包等）
+│   └── fonts/      # 中易楷体全量 TTF（构建资源，不随 App 打包）
 ├── data/           # 本地开发数据（hanzi.db 汉字数据库、pinyin-dict.sqlite 词典数据源）
-├── public/         # 静态资源（字体、logo、导出的数据）
+├── public/         # 静态资源（logo、导出的数据；web 端字体 public/fonts/ 为构建产物，不入库）
 ├── server/         # 后端服务（REST API + 静态数据同步；build:server 产物在 server/dist/）
 ├── dist/           # 前端构建产物、笔画数据库与 App release 安装包导出位置
 └── src/            # 前端页面与共享组件

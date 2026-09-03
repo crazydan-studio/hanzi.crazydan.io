@@ -1,23 +1,20 @@
 {
   "name": "hanzi-stroke",
   "version": "1.0.0",
-  "type": "module",
-  "description": "汉字笔画书写与存储系统",
+  "description": "汉字笔画书写录制与演示系统",
   "scripts": {
-    "dev": "vite",
-    "dev:server": "node --watch --disable-warning=ExperimentalWarning server/index.js",
-    "dev:all": "node build/dev-all.js",
-    "build": "vite build",
-    "preview": "vite preview",
-    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "pnpm web:font && vite",
+    "dev:all": "pnpm web:font && node build/dev-all.js",
+    "build": "pnpm web:font && vite build",
     "seed": "node --disable-warning=ExperimentalWarning server/scripts/seed.js",
+    "web:font": "node --disable-warning=ExperimentalWarning build/web-font-pack.js",
     "import:pinyin": "node --disable-warning=ExperimentalWarning server/scripts/import-pinyin.js",
     "audio:pack": "node --disable-warning=ExperimentalWarning build/audio-pack.js",
     "export:zi": "node --disable-warning=ExperimentalWarning build/export-zi.js",
     "export:stroke-db": "node --disable-warning=ExperimentalWarning build/export-stroke-db.js",
-    "app:font": "node --disable-warning=ExperimentalWarning build/app-font-pack.js",
     "app:version": "node --disable-warning=ExperimentalWarning build/app-version-pack.js",
-    "build:server": "esbuild server/index.js --bundle --platform=node --format=cjs --outfile=server/dist/index.cjs --minify --log-level=warning"
+    "server:dev": "node --watch --disable-warning=ExperimentalWarning server/index.js",
+    "server:build": "esbuild server/index.js --bundle --platform=node --format=cjs --outfile=server/dist/index.cjs --minify --log-level=warning"
   },
   "dependencies": {
     "alpinejs": "^3.13.0",

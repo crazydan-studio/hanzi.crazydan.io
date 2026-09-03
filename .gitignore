@@ -4,6 +4,7 @@ server/dist/
 server/data/
 data/
 public/assets/app/android/*.apk
+public/fonts/
 *.log
 .env
 .DS_Store
