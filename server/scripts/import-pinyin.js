@@ -133,7 +133,7 @@ async function main() {
     INSERT INTO meta_zi (id, pinyin, used_weight, structure, radical, total_stroke_count, is_traditional)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
-      pinyin = meta_zi.pinyin,
+      pinyin = excluded.pinyin,
       used_weight = excluded.used_weight,
       structure = meta_zi.structure,
       radical = meta_zi.radical,
