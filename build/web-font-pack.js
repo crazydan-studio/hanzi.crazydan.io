@@ -31,6 +31,7 @@ async function main() {
   const original = fs.readFileSync(SRC_FONT)
   const woff2 = await fontverter.convert(original, 'woff2', 'truetype')
 
+  fs.mkdirSync(path.dirname(DST), { recursive: true })
   fs.writeFileSync(DST, woff2)
 
   const size = (a) => (a / 1024 / 1024).toFixed(2)
