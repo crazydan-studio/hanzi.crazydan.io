@@ -199,7 +199,7 @@ fun ZiDetailScreen(
                             }
                         )
                         SmallTextButton(
-                            text = "汉典网详情",
+                            text = "汉字详情",
                             icon = OpenInNewIcon,
                             onClick = {
                                 Platform.openUrl("${SiteLinks.ZDIC}hans/${encodeUrl(m.zi)}")
