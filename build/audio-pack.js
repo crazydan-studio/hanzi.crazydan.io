@@ -136,6 +136,7 @@ function main() {
     if (!reading) { skipped.push(file); continue }
     if (clips.has(reading)) { skipped.push(file + '（与 ' + reading + ' 重复）'); continue }
     const filePath = path.join(srcDir, file)
+    console.log(`解码 ${file} ...`)
     try {
       const pcm = decodeToPcm(filePath)
       // 截尾到整毫秒（最多损失 <1ms 尾部，无听感影响）; durMs = pcm 字节 / 96 精确
