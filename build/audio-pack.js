@@ -82,6 +82,9 @@ function decodeToPcm(file) {
 }
 
 // PCM Buffer → 临时 wav → Opus ogg 分片
+// -page_duration 单位微秒: 设为 20000(20ms, Opus 一帧) 使每帧独立成页——
+//   Android MediaPlayer 按 Ogg 页粒度 seek，默认 1s/页会造成 ±1s 偏差（错播/无声）;
+//   片段起始均为 20ms 帧边界，逐帧成页后 seek 精确命中
 function encodePcmToOpus(pcm, outFile) {
   const tmpWav = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'hanzi-audio-')), 'shard.wav')
   try {
@@ -90,6 +93,7 @@ function encodePcmToOpus(pcm, outFile) {
       '-v', 'error', '-y', '-i', tmpWav,
       '-c:a', 'libopus', '-b:a', OPUS_BITRATE,
       '-ar', String(SAMPLE_RATE), '-ac', String(CHANNELS),
+      '-page_duration', '20000',
       outFile
     ])
   } finally {
