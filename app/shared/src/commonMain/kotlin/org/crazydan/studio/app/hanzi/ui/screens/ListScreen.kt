@@ -1,5 +1,6 @@
 package org.crazydan.studio.app.hanzi.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,17 +8,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,11 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -84,19 +82,20 @@ fun ZiListScreen(
     val pageEntries = if (total == 0) emptyList()
     else entries.subList(start, minOf(start + pageSize, total))
 
-    // 返回本页时定位到选中字所在格子（其在网格中的条目序号 = 顶部栏 + 分页条 + 页内序号）
+    // 返回本页时定位到选中字所在格子（其在网格中的条目序号 = 顶部栏 + 页内序号，
+    // 分页控件位于列表底部，不占用前部条目位）
     LaunchedEffect(selectedZi, safePage, pageSize) {
         if (selectedZi.isEmpty() || pageEntries.isEmpty()) return@LaunchedEffect
         val idx = pageEntries.indexOfFirst { it.zi == selectedZi }
         if (idx == -1) return@LaunchedEffect
-        val target = 2 + idx   // 0 = 顶部栏, 1 = 分页条
+        val target = 1 + idx   // 0 = 顶部栏
         val visible = gridState.layoutInfo.visibleItemsInfo.any { it.index == target }
         if (!visible) gridState.scrollToItem(target)
     }
 
     // 手动翻页（无选中字定位时）回到页首
     LaunchedEffect(safePage) {
-        if (selectedZi.isEmpty()) gridState.scrollToItem(1)
+        if (selectedZi.isEmpty()) gridState.scrollToItem(0)
     }
 
     LazyVerticalGrid(
@@ -144,7 +143,14 @@ fun ZiListScreen(
                 )
             }
             else -> {
-                // 分页控件（网格条目序号 1）
+                items(pageEntries) { e ->
+                    ZiCell(
+                        entry = e,
+                        onClick = { onOpenZi(e.zi) },
+                        selected = e.zi == selectedZi
+                    )
+                }
+                // 分页控件位于列表底部
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     PagerBar(
                         page = safePage,
@@ -155,13 +161,6 @@ fun ZiListScreen(
                         pageSize = pageSize,
                         onPageChange = onPageChange,
                         onPageSizeChange = onPageSizeChange
-                    )
-                }
-                items(pageEntries) { e ->
-                    ZiCell(
-                        entry = e,
-                        onClick = { onOpenZi(e.zi) },
-                        selected = e.zi == selectedZi
                     )
                 }
             }
@@ -200,7 +199,7 @@ private fun PageTextButton(
     }
 }
 
-/** 分页控件: 每页大小 / 上一页下一页 / 页码 / 跳转指定页 */
+/** 分页控件（位于列表底部）: 每页字数/跳页经弹窗选择，上一页下一页直达 */
 @Composable
 private fun PagerBar(
     page: Int,
@@ -212,7 +211,8 @@ private fun PagerBar(
     onPageChange: (Int) -> Unit,
     onPageSizeChange: (Int) -> Unit
 ) {
-    var jumpInput by remember(page) { mutableStateOf("") }
+    var showSizeDialog by remember { mutableStateOf(false) }
+    var showJumpDialog by remember { mutableStateOf(false) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -224,20 +224,12 @@ private fun PagerBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Text(
-                text = "每页",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, end = 2.dp)
+            PageTextButton(
+                text = "每页 $pageSize",
+                enabled = true,
+                active = false,
+                onClick = { showSizeDialog = true }
             )
-            PAGE_SIZE_OPTIONS.forEach { size ->
-                PageTextButton(
-                    text = "$size",
-                    enabled = true,
-                    active = size == pageSize,
-                    onClick = { onPageSizeChange(size) }
-                )
-            }
             PageTextButton(text = "上一页", enabled = page > 1, onClick = { onPageChange(page - 1) })
             Text(
                 text = "第 $page / $totalPages 页",
@@ -246,41 +238,109 @@ private fun PagerBar(
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
             PageTextButton(text = "下一页", enabled = page < totalPages, onClick = { onPageChange(page + 1) })
+            PageTextButton(
+                text = "跳页",
+                enabled = totalPages > 1,
+                onClick = { showJumpDialog = true }
+            )
         }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "第 $pageStart-$pageEnd 字，共 $total 字",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "跳转",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            OutlinedTextField(
-                value = jumpInput,
-                onValueChange = { v -> jumpInput = v.filter { it.isDigit() }.take(4) },
-                placeholder = { Text(page.toString()) },
-                singleLine = true,
-                textStyle = TextStyle(fontFamily = FontFamily.Default),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Go
-                ),
-                modifier = Modifier.width(72.dp)
-            )
-            TextButton(onClick = {
-                val n = jumpInput.toIntOrNull()
-                if (n != null && n in 1..totalPages) onPageChange(n)
-                jumpInput = ""
-            }) {
-                Text("前往")
+        Text(
+            text = "第 $pageStart-$pageEnd 字，共 $total 字",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    // 每页字数弹窗选择
+    if (showSizeDialog) {
+        AlertDialog(
+            onDismissRequest = { showSizeDialog = false },
+            title = { Text("每页字数") },
+            text = {
+                Column {
+                    PAGE_SIZE_OPTIONS.forEach { size ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onPageSizeChange(size)
+                                    showSizeDialog = false
+                                }
+                                .padding(vertical = 10.dp)
+                        ) {
+                            Text(
+                                text = "$size 字",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = if (size == pageSize) FontWeight.Bold else FontWeight.Normal
+                                ),
+                                color = if (size == pageSize) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface
+                            )
+                            if (size == pageSize) {
+                                Text(
+                                    text = "（当前）",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSizeDialog = false }) { Text("取消") }
             }
-        }
+        )
+    }
+
+    // 跳页弹窗（可选页 1..总页数）
+    if (showJumpDialog) {
+        AlertDialog(
+            onDismissRequest = { showJumpDialog = false },
+            title = { Text("跳转到第几页") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(max = 360.dp)
+                ) {
+                    for (p in 1..totalPages) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onPageChange(p)
+                                    showJumpDialog = false
+                                }
+                                .padding(vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "$p",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = if (p == page) FontWeight.Bold else FontWeight.Normal
+                                ),
+                                color = if (p == page) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface
+                            )
+                            if (p == page) {
+                                Text(
+                                    text = "（当前页）",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showJumpDialog = false }) { Text("取消") }
+            }
+        )
     }
 }
 
