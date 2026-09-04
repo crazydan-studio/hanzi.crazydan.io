@@ -75,19 +75,36 @@ export async function playPinyinAudio(p, onError) {
   audio.onerror = () => {
     if (!stale()) onError?.(p)
   }
-  audio.addEventListener('loadedmetadata', () => {
-    // 期间已被停止或被新播放取代 → 不再起播
+  // 音频下载/初始化耗时不计入播放窗口: 起播成功后才启动停止定时器，
+  // 否则首次播放（冷缓存）会被加载延迟截短
+  audio.addEventListener('loadedmetadata', async () => {
     if (stale()) return
     audio.currentTime = clip.start / 1000
-    audio.play().catch(() => {
+    try {
+      await audio.play()
+    } catch {
       if (!stale()) onError?.(p)
+      return
+    }
+    if (stale()) {
+      audio.pause()
+      return
+    }
+    audio._clipTimer = setTimeout(() => {
+      audio.pause()
+      audio.currentTime = 0
+    }, clip.dur)
+    // 兜底钳制: 定时器迟滞时按播放位置强制停止（片段末尾有 ≤19ms 静音补齐，
+    // 阈值取 dur + 补齐余量，避免越界播入下一片段）
+    audio.addEventListener('timeupdate', function onTime() {
+      if (audio.currentTime >= clip.start / 1000 + (clip.dur + 25) / 1000) {
+        audio.removeEventListener('timeupdate', onTime)
+        clearTimeout(audio._clipTimer)
+        audio.pause()
+        audio.currentTime = 0
+      }
     })
   })
-  // 片段播完即停（雪碧图整体更长，由定时器接管停止）
-  audio._clipTimer = setTimeout(() => {
-    audio.pause()
-    audio.currentTime = 0
-  }, clip.dur)
   return audio
 }
 

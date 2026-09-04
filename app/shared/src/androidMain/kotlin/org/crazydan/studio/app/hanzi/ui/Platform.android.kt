@@ -120,10 +120,29 @@ actual object Platform {
             }
             p.start()
             player = p
-            // 片段播完即停（雪碧图整体更长，由定时器接管停止）
-            val stopRunnable = Runnable { stopPinyin() }
+            // 片段播完即停（雪碧图整体更长）: 轮询 currentPosition，
+            // 达到「内容末尾 + 帧补齐静音」边界即停——位置随实际播放推进，
+            // 与 start() 到出声的解码延迟及主线程调度无关，不会截短
+            val pad = (20 - (durMs % 20)) % 20
+            val endMs = startMs + durMs.toInt() + pad
+            val stopRunnable = object : Runnable {
+                override fun run() {
+                    val cur = player
+                    if (cur == null || cur !== p) return
+                    val pos = try {
+                        cur.currentPosition
+                    } catch (e: Exception) {
+                        return
+                    }
+                    if (pos >= endMs) {
+                        stopPinyin()
+                        return
+                    }
+                    mainHandler.postDelayed(this, 20)
+                }
+            }
             playerStopRunnable = stopRunnable
-            mainHandler.postDelayed(stopRunnable, durMs)
+            mainHandler.post(stopRunnable)
             true
         } catch (e: Exception) {
             Log.w(TAG, "播放拼音失败: $pinyin", e)
