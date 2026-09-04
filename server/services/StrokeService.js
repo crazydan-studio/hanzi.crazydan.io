@@ -152,6 +152,15 @@ export const strokeService = {
     return { success: true }
   },
 
+  // 清空该字全部笔画: 单行原子删除（无逐笔删除的重编号竞态），并同步静态数据
+  clearAll(ziId) {
+    this.assertZiExists(ziId)
+    const db = getDb()
+    db.prepare('DELETE FROM strokes WHERE zi_id = ?').run(ziId)
+    syncZiStrokes(ziId, [])
+    return { success: true }
+  },
+
   // 重排笔画顺序（事务）: strokeIds 按新顺序排列，重编号为 1..N
   reorder(ziId, strokeIds) {
     this.assertZiExists(ziId)

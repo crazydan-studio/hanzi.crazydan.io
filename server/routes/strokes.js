@@ -36,6 +36,13 @@ router.get('/', validateParams(ziIdParamsSchema), (req, res) => {
   return ok(res, strokes)
 })
 
+// 清空该字全部笔画（原子单行删除，单次广播; 须定义于 '/:id' 前）
+router.delete('/', validateParams(ziIdParamsSchema), (req, res) => {
+  strokeService.clearAll(req.params.ziId)
+  strokesChanged(req.params.ziId)
+  return ok(res, null)
+})
+
 router.post('/', validateBody(createStrokeSchema), (req, res) => {
   const stroke = strokeService.create(req.params.ziId, req.body)
   strokesChanged(req.params.ziId)

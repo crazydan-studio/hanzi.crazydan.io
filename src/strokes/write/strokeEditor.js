@@ -574,14 +574,26 @@ export function registerStrokeEditor() {
       }
     },
 
-    // ---- 清空全部: 备份全部笔画（支持恢复），再逐笔删除 ----
-    onStrokeClearAll(strokes) {
+    // ---- 清空全部: 备份全部笔画（支持恢复），原子清空 ----
+    // 单请求删除整字笔画（单行删除，无逐笔重编号竞态与并发重载回绘）
+    async onStrokeClearAll(strokes) {
       this.clearedStrokes = [...(strokes || [])]
       this.redoStack = []
       this.redrawStroke = null
       this._lastOp = 'clear'
-      for (const s of this.clearedStrokes) {
-        this.deleteStroke(s.id)
+      this.isDeleting++
+      try {
+        await api.delete(`/api/zi/${this.zi.id}/strokes`)
+        this.strokes = []
+        this.pad.loadStrokes([])
+      } catch (e) {
+        this.error = e.message
+        // 失败回滚备份并重载服务端权威状态（画布已在本地清空）
+        this.clearedStrokes = []
+        this._lastOp = null
+        this.loadZi({ id: this.zi.id })
+      } finally {
+        this.isDeleting--
       }
     },
 
