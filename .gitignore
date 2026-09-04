@@ -5,6 +5,7 @@ server/data/
 data/
 public/assets/app/android/*.apk
 public/fonts/
+app/android/src/main/assets/fonts/
 *.log
 .env
 .DS_Store
