@@ -57,6 +57,10 @@ export async function hasPinyinAudio(p) {
   return clips.has(p)
 }
 
+// 播放令牌: 每次播放/停止递增，使仍在下载或等待元数据的旧播放失效
+// （音频下载慢于用户连点时，旧 Audio 的 loadedmetadata 到达后不再起播）
+let activeToken = 0
+
 // 播放读音片段; 索引缺失/加载失败时回调 onError; 返回 audio 元素（供停止）
 export async function playPinyinAudio(p, onError) {
   const clips = await loadAudioClips()
@@ -65,11 +69,19 @@ export async function playPinyinAudio(p, onError) {
     onError?.(p)
     return null
   }
+  const token = ++activeToken
+  const stale = () => token !== activeToken
   const audio = new Audio(`${PINYIN_AUDIO_DIR}/${clip.shard}.ogg`)
-  audio.onerror = () => onError?.(p)
+  audio.onerror = () => {
+    if (!stale()) onError?.(p)
+  }
   audio.addEventListener('loadedmetadata', () => {
+    // 期间已被停止或被新播放取代 → 不再起播
+    if (stale()) return
     audio.currentTime = clip.start / 1000
-    audio.play().catch(() => onError?.(p))
+    audio.play().catch(() => {
+      if (!stale()) onError?.(p)
+    })
   })
   // 片段播完即停（雪碧图整体更长，由定时器接管停止）
   audio._clipTimer = setTimeout(() => {
@@ -83,4 +95,5 @@ export function stopPinyinAudio(audio) {
   if (!audio) return
   clearTimeout(audio._clipTimer)
   audio.pause()
+  activeToken++   // 作废在途的加载/播放
 }
