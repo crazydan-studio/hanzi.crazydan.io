@@ -88,7 +88,8 @@ fun ZiDetailScreen(
     onToggleTheme: () -> Unit,
     onBack: () -> Unit,
     onOpenStrokeManage: () -> Unit,
-    onOpenDonate: () -> Unit
+    onOpenDonate: () -> Unit,
+    onOpenZdic: (String) -> Unit
 ) {
     val unicode = unicodePointAt(zi)
     var meta by remember { mutableStateOf<ZiMeta?>(null) }
@@ -202,7 +203,8 @@ fun ZiDetailScreen(
                             text = "汉字详情",
                             icon = OpenInNewIcon,
                             onClick = {
-                                Platform.openUrl("${SiteLinks.ZDIC}hans/${encodeUrl(m.zi)}")
+                                // 应用内 WebView 展示（仅限 zdic.net 及其子域名）
+                                onOpenZdic("${SiteLinks.ZDIC}hans/${encodeUrl(m.zi)}")
                             }
                         )
                     }

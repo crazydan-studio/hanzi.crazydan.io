@@ -16,6 +16,7 @@ import org.crazydan.studio.app.hanzi.shared.ZiEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.ui.screens.DEFAULT_PAGE_SIZE
 import org.crazydan.studio.app.hanzi.ui.screens.ZiDetailScreen
+import org.crazydan.studio.app.hanzi.ui.screens.ZdicDetailScreen
 import org.crazydan.studio.app.hanzi.ui.screens.CommonsScreen
 import org.crazydan.studio.app.hanzi.ui.screens.DonateScreen
 import org.crazydan.studio.app.hanzi.ui.screens.HomeScreen
@@ -26,6 +27,7 @@ import org.crazydan.studio.app.hanzi.ui.screens.StrokeDataManageScreen
 sealed interface Screen {
     data object Home : Screen
     data class ZiDetail(val zi: String) : Screen
+    data class ZdicDetail(val url: String) : Screen
     data object Commons : Screen
     data class PinyinList(val pinyin: String) : Screen
     data object StrokeDataManage : Screen
@@ -139,7 +141,14 @@ fun HanziApp(
                     onToggleTheme = toggleTheme,
                     onBack = { navigator.back() },
                     onOpenStrokeManage = { navigator.open(Screen.StrokeDataManage) },
-                    onOpenDonate = { navigator.open(Screen.Donate) }
+                    onOpenDonate = { navigator.open(Screen.Donate) },
+                    onOpenZdic = { url -> navigator.open(Screen.ZdicDetail(url)) }
+                )
+                is Screen.ZdicDetail -> ZdicDetailScreen(
+                    url = s.url,
+                    dark = darkTheme,
+                    onToggleTheme = toggleTheme,
+                    onBack = { navigator.back() }
                 )
                 is Screen.StrokeDataManage -> StrokeDataManageScreen(
                     db = db,
