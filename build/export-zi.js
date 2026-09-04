@@ -109,7 +109,12 @@ function main() {
   }
 
   // ---- 3. 常用字（按权重排序，取前 count 个） ----
-  const byWeight = [...words.values()].sort((a, b) => b.weight - a.weight || (a.zi < b.zi ? -1 : 1))
+  // 汉字排序: 权重降序 → 简体优先 → 汉字序（与 server/App 列表一致）
+  const ziCompare = (a, b) =>
+    b.weight - a.weight ||
+    (a.traditional ? 1 : 0) - (b.traditional ? 1 : 0) ||
+    (a.zi < b.zi ? -1 : 1)
+  const byWeight = [...words.values()].sort(ziCompare)
 
   // 列表条目（数组格式 [汉字, 读音, 繁体标记?]，降低 json 体积）:
   //   - 繁体字追加第 3 元素 1（如 ["馬","ma3",1]），简体字无第 3 元素
@@ -147,7 +152,7 @@ function main() {
   }
   const pinyinIndex = {}
   for (const [plain, list] of pinyinGroups) {
-    list.sort((a, b) => b.weight - a.weight || (a.zi < b.zi ? -1 : 1))
+    list.sort(ziCompare)
     pinyinIndex[plain] = list.map(w => [w.zi, toneForPlain(w, plain), ...tradFlag(w)])
   }
   writeJson(path.join(pinyinDir, 'index.json'), pinyinIndex)

@@ -51,7 +51,7 @@ export const ziService = {
     const rows = db.prepare(`
       SELECT z.* FROM zi z
       ${strokeJoin} ${where}
-      ORDER BY z.used_weight DESC, z.id ASC
+      ORDER BY z.used_weight DESC, z.is_traditional ASC, z.id ASC
       LIMIT ? OFFSET ?
     `).all(...params, limit, offset)
 

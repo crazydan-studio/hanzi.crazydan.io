@@ -57,13 +57,15 @@ function main() {
 
   // 1. 读取全部有笔画数据的汉字（zi.used_weight = 所有拼音中最大权重，导出时已计算）
   const zis = src.prepare(`
-    SELECT c.id, c.zi, c.pinyin, c.used_weight, c.structure, c.radical, c.total_stroke_count
+    SELECT c.id, c.zi, c.pinyin, c.used_weight, c.structure, c.radical, c.total_stroke_count, c.is_traditional
     FROM zi c
     WHERE EXISTS (SELECT 1 FROM strokes s WHERE s.zi_id = c.id)
   `).all()
-  // 权重降序，权重相同按汉字升序（与常用字列表一致）
+  // 权重降序，权重相同简体优先，再按汉字升序（与常用字列表一致）
   zis.sort((a, b) =>
-    (b.used_weight ?? 0) - (a.used_weight ?? 0) || (a.zi < b.zi ? -1 : 1))
+    (b.used_weight ?? 0) - (a.used_weight ?? 0) ||
+    (a.is_traditional ?? 0) - (b.is_traditional ?? 0) ||
+    (a.zi < b.zi ? -1 : 1))
 
   const selected = count != null ? zis.slice(0, count) : zis
   if (selected.length === 0) {

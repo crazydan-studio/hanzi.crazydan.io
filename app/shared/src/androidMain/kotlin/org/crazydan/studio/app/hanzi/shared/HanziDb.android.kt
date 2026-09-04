@@ -346,10 +346,10 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
 
     override fun queryCommons(limit: Int): List<ZiEntry> {
         val out = ArrayList<ZiEntry>(limit)
-        // zi 为视图（char(id) 计算）: 排序用 id（码点序 == 汉字序），命中 idx_zi_weight 索引
+        // zi 为视图（char(id) 计算）: 权重降序、简体优先、再按 id（码点序 == 汉字序）
         queryAll(db,
             "SELECT zi, pinyin, is_traditional FROM zi " +
-                "ORDER BY used_weight DESC, id ASC LIMIT ?",
+                "ORDER BY used_weight DESC, is_traditional ASC, id ASC LIMIT ?",
             arrayOf(limit.toString())
         ) { cursor ->
             out.add(entry(cursor))
@@ -368,7 +368,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                 "JOIN zi_pinyin cp ON cp.pinyin_id = p.id " +
                 "JOIN zi c ON c.id = cp.zi_id " +
                 "WHERE pp.value = ? " +
-                "ORDER BY cp.used_weight DESC, c.id ASC",
+                "ORDER BY cp.used_weight DESC, c.is_traditional ASC, c.id ASC",
             arrayOf(plainPinyin)
         ) { cursor ->
             out.add(ZiEntry(cursor.getString(0), cursor.getString(1), cursor.getInt(2) == 1))
