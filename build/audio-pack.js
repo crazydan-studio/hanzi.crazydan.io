@@ -1,4 +1,4 @@
-// 拼音读音音频打包: 导入 mp3/wav → Opus 雪碧图（按首字母分片）+ 定长双数组索引
+// 拼音读音音频打包: 导入 mp3/wav → web Opus 雪碧图 + App 逐读音单文件
 // 用法:
 //   node build/audio-pack.js                                 # 打包 public/assets/audio/pinyin 内既有 mp3/wav
 //   node build/audio-pack.js --source <音频目录>               # 从指定目录导入后打包
@@ -6,14 +6,15 @@
 //   - 符号声调: dì / lǜ（含 ü 变音符号 ǖǘǚǜ），轻声不带声调符号
 //   - 数字声调: di4 / lv4
 //   - ü 可写作 v: lv4 → lü4, nve4 → nüe4
-// 产物（public/assets/audio/pinyin/）:
-//   - {首字母}.ogg   按读音首字母分片的 Opus 雪碧图（48kHz 单声道 32kbps）
-//   - index.json     定长双数组索引: { v:1, p: 无声调拼音有序数组, d: 时长扁平数组 }
-//     定长布局: 每个拼音固定占 d 中 5 个连续元素，槽位 0 = 零声、1-4 = 一至四声
-//     （零声在前），定位 = 拼音在 p 的下标 × 5 + 声调槽; 无音频的声调置 0
-//     分片起始不存储: 片内按 p 顺序、组内按槽位序拼接，起始 = 前序时长 + 帧补齐（20ms）累加;
-//     每片段末尾补齐到帧边界，起始与帧边界（granule）严格对齐，
-//     播放端经 HTTP Range / MediaPlayer seekTo 定位
+// 产物:
+//   - public/assets/audio/pinyin/{首字母}.ogg   web 端 Opus 雪碧图分片（48kHz 单声道 32kbps，
+//     逐帧分页 20ms/页，Android 兼容已不依赖）; 播放经 HTTP Range + 偏移索引定位
+//   - public/assets/audio/pinyin/index.json    定长双数组索引: { v:1, p: 无声调拼音有序数组,
+//     d: 时长扁平数组 }，每拼音固定占 5 个槽位（0 = 零声、1-4 = 一至四声，0 置空）;
+//     分片起始 = 前序时长 + 20ms 帧补齐累加，片段末尾补齐到帧边界
+//   - app/android/src/main/assets/audio/pinyin/{读音}.ogg   App 端逐读音单文件
+//     （内容 + 帧补齐静音 ≤19ms）: 播放精确到片段结尾（OnCompletion 即止），
+//     无整片 seek + 掐点停止的越界/截短问题; index.json 同步（读音可用性判断）
 import { execFileSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'path'
@@ -21,6 +22,7 @@ import fs from 'fs'
 import { ROOT, PUBLIC_DIR } from '../paths.js'
 
 const OUT_DIR = path.join(PUBLIC_DIR, 'assets', 'audio', 'pinyin')
+const APP_AUDIO_DIR = path.join(ROOT, 'app', 'android', 'src', 'main', 'assets', 'audio', 'pinyin')
 const SAMPLE_RATE = 48000
 const CHANNELS = 1
 const OPUS_BITRATE = '32k'
@@ -193,7 +195,22 @@ function main() {
   }
   fs.writeFileSync(path.join(OUT_DIR, 'index.json'), JSON.stringify(index))
 
-  // 4. 清理产物目录中的源文件（仅清理已消费的; --source 外部目录不受影响）
+  // 4. App 端逐读音单文件: 播放精确到片段结尾（OnCompletion 即止），
+  //    不依赖整片 seek + 掐点停止（存在越界播放相邻音频开头的问题）。
+  //    每个文件 = 内容 + 帧补齐静音（≤19ms，播放结尾听感无感）
+  fs.mkdirSync(APP_AUDIO_DIR, { recursive: true })
+  for (const f of fs.readdirSync(APP_AUDIO_DIR)) fs.rmSync(path.join(APP_AUDIO_DIR, f), { force: true })
+  for (const [reading, clip] of clips) {
+    const rem = clip.durMs % FRAME_MS
+    const pcm = rem > 0
+      ? Buffer.concat([clip.pcm, Buffer.alloc((FRAME_MS - rem) * MS_BYTES)])
+      : clip.pcm
+    encodePcmToOpus(pcm, path.join(APP_AUDIO_DIR, `${reading}.ogg`))
+  }
+  fs.copyFileSync(path.join(OUT_DIR, 'index.json'), path.join(APP_AUDIO_DIR, 'index.json'))
+  console.log(`App 逐读音音频: ${clips.size} 个 → ${APP_AUDIO_DIR}`)
+
+  // 5. 清理产物目录中的源文件（仅清理已消费的; --source 外部目录不受影响）
   if (srcDir === OUT_DIR) {
     for (const clip of clips.values()) fs.rmSync(path.join(OUT_DIR, clip.file), { force: true })
   }

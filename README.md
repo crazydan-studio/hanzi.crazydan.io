@@ -47,10 +47,12 @@
    ```
 
    源文件命名支持符号声调（`dì`、`lǜ`）或数字声调（`di4`、`lv4`），`ü` 可写作 `v`，
-   自动归一化为数字声调拼音。产物为 `public/assets/audio/pinyin/{首字母}.ogg`（Opus 雪碧图）
+   自动归一化为数字声调拼音。产物为 `public/assets/audio/pinyin/{首字母}.ogg`（web 端 Opus 雪碧图）
    与 `index.json`（定长双数组索引 `{ v:1, p: 无声调拼音有序数组, d: 时长扁平数组 }`：
    每拼音固定占 `d` 中 5 个元素，槽位 0 = 零声、1-4 = 一至四声，无音频置 0，
-   起始由拼接顺序 + 20ms 帧补齐推导）；Safari 不支持 Ogg/Opus，不做兼容。
+   起始由拼接顺序 + 20ms 帧补齐推导）；同时生成 App 端逐读音单文件
+   （`app/android/src/main/assets/audio/pinyin/{读音}.ogg`，播放精确到片段结尾）；
+   Safari 不支持 Ogg/Opus，不做兼容。
 
 3. 生成 web 端中易楷体 woff2（全量 TTF 转 woff2，仅格式转换，保留全部字形，避免页面乱码）：
 

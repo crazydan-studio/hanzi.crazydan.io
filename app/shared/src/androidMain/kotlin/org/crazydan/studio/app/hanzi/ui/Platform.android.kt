@@ -35,20 +35,18 @@ actual fun logError(tag: String, message: String, throwable: Throwable) {
 actual object Platform {
 
     private var player: MediaPlayer? = null
-    private var playerStopRunnable: Runnable? = null
-    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     /** 文件选择器（复用同一 launcher，避免重复注册） */
     private var pickLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>? = null
     private var pickCallback: ((String?) -> Unit)? = null
 
-    // 拼音雪碧图索引（audio/pinyin/index.json）: { v:1, p: 无声调拼音有序数组,
-    // d: 时长扁平数组 }，每拼音固定占 d 中 5 个元素，槽位 0 = 零声、1-4 = 一至四声（0 = 缺失）;
-    // 分片 = 拼音首字母; 起始不存储，由 p/d 顺序 + 20ms 帧补齐逐片段推导
+    // 拼音读音可用性（audio/pinyin/index.json 定长双数组: { v:1, p: 无声调拼音,
+    // d: 时长扁平数组 }，槽位 0 = 零声、1-4 = 一至四声，0 = 缺失）——
+    // App 播放为逐读音单文件，索引仅用于判断读音是否有音频
     @Volatile
     private var pinyinAudioIndex: JSONObject? = null
     @Volatile
-    private var pinyinAudioClips: HashMap<String, LongArray>? = null   // 读音 → [起始ms, 时长ms]
+    private var pinyinAudioReadings: HashSet<String>? = null
 
     private fun readPinyinAudioIndex(context: android.content.Context): JSONObject? {
         pinyinAudioIndex?.let { return it }
@@ -61,50 +59,38 @@ actual object Platform {
         return pinyinAudioIndex
     }
 
-    // 解析定长双数组索引并推导每个读音的起始/时长（p/d 顺序 = 打包拼接序）
-    private fun derivePinyinAudioClips(context: android.content.Context): HashMap<String, LongArray>? {
-        pinyinAudioClips?.let { return it }
+    // 解析定长双数组索引，收集有音频的读音集合
+    private fun pinyinAudioReadingsOf(context: android.content.Context): HashSet<String>? {
+        pinyinAudioReadings?.let { return it }
         val index = readPinyinAudioIndex(context) ?: return null
         val plains = index.optJSONArray("p") ?: return null
         val durs = index.optJSONArray("d") ?: return null
-        val map = HashMap<String, LongArray>()
-        var letter = '\u0000'
-        var start = 0L
+        val set = HashSet<String>()
         for (pi in 0 until plains.length()) {
             val plain = plains.getString(pi)
-            val first = plain[0]
-            if (first != letter) {
-                letter = first
-                start = 0
-            }
             val base = pi * 5
             for (slot in 0 until 5) {
-                val dur = durs.optLong(base + slot)
-                if (dur <= 0) continue
-                val reading = if (slot == 0) plain else "$plain$slot"
-                map[reading] = longArrayOf(start, dur)
-                start += dur + (20 - (dur % 20)) % 20
+                if (durs.optLong(base + slot) <= 0) continue
+                set.add(if (slot == 0) plain else "$plain$slot")
             }
         }
-        pinyinAudioClips = map
-        return map
+        pinyinAudioReadings = set
+        return set
     }
 
     actual fun hasPinyinAudio(pinyin: String): Boolean {
         val context = AppContextHolder.appContext ?: return false
-        return derivePinyinAudioClips(context)?.containsKey(pinyin) == true
+        return pinyinAudioReadingsOf(context)?.contains(pinyin) == true
     }
 
     actual fun playPinyin(pinyin: String): Boolean {
         stopPinyin()
         val context = AppContextHolder.appContext ?: return false
         return try {
-            // 雪碧图: 读音起始/时长由声调槽位索引推导，seekTo 播放（分片 = 拼音首字母 + .ogg）
-            val clip = derivePinyinAudioClips(context)?.get(pinyin) ?: return false
-            val startMs = clip[0].toInt()
-            val durMs = clip[1]
-            val shard = pinyin.substring(0, 1)
-            val fd = context.assets.openFd("audio/pinyin/$shard.ogg")
+            // 逐读音单文件（audio/pinyin/{读音}.ogg，由 audio:pack 生成）:
+            // 播放精确到片段结尾（OnCompletion 即止），无整片 seek 的越界问题
+            if (!hasPinyinAudio(pinyin)) return false
+            val fd = context.assets.openFd("audio/pinyin/$pinyin.ogg")
             val p = MediaPlayer()
             try {
                 p.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
@@ -112,47 +98,25 @@ actual object Platform {
             } finally {
                 fd.close()   // prepare 完成后关闭（早于 prepare 关闭在部分设备会失败）
             }
-            p.seekTo(startMs)
-            p.setOnCompletionListener { it.release() }
-            p.setOnErrorListener { _, _, _ ->
-                p.release()
+            p.setOnCompletionListener {
+                if (player === it) player = null
+                it.release()
+            }
+            p.setOnErrorListener { mp, _, _ ->
+                if (player === mp) player = null
+                mp.release()
                 true
             }
             p.start()
             player = p
-            // 片段播完即停（雪碧图整体更长）: 轮询 currentPosition，
-            // 达到「内容末尾 + 帧补齐静音」边界即停——位置随实际播放推进，
-            // 与 start() 到出声的解码延迟及主线程调度无关，不会截短
-            val pad = (20 - (durMs % 20)) % 20
-            val endMs = startMs + durMs.toInt() + pad
-            val stopRunnable = object : Runnable {
-                override fun run() {
-                    val cur = player
-                    if (cur == null || cur !== p) return
-                    val pos = try {
-                        cur.currentPosition
-                    } catch (e: Exception) {
-                        return
-                    }
-                    if (pos >= endMs) {
-                        stopPinyin()
-                        return
-                    }
-                    mainHandler.postDelayed(this, 20)
-                }
-            }
-            playerStopRunnable = stopRunnable
-            mainHandler.post(stopRunnable)
             true
         } catch (e: Exception) {
             Log.w(TAG, "播放拼音失败: $pinyin", e)
-            false   // 音频索引缺失/文件不存在或播放失败
+            false   // 音频文件不存在或播放失败
         }
     }
 
     actual fun stopPinyin() {
-        playerStopRunnable?.let { mainHandler.removeCallbacks(it) }
-        playerStopRunnable = null
         player?.let {
             try { it.stop() } catch (e: Exception) {
                 Log.w(TAG, "停止拼音播放失败", e)

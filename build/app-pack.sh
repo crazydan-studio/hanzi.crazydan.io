@@ -3,7 +3,7 @@
 # 用法:
 #   build/app-pack.sh [release|debug]   （缺省 debug）
 # 步骤:
-#   1. 拷贝拼音读音资源 public/assets/audio/pinyin → app/android/src/main/assets/audio/pinyin
+#   1. 校验拼音读音音频（由 pnpm audio:pack 生成到 app/android/src/main/assets/audio/pinyin，逐读音单文件）
 #   2. 拷贝赞助页收款码图片 → app/android/src/main/assets/donate（缺失时从站点下载）
 #   3. 拷贝中易楷体（全量 TTF，不精简）到 app 资源目录（已存在则跳过;
 #      web 端 woff2 由 pnpm dev/build/dev:all 前置脚本单独生成，见 build/web-font-pack.js）
@@ -59,12 +59,10 @@ prepare_dest() {
   find "${dest_dir}" -maxdepth 1 -type f -name "hanzi-*.apk" -delete
 }
 
-echo "==> [1/6] 拷贝拼音读音资源到 app 资源目录"
-mkdir -p "${ASSETS_DIR}/audio/pinyin"
-# 先清空旧文件（避免 mp3→ogg 迁移后的陈旧文件残留）
-rm -f "${ASSETS_DIR}/audio/pinyin/"*
-cp -f "${ROOT}/public/assets/audio/pinyin/"*.ogg "${ASSETS_DIR}/audio/pinyin/"
-cp -f "${ROOT}/public/assets/audio/pinyin/index.json" "${ASSETS_DIR}/audio/pinyin/"
+echo "==> [1/6] 校验拼音读音音频（由 audio:pack 生成到 app 资源目录，逐读音单文件）"
+if [ -z "$(ls -A "${ASSETS_DIR}/audio/pinyin/" 2>/dev/null)" ]; then
+  echo "[告警] app 音频资源为空（请先执行 pnpm audio:pack）" >&2
+fi
 
 echo "==> [2/6] 拷贝赞助页收款码图片到 app 资源目录"
 (cd "${ROOT}" && node build/app-assets-pack.js)
