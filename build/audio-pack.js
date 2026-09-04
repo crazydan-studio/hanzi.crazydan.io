@@ -14,7 +14,7 @@
 //     分片起始 = 前序时长 + 20ms 帧补齐累加，片段末尾补齐到帧边界
 //   - app/android/src/main/assets/audio/pinyin/{读音}.ogg   App 端逐读音单文件
 //     （内容 + 帧补齐静音 ≤19ms）: 播放精确到片段结尾（OnCompletion 即止），
-//     无整片 seek + 掐点停止的越界/截短问题; index.json 同步（读音可用性判断）
+//     无整片 seek + 掐点停止的越界/截短问题; 读音可用性由端侧枚举目录判断
 import { execFileSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'path'
@@ -197,7 +197,8 @@ function main() {
 
   // 4. App 端逐读音单文件: 播放精确到片段结尾（OnCompletion 即止），
   //    不依赖整片 seek + 掐点停止（存在越界播放相邻音频开头的问题）。
-  //    每个文件 = 内容 + 帧补齐静音（≤19ms，播放结尾听感无感）
+  //    每个文件 = 内容 + 帧补齐静音（≤19ms，播放结尾听感无感）;
+  //    读音可用性由端侧枚举目录 .ogg 文件判断，无需复制 index.json
   fs.mkdirSync(APP_AUDIO_DIR, { recursive: true })
   for (const f of fs.readdirSync(APP_AUDIO_DIR)) fs.rmSync(path.join(APP_AUDIO_DIR, f), { force: true })
   for (const [reading, clip] of clips) {
@@ -207,7 +208,6 @@ function main() {
       : clip.pcm
     encodePcmToOpus(pcm, path.join(APP_AUDIO_DIR, `${reading}.ogg`))
   }
-  fs.copyFileSync(path.join(OUT_DIR, 'index.json'), path.join(APP_AUDIO_DIR, 'index.json'))
   console.log(`App 逐读音音频: ${clips.size} 个 → ${APP_AUDIO_DIR}`)
 
   // 5. 清理产物目录中的源文件（仅清理已消费的; --source 外部目录不受影响）

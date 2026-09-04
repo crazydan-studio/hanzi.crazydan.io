@@ -15,7 +15,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
-import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -40,42 +39,21 @@ actual object Platform {
     private var pickLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>? = null
     private var pickCallback: ((String?) -> Unit)? = null
 
-    // 拼音读音可用性（audio/pinyin/index.json 定长双数组: { v:1, p: 无声调拼音,
-    // d: 时长扁平数组 }，槽位 0 = 零声、1-4 = 一至四声，0 = 缺失）——
-    // App 播放为逐读音单文件，索引仅用于判断读音是否有音频
-    @Volatile
-    private var pinyinAudioIndex: JSONObject? = null
+    // 拼音读音可用性: 枚举 assets/audio/pinyin 目录中的 .ogg 文件名（audio:pack 生成），
+    // App 播放为逐读音单文件，无需 index.json（其仅供 web 端雪碧图偏移定位使用）
     @Volatile
     private var pinyinAudioReadings: HashSet<String>? = null
 
-    private fun readPinyinAudioIndex(context: android.content.Context): JSONObject? {
-        pinyinAudioIndex?.let { return it }
-        pinyinAudioIndex = try {
-            context.assets.open("audio/pinyin/index.json").bufferedReader().use { JSONObject(it.readText()) }
-        } catch (e: Exception) {
-            Log.w(TAG, "读取拼音音频索引失败", e)
-            null
-        }
-        return pinyinAudioIndex
-    }
-
-    // 解析定长双数组索引，收集有音频的读音集合
     private fun pinyinAudioReadingsOf(context: android.content.Context): HashSet<String>? {
         pinyinAudioReadings?.let { return it }
-        val index = readPinyinAudioIndex(context) ?: return null
-        val plains = index.optJSONArray("p") ?: return null
-        val durs = index.optJSONArray("d") ?: return null
-        val set = HashSet<String>()
-        for (pi in 0 until plains.length()) {
-            val plain = plains.getString(pi)
-            val base = pi * 5
-            for (slot in 0 until 5) {
-                if (durs.optLong(base + slot) <= 0) continue
-                set.add(if (slot == 0) plain else "$plain$slot")
-            }
+        pinyinAudioReadings = try {
+            val names = context.assets.list("audio/pinyin") ?: emptyArray()
+            HashSet(names.filter { it.endsWith(".ogg") }.map { it.removeSuffix(".ogg") })
+        } catch (e: Exception) {
+            Log.w(TAG, "枚举拼音音频资源失败", e)
+            null
         }
-        pinyinAudioReadings = set
-        return set
+        return pinyinAudioReadings
     }
 
     actual fun hasPinyinAudio(pinyin: String): Boolean {
