@@ -52,7 +52,10 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                     it.moveToFirst()
                     it.getInt(0)
                 }
-                val strokeCount = sdb.rawQuery("SELECT COUNT(*) FROM strokes", null).use {
+                // 笔画总数 = 各行笔画数之和（stroke_count 列，非行数）
+                val strokeCount = sdb.rawQuery(
+                    "SELECT COALESCE(SUM(stroke_count), 0) FROM strokes", null
+                ).use {
                     it.moveToFirst()
                     it.getInt(0)
                 }
