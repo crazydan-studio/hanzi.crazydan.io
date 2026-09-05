@@ -34,29 +34,24 @@ private fun safeZdicUrl(raw: String): String {
     return safe.buildUpon().scheme("https").build().toString()
 }
 
-// 主题注入脚本: 经 evaluateJavascript 应用到页面（幂等，重复执行先移除旧样式）
-// 暗色采用「整页反色 + 媒体元素二次反色还原」的通用方案（对任意站点有效，不依赖站点主题支持）;
-// 明亮移除反色样式; color-scheme 让表单控件/滚动条等原生部件跟随主题
+// 主题注入脚本: 经 evaluateJavascript 应用到页面（幂等）
+// 按常见约定在 <html> 上设置 data-theme 属性，由页面自身配色实现主题
+// （暗色: data-theme="dark"; 明亮: 移除该属性，页面默认即明亮）;
+// color-scheme 让表单控件/滚动条等原生部件跟随主题
 private fun themeScript(dark: Boolean): String {
     return "(function(){" +
         "var d=document.documentElement;" +
-        "var old=document.getElementById('hanzi-theme');" +
-        "if(old)old.remove();" +
+        "if(" + dark + "){d.setAttribute('data-theme','dark');}" +
+        "else{d.removeAttribute('data-theme');}" +
         "d.style.colorScheme='" + (if (dark) "dark" else "light") + "';" +
-        (if (dark)
-            "var s=document.createElement('style');" +
-                "s.id='hanzi-theme';" +
-                "s.textContent='html{filter:invert(1) hue-rotate(180deg);background:#111 !important;}" +
-                "img,video,picture,canvas{filter:invert(1) hue-rotate(180deg);}';" +
-                "document.head.appendChild(s);"
-        else "") +
         "})()"
 }
 
 /**
  * 受限 WebView（仅 Android）: 页面跳转与资源加载均限制在 zdic.net 及其子域名，
  * 外部域名导航被拦截、外部资源请求被取消;
- * 暗黑/明亮主题经 JS 注入页面样式跟随应用（切换即时生效，不重载页面）
+ * 暗黑/明亮主题经 JS 在 <html> 上设置 data-theme 属性跟随应用（切换即时生效，不重载页面），
+ * 由页面自身配色实现主题
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
