@@ -55,7 +55,12 @@ private fun themeScript(dark: Boolean): String {
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-actual fun ZdicWebView(url: String, dark: Boolean, modifier: Modifier) {
+actual fun ZdicWebView(
+    url: String,
+    dark: Boolean,
+    modifier: Modifier,
+    onLoading: (Boolean) -> Unit
+) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     // 主题最新值（供 WebViewClient 回调读取——回调在非组合作用域，不能直接捕获组合参数）
     var darkNow by remember { mutableStateOf(dark) }
@@ -94,9 +99,16 @@ actual fun ZdicWebView(url: String, dark: Boolean, modifier: Modifier) {
                     override fun shouldInterceptRequest(view: WebView, url: String): WebResourceResponse? =
                         intercept(Uri.parse(url))
 
+                    // 页面开始加载/完成渲染时上报（宿主据此显示/隐藏等待遮罩）
+                    override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                        onLoading(true)
+                        super.onPageStarted(view, url, favicon)
+                    }
+
                     // 页面加载完成后按当前主题注入样式
                     override fun onPageFinished(view: WebView, url: String?) {
                         view.evaluateJavascript(themeScript(darkNow), null)
+                        onLoading(false)
                     }
                 }
                 loadUrl(safeZdicUrl(url))
