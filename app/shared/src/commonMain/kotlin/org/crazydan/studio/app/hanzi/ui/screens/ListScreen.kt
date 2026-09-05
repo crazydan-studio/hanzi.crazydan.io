@@ -175,35 +175,22 @@ fun ZiListScreen(
     }
 }
 
-/** 分页按钮（上一页/下一页/每页等）: 圆角边框式，选中/当前态为主题色实底 */
+/** 分页文字链接（上一页/下一页/每页等）: 主题色链接样式，与页面文字融为一体 */
 @Composable
-private fun PagerButton(
+private fun PagerTextLink(
     text: String,
     enabled: Boolean = true,
-    active: Boolean = false,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(8.dp)
-    val container = if (active) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.surface
-    val content = if (active) MaterialTheme.colorScheme.onPrimary
-    else MaterialTheme.colorScheme.onSurface
-    val borderColor = if (active) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.outline
-    val alpha = if (enabled) 1f else 0.4f
     Text(
         text = text,
-        color = content,
-        style = MaterialTheme.typography.bodySmall.copy(
-            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
-        ),
+        style = MaterialTheme.typography.bodySmall,
+        color = if (enabled) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
         maxLines = 1,
         modifier = Modifier
-            .clip(shape)
-            .background(container.copy(alpha = alpha))
-            .border(width = 1.dp, color = borderColor.copy(alpha = alpha), shape = shape)
             .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
     )
 }
 
@@ -247,7 +234,7 @@ private fun PagePickButton(
 
 /**
  * 分页控件（位于列表底部）:
- * 上一页/下一页/当前页均为按钮；点击中间「第 x / N 页」弹出页号选择
+ * 上一页/下一页/每页字数均为文字链接；点击中间「第 x / N 页」文字弹出页号选择
  * （页号按钮多列网格，高度随页数自适应、超出部分可滚动）
  */
 @Composable
@@ -274,26 +261,25 @@ private fun PagerBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            PagerButton(
+            PagerTextLink(
                 text = "上一页",
                 enabled = page > 1,
                 onClick = { onPageChange(page - 1) }
             )
-            // 中间当前页按钮（点击选择页号），与上一页/下一页间距一致
+            // 中间当前页文字链接（点击选择页号），与上一页/下一页间距一致
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 8.dp)
+                    .padding(horizontal = 4.dp)
             ) {
-                PagerButton(
+                PagerTextLink(
                     text = "第 $page / $totalPages 页",
-                    active = true,
                     enabled = totalPages > 1,
                     onClick = { showJumpDialog = true }
                 )
             }
-            PagerButton(
+            PagerTextLink(
                 text = "下一页",
                 enabled = page < totalPages,
                 onClick = { onPageChange(page + 1) }
@@ -303,9 +289,9 @@ private fun PagerBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 6.dp)
+                .padding(top = 4.dp)
         ) {
-            PagerButton(
+            PagerTextLink(
                 text = "每页 $pageSize",
                 onClick = { showSizeDialog = true }
             )
