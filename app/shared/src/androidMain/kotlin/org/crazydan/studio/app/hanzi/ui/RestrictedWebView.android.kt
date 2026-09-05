@@ -44,6 +44,7 @@ private fun themeScript(dark: Boolean): String {
         "if(" + dark + "){d.setAttribute('data-theme','dark');}" +
         "else{d.removeAttribute('data-theme');}" +
         "d.style.colorScheme='" + (if (dark) "dark" else "light") + "';" +
+        "document.querySelectorAll('.adsbygoogle').forEach(n => n.remove());" +
         "})()"
 }
 
