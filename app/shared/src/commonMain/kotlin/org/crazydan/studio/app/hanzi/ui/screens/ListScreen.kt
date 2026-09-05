@@ -1,24 +1,25 @@
 package org.crazydan.studio.app.hanzi.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -173,33 +175,81 @@ fun ZiListScreen(
     }
 }
 
-/** 分页文本按钮（选中态高亮加粗） */
+/** 分页按钮（上一页/下一页/每页等）: 圆角边框式，选中/当前态为主题色实底 */
 @Composable
-private fun PageTextButton(
+private fun PagerButton(
     text: String,
-    enabled: Boolean,
+    enabled: Boolean = true,
     active: Boolean = false,
     onClick: () -> Unit
 ) {
-    TextButton(
-        onClick = onClick,
-        enabled = enabled,
-        colors = ButtonDefaults.textButtonColors(
-            contentColor = if (active) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant
+    val shape = RoundedCornerShape(8.dp)
+    val container = if (active) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.surface
+    val content = if (active) MaterialTheme.colorScheme.onPrimary
+    else MaterialTheme.colorScheme.onSurface
+    val borderColor = if (active) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.outline
+    val alpha = if (enabled) 1f else 0.4f
+    Text(
+        text = text,
+        color = content,
+        style = MaterialTheme.typography.bodySmall.copy(
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
         ),
-        contentPadding = PaddingValues(horizontal = 8.dp)
+        maxLines = 1,
+        modifier = Modifier
+            .clip(shape)
+            .background(container.copy(alpha = alpha))
+            .border(width = 1.dp, color = borderColor.copy(alpha = alpha), shape = shape)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    )
+}
+
+/** 页号选择弹窗中的页号按钮（当前页主题色实底标记） */
+@Composable
+private fun PagePickButton(
+    page: Int,
+    current: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(8.dp)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp)
+            .clip(shape)
+            .background(
+                if (current) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.surface
+            )
+            .border(
+                width = 1.dp,
+                color = if (current) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.outline,
+                shape = shape
+            )
+            .clickable(onClick = onClick)
     ) {
         Text(
-            text = text,
+            text = "$page",
             style = MaterialTheme.typography.bodySmall.copy(
-                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
-            )
+                fontWeight = if (current) FontWeight.Bold else FontWeight.Normal
+            ),
+            color = if (current) MaterialTheme.colorScheme.onPrimary
+            else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1
         )
     }
 }
 
-/** 分页控件（位于列表底部）: 每页字数/跳页经弹窗选择，上一页下一页直达 */
+/**
+ * 分页控件（位于列表底部）:
+ * 上一页/下一页/当前页均为按钮；点击中间「第 x / N 页」弹出页号选择
+ * （页号按钮多列网格，高度随页数自适应、超出部分可滚动）
+ */
 @Composable
 private fun PagerBar(
     page: Int,
@@ -222,33 +272,50 @@ private fun PagerBar(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            PageTextButton(
-                text = "每页 $pageSize",
-                enabled = true,
-                active = false,
-                onClick = { showSizeDialog = true }
+            PagerButton(
+                text = "上一页",
+                enabled = page > 1,
+                onClick = { onPageChange(page - 1) }
             )
-            PageTextButton(text = "上一页", enabled = page > 1, onClick = { onPageChange(page - 1) })
-            Text(
-                text = "第 $page / $totalPages 页",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 4.dp)
-            )
-            PageTextButton(text = "下一页", enabled = page < totalPages, onClick = { onPageChange(page + 1) })
-            PageTextButton(
-                text = "跳页",
-                enabled = totalPages > 1,
-                onClick = { showJumpDialog = true }
+            // 中间当前页按钮（点击选择页号），与上一页/下一页间距一致
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp)
+            ) {
+                PagerButton(
+                    text = "第 $page / $totalPages 页",
+                    active = true,
+                    enabled = totalPages > 1,
+                    onClick = { showJumpDialog = true }
+                )
+            }
+            PagerButton(
+                text = "下一页",
+                enabled = page < totalPages,
+                onClick = { onPageChange(page + 1) }
             )
         }
-        Text(
-            text = "第 $pageStart-$pageEnd 字，共 $total 字",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp)
+        ) {
+            PagerButton(
+                text = "每页 $pageSize",
+                onClick = { showSizeDialog = true }
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = "第 $pageStart-$pageEnd 字，共 $total 字",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 
     // 每页字数弹窗选择
@@ -295,45 +362,31 @@ private fun PagerBar(
         )
     }
 
-    // 跳页弹窗（可选页 1..总页数）
+    // 页号选择弹窗: 页号按钮多列网格；容器高度按页数自适应，超过上限即滚动
     if (showJumpDialog) {
         AlertDialog(
             onDismissRequest = { showJumpDialog = false },
-            title = { Text("跳转到第几页") },
+            title = { Text("选择页码") },
             text = {
-                Column(
+                val columns = 5
+                val rows = (totalPages + columns - 1) / columns
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(columns),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
-                        .verticalScroll(rememberScrollState())
-                        .heightIn(max = 360.dp)
+                        .fillMaxWidth()
+                        .height((rows * 44).dp.coerceAtMost(320.dp))
                 ) {
-                    for (p in 1..totalPages) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onPageChange(p)
-                                    showJumpDialog = false
-                                }
-                                .padding(vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "$p",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = if (p == page) FontWeight.Bold else FontWeight.Normal
-                                ),
-                                color = if (p == page) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface
-                            )
-                            if (p == page) {
-                                Text(
-                                    text = "（当前页）",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 8.dp)
-                                )
+                    items((1..totalPages).toList()) { p ->
+                        PagePickButton(
+                            page = p,
+                            current = p == page,
+                            onClick = {
+                                onPageChange(p)
+                                showJumpDialog = false
                             }
-                        }
+                        )
                     }
                 }
             },
