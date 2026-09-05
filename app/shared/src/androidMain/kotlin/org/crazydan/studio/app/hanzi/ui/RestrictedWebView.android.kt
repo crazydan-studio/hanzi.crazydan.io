@@ -119,7 +119,7 @@ actual fun ZdicWebView(
                     // 重排重绘完成后再隐藏遮罩，否则默认（明亮）主题会闪现一瞬
                     override fun onPageFinished(view: WebView, url: String?) {
                         view.evaluateJavascript(themeScript(darkNow)) {
-                            view.postDelayed({ onLoading(false) }, 60L)
+                            view.postDelayed({ onLoading(false) }, 500L)
                         }
                     }
                 }
