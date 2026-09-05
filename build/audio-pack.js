@@ -83,6 +83,29 @@ function decodeToPcm(file) {
   ])
 }
 
+// 目标峰值（线性幅值）: 0.85 ≈ -1.4dBFS——预留 Opus 有损编码的瞬态过冲余量
+// （原已满幅的片段增益后经编码解码仍可能瞬时回升至近满幅）
+const TARGET_PEAK = 0.85
+
+// 音量峰值归一化: 源音频音量参差（部分较小），按片段内最高音量统一增益到目标峰值;
+// 近满幅片段向下微调，低幅片段放大; 近静音片段（峰值 < 1%）不放大，避免抬升底噪
+function normalizePcm(pcm) {
+  let peak = 0
+  for (let i = 0; i < pcm.length; i += 2) {
+    const a = Math.abs(pcm.readInt16LE(i))
+    if (a > peak) peak = a
+  }
+  const maxLevel = peak / 32768
+  if (maxLevel < 0.01) return pcm
+  const gain = TARGET_PEAK / maxLevel
+  if (Math.abs(gain - 1) < 1e-4) return pcm
+  const out = Buffer.alloc(pcm.length)
+  for (let i = 0; i < pcm.length; i += 2) {
+    out.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(pcm.readInt16LE(i) * gain))), i)
+  }
+  return out
+}
+
 // PCM Buffer → 临时 wav → Opus ogg 分片
 // -page_duration 单位微秒: 设为 20000(20ms, Opus 一帧) 使每帧独立成页——
 //   Android MediaPlayer 按 Ogg 页粒度 seek，默认 1s/页会造成 ±1s 偏差（错播/无声）;
@@ -142,11 +165,12 @@ function main() {
     if (!reading) { skipped.push(file); continue }
     if (clips.has(reading)) { skipped.push(file + '（与 ' + reading + ' 重复）'); continue }
     const filePath = path.join(srcDir, file)
-    console.log(`解码 ${file} ...`)
     try {
       const pcm = decodeToPcm(filePath)
+      // 音量归一化: 按片段峰值统一音量（源音频音量参差）
+      const normalized = normalizePcm(pcm)
       // 截尾到整毫秒（最多损失 <1ms 尾部，无听感影响）; durMs = pcm 字节 / 96 精确
-      const trimmed = pcm.subarray(0, Math.floor(pcm.length / MS_BYTES) * MS_BYTES)
+      const trimmed = normalized.subarray(0, Math.floor(normalized.length / MS_BYTES) * MS_BYTES)
       clips.set(reading, { file, pcm: trimmed, durMs: trimmed.length / MS_BYTES })
     } catch (e) {
       skipped.push(file + '（解码失败）')
