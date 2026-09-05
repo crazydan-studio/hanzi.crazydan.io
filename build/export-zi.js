@@ -1,5 +1,5 @@
 // 从笔画数据库导出静态数据到 public/assets（供前端页面直接加载）
-// 数据源: server/data/hanzi_stroke.db（zi 表: 汉字信息；strokes 表: 笔画轨迹单字单行，
+// 数据源: data/hanzi.db（meta_zi + zi 视图: 汉字信息；strokes 表: 笔画轨迹单字单行，
 //         由 pnpm import:pinyin 导入维护）
 // 导出内容:
 //   - public/assets/zi/commons.json          常用字列表（[字, 读音][]，按权重排序，仅字+第一个读音）
@@ -18,7 +18,7 @@
 //   pnpm export:zi -- --db b.db --out public            # 指定库与输出目录
 import { DatabaseSync } from 'node:sqlite'
 import { decompressCharTrajectory, deltaEncode, flattenPoints, TRAJECTORY_VERSION } from '../server/services/Trajectory.js'
-import { stripTone } from '../server/services/PinyinDict.js'
+import { stripTone, parsePinyinJSON } from '../server/services/PinyinDict.js'
 import path from 'path'
 import fs from 'fs'
 import { PUBLIC_DIR, HANZI_DB_PATH } from '../paths.js'
@@ -78,9 +78,8 @@ function main() {
 
   const words = new Map()   // zi → { zi, weight, readings[], plainSet, totalStrokes, radical, structure, traditional }
   for (const r of rows) {
-    let readings = []
-    try { readings = JSON.parse(r.pinyin) } catch { /* 忽略 */ }
-    if (!Array.isArray(readings)) readings = []
+    // 读音为已按权重降序排列的数字声调拼音 JSON 数组（坏数据兜底见 parsePinyinJSON）
+    const readings = parsePinyinJSON(r.pinyin)
     words.set(r.zi, {
       zi: r.zi,
       weight: r.used_weight ?? 0,

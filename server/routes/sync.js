@@ -2,14 +2,14 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { validateBody } from '../middleware/validation.js'
 import { ok } from '../middleware/response.js'
-import { subscribeSync, unsubscribeSync, publishSync } from '../services/sync.js'
+import { subscribeSync, unsubscribeSync, publishSync, SYNC_EVENTS } from '../services/sync.js'
 
 // 挂载于 /api/sync
 const router = Router()
 
 const emitSchema = z.object({
   client: z.string().min(1).max(100),   // 发起者标识（广播时排除，防回环）
-  event: z.enum(['navigate', 'pen-width']),
+  event: z.enum([SYNC_EVENTS.NAVIGATE, SYNC_EVENTS.PEN_WIDTH]),
   payload: z.record(z.unknown()).default({})
 })
 

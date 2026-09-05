@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { BACKEND_PORT, DIST_DIR, FRONTEND_PORT, PAGES } from './paths.js'
+import { BACKEND_PORT, DIST_DIR, FRONTEND_PORT, PAGES, resolvePortArg } from './paths.js'
 import { THEME_KEY } from './src/config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -17,16 +17,9 @@ function appVersion() {
   }
 }
 
-// 命令行参数解析: --api-port N 指定后端端口（优先级: 参数 > 环境变量 VITE_API_PORT > 默认3001）
+// 后端端口（vite 代理目标）: 命令行 --api-port N > 环境变量 VITE_API_PORT > 默认 3001
 function apiPort() {
-  const i = process.argv.indexOf('--api-port')
-  if (i !== -1 && process.argv[i + 1]) {
-    const p = Number(process.argv[i + 1])
-    if (Number.isInteger(p) && p > 0 && p < 65536) return p
-  }
-  const env = Number(process.env.VITE_API_PORT)
-  if (Number.isInteger(env) && env > 0 && env < 65536) return env
-  return BACKEND_PORT
+  return resolvePortArg(process.argv, ['--api-port'], 'VITE_API_PORT', BACKEND_PORT)
 }
 
 // 目录式页面: 跳转只指定目录，自动定位到目录下的 index.html

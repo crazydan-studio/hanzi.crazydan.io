@@ -1,6 +1,6 @@
 import { getDb, serializeZi } from './database.js'
 import { strokeService } from './StrokeService.js'
-import { syncZiMeta } from './staticSync.js'
+import { syncZiMeta, removeZiStatic } from './staticSync.js'
 
 export const ziService = {
   // 列表: 按权重降序，支持 按字/拼音搜索 + 笔画图过滤，附带笔画（缩略图用）
@@ -55,11 +55,10 @@ export const ziService = {
       LIMIT ? OFFSET ?
     `).all(...params, limit, offset)
 
-    // 附带每字的笔画（trajectory 供前端小图渲染）
+    // 附带每字的笔画（trajectory 供前端小图渲染）; 轨迹损坏时 findByZi 按空处理
     const data = rows.map(row => {
       const zi = serializeZi(row)
-      const strokes = strokeService.findByZi(zi.id)
-      return { ...zi, strokes }
+      return { ...zi, strokes: strokeService.findByZi(zi.id) }
     })
 
     return {
@@ -72,10 +71,7 @@ export const ziService = {
     const db = getDb()
     const row = db.prepare('SELECT * FROM zi WHERE id = ?').get(id)
     if (!row) return null
-
-    const strokes = strokeService.findByZi(id)
-
-    return { ...serializeZi(row), strokes }
+    return { ...serializeZi(row), strokes: strokeService.findByZi(id) }
   },
 
   findByZi(zi) {
@@ -99,6 +95,7 @@ export const ziService = {
   },
 
   // 更新: 结构/部首/读音/笔画数（其余只读，来自字典导入）
+  // 返回 { zi, changed }（无字段变更时不写库、不同步、不广播）
   update(id, data) {
     const db = getDb()
     const updates = []
@@ -119,20 +116,29 @@ export const ziService = {
       updates.push('total_stroke_count = ?')
       params.push(data.total_stroke_count)
     }
-    if (updates.length === 0) return this.findById(id)
+    if (updates.length === 0) {
+      return { zi: this.findById(id), changed: false }
+    }
     params.push(id)
     db.prepare(`
       UPDATE meta_zi SET ${updates.join(', ')}
       WHERE id = ?
     `).run(...params)
-    const updated = this.findById(id)
-    // 同步到静态数据 index.json（仅文件已存在时更新）
-    syncZiMeta(updated)
-    return updated
+    const zi = this.findById(id)
+    if (zi) {
+      // 同步到静态数据 index.json（仅文件已存在时更新）
+      syncZiMeta(zi)
+    }
+    return { zi, changed: zi !== null }
   },
 
+  // 删除（幂等）: DB 行删除（笔画随外键级联），并同步移除静态数据条目
   delete(id) {
-    getDb().prepare('DELETE FROM meta_zi WHERE id = ?').run(id)
-    return { success: true }
+    const db = getDb()
+    const existed = db.prepare('SELECT 1 FROM meta_zi WHERE id = ?').get(id)
+    if (!existed) return { success: true, changed: false }
+    db.prepare('DELETE FROM meta_zi WHERE id = ?').run(id)
+    removeZiStatic(id)
+    return { success: true, changed: true }
   }
 }

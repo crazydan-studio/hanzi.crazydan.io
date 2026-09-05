@@ -1,4 +1,4 @@
-// 从 sqlite 汉字数据源导入到 hanzi_stroke.db
+// 从 sqlite 汉字数据源导入到 data/hanzi.db
 // 用法:
 //   pnpm import:pinyin                                    # 默认数据源 data/pinyin-dict.sqlite
 //   pnpm import:pinyin -- --source /path/to/dict.sqlite   # 指定数据源路径
@@ -10,7 +10,7 @@
 //   - 读音: spell_value_ + spell_tone_ 构成数字声调拼音（如 di+2 → di2，轻声不带数字），
 //           按 used_weight_ 降序排序（该汉字读音的排序结果）
 //   - 权重: 该汉字带声调拼音组合 used_weight_ 的最大值
-//   - 结构: glyph_struct_ 按数字编码存储（前端映射展示名与示例）
+//   - 结构: glyph_struct_ 按数字编码存储（前端映射展示名与示例，见 PinyinDict.STRUCTURE_MAP）
 // 存储: meta_zi 表（id = 汉字 unicode 数值，不含 zi 列）；已存在记录更新（保留已有笔画）
 // 字体覆盖检查: 导入前检查自带中易楷体是否包含该字，缺失则不导入并输出告警
 import { DatabaseSync } from 'node:sqlite'
@@ -19,13 +19,13 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { STRUCTURE_MAP, numberTonePinyin } from '../services/PinyinDict.js'
-import { HANZI_DB_PATH, KAI_FONT_WOFF2_PATH, ZI_ASSETS_DIR } from '../../paths.js'
+import { initDatabase, getDb, withTransaction, closeDatabase } from '../services/database.js'
+import { removeZiStatic } from '../services/staticSync.js'
+import { HANZI_DB_PATH, KAI_FONT_WOFF2_PATH } from '../../paths.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEFAULT_SRC = path.join(__dirname, '..', '..', 'data', 'pinyin-dict.sqlite')
 const DEFAULT_DST = HANZI_DB_PATH
-// 自带中易楷体（web 端显示字体）: 不在其中的汉字不做导入
-const KAI_FONT_PATH = KAI_FONT_WOFF2_PATH
 
 // 解析命令行参数: --source/--db 选项 + 位置参数（相对 CWD 解析）
 function parseArgs() {
@@ -51,20 +51,19 @@ function parseArgs() {
 
 // 加载自带中易楷体（缺失时告警并跳过检查）
 function loadKaiFont() {
-  if (!fs.existsSync(KAI_FONT_PATH)) {
-    console.warn(`[告警] 未找到自带中易楷体（${KAI_FONT_PATH}），跳过字体覆盖检查`)
+  if (!fs.existsSync(KAI_FONT_WOFF2_PATH)) {
+    console.warn(`[告警] 未找到自带中易楷体（${KAI_FONT_WOFF2_PATH}），跳过字体覆盖检查`)
     return null
   }
   try {
-    return fontkit.openSync(KAI_FONT_PATH)
+    return fontkit.openSync(KAI_FONT_WOFF2_PATH)
   } catch (err) {
     console.warn(`[告警] 中易楷体解析失败（${err.message}），跳过字体覆盖检查`)
     return null
   }
 }
 
-
-async function main() {
+function main() {
   const { source: SRC_DB, target: DST_DB } = parseArgs()
 
   if (!fs.existsSync(SRC_DB)) {
@@ -75,7 +74,6 @@ async function main() {
   console.log(`数据源: ${SRC_DB}`)
   console.log(`目标库: ${DST_DB}`)
   // 确保目标表结构存在（支持指定目标路径）
-  const { initDatabase, getDb } = await import('../services/database.js')
   initDatabase(DST_DB)
   const src = new DatabaseSync(SRC_DB, { readOnly: true })
   const dst = getDb()
@@ -120,8 +118,7 @@ async function main() {
       .map(([pinyin]) => pinyin)
   }
 
-  // 写入 hanzi_stroke.db（upsert，保留已有笔画）;
-  // 字体覆盖检查: 自带中易楷体不含该字 → 不导入并输出告警
+  // 字体覆盖检查: 自带中易楷体不含该字 → 不导入（并删除其静态数据条目）
   const kaiFont = loadKaiFont()
   const isCovered = (word) =>
     kaiFont ? kaiFont.glyphForCodePoint(word.codePointAt(0)).id !== 0 : true
@@ -144,12 +141,11 @@ async function main() {
   const BATCH = 500
   const entries = [...agg.entries()]
   let count = 0
-  const missing = []
+  const missing = []   // 字体未覆盖的汉字（不导入，删除静态条目）
   for (let i = 0; i < entries.length; i += BATCH) {
-    dst.exec('BEGIN')
-    try {
-      for (let k = i; k < Math.min(i + BATCH, entries.length); k++) {
-        const [word, e] = entries[k]
+    const chunk = entries.slice(i, i + BATCH)
+    withTransaction(() => {
+      for (const [word, e] of chunk) {
         if (!isCovered(word)) {
           missing.push(word)
           continue
@@ -160,68 +156,44 @@ async function main() {
           e.weight, e.struct, e.radical, e.strokes, e.traditional ? 1 : 0)
         count++
       }
-      dst.exec('COMMIT')
-    } catch (err) {
-      dst.exec('ROLLBACK')
-      throw err
-    }
+    })
     console.log(`已导入 ${count}/${entries.length}`)
   }
 
-  // 告警: 字体未覆盖的汉字（不导入），并从静态数据中删除其条目
-  // （web 端无法以楷体显示该字，且光栅实测盒需字体真实渲染）:
-  //   - index.json 移除对应行
-  //   - strokes 分片移除对应条目（仅该分片存在时更新）
+  // 静态数据清理（web 端数据源，保持与库一致）:
+  //   - 字体未覆盖的汉字无法以楷体显示/测量墨迹盒 → 删除其 index.json 行与笔画分片条目
+  //   - 词典中不存在的汉字 → 删除 DB 行（笔画随外键级联）并同步删除静态条目
   if (missing.length > 0) {
-    const indexFile = path.join(ZI_ASSETS_DIR, 'index.json')
-    const removed = []
-    if (fs.existsSync(indexFile)) {
-      try {
-        const index = JSON.parse(fs.readFileSync(indexFile, 'utf8'))
-        const ids = new Set(missing.map(w => w.codePointAt(0)))
-        const before = index.z.length
-        index.z = index.z.filter(r => !ids.has(r[0]))
-        if (index.z.length < before) {
-          fs.writeFileSync(indexFile, JSON.stringify(index))
-          removed.push(...ids)
-        }
-      } catch { /* 索引文件异常时跳过清理 */ }
-    }
     for (const word of missing) {
-      const cp = word.codePointAt(0)
-      const shardFile = path.join(ZI_ASSETS_DIR, 'strokes', `${cp >> 12}.json`)
-      if (fs.existsSync(shardFile)) {
-        try {
-          const shard = JSON.parse(fs.readFileSync(shardFile, 'utf8'))
-          if (shard.z?.[String(cp)] !== undefined) {
-            delete shard.z[String(cp)]
-            fs.writeFileSync(shardFile, JSON.stringify(shard))
-            removed.push(cp)
-          }
-        } catch { /* 分片异常时跳过清理 */ }
-      }
+      removeZiStatic(word.codePointAt(0))
     }
     const sample = missing.slice(0, 20).join('')
     const more = missing.length > 20 ? ` 等 ${missing.length} 个` : ''
     console.warn(`[告警] 自带中易楷体未包含 ${missing.length} 个汉字，已跳过导入并删除其静态数据: ${sample}${more}`)
-    if (removed.length > 0) console.log(`已从 public/assets/zi/ 删除 ${removed.length} 个汉字的静态数据条目`)
   }
 
-  // 清理: 新词典中不存在的汉字标记删除（保持与数据源一致）
-  dst.exec('CREATE TEMP TABLE _keep(id INTEGER PRIMARY KEY)')
-  const keep = dst.prepare('INSERT OR IGNORE INTO _keep(id) VALUES (?)')
+  // 词典外汉字（含字体未覆盖的历史遗留）: 从 DB 与静态数据一并清理
+  const keep = new Set()
   for (const w of agg.keys()) {
-    if (isCovered(w)) keep.run(w.codePointAt(0))
+    if (isCovered(w)) keep.add(w.codePointAt(0))
   }
-  const { changes } = dst.prepare(
-    'DELETE FROM meta_zi WHERE id NOT IN (SELECT id FROM _keep)'
-  ).run()
-  dst.exec('DROP TABLE _keep')
-  if (changes > 0) console.log(`已清理词典外汉字: ${changes} 个`)
+  const staleIds = dst.prepare('SELECT id FROM meta_zi').all()
+    .map(r => r.id)
+    .filter(id => !keep.has(id))
+  if (staleIds.length > 0) {
+    for (const id of staleIds) removeZiStatic(id)
+    // 分批删除（避开 SQLite 单条 SQL 变量上限）
+    let deleted = 0
+    for (let i = 0; i < staleIds.length; i += 900) {
+      const chunk = staleIds.slice(i, i + 900)
+      const placeholders = chunk.map(() => '?').join(',')
+      deleted += dst.prepare(`DELETE FROM meta_zi WHERE id IN (${placeholders})`).run(...chunk).changes
+    }
+    console.log(`已清理词典外汉字: ${deleted} 个（DB 与静态数据同步）`)
+  }
 
   console.log(`导入完成: ${count} 个汉字（多音聚合、重复去重）`)
   src.close()
-  const { closeDatabase } = await import('../services/database.js')
   closeDatabase()
 }
 

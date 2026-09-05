@@ -42,6 +42,20 @@ export const KAI_FONT_WOFF2_PATH = path.join(PUBLIC_DIR, 'fonts', 'ZhongYiKaiTi.
 export const FRONTEND_PORT = 5173
 export const BACKEND_PORT = 3001
 
+// 端口解析（server / vite / dev-all 共用）: 命令行 > 环境变量 > 默认值;
+// 非法值告警后逐级回退
+export function resolvePortArg(argv, cliNames, envName, fallback) {
+  const idx = argv.findIndex(a => cliNames.includes(a))
+  if (idx !== -1 && argv[idx + 1]) {
+    const p = Number(argv[idx + 1])
+    if (Number.isInteger(p) && p > 0 && p < 65536) return p
+    console.warn(`Invalid port "${argv[idx + 1]}" for ${cliNames[0]}, using default ${fallback}`)
+  }
+  const env = Number(process.env[envName])
+  if (Number.isInteger(env) && env > 0 && env < 65536) return env
+  return fallback
+}
+
 // App 安装包目录（debug 产物在 public/ 供 dev 下载，release 产物在 dist/ 供发布）
 // 与版本信息文件（联网变体据此检查更新，见 build/app-version-pack.js）
 export const APP_DEBUG_APK_DIR = path.join(PUBLIC_DIR, 'assets', 'app', 'android')

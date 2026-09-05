@@ -7,12 +7,19 @@ import { compressCharTrajectory, decompressCharTrajectory } from './Trajectory.j
 // { v, r: [w,h], s: [[t, [b, flatPts]], ...] }，序号由数组下标推出）。
 // API 层仍以逐条笔画对象交互（id = stroke_order，服务端权威编号 1..N）。
 export const strokeService = {
-  // 读取单行并按笔画序号展开为 API 对象
+  // 读取单行并按笔画序号展开为 API 对象; 单行轨迹损坏时返回空列表
+  // （信息/列表等读路径不受坏数据影响，巡检日志见 database.checkStrokeTrajectories）
   findByZi(ziId) {
     const db = getDb()
     const row = db.prepare('SELECT * FROM strokes WHERE zi_id = ?').get(ziId)
     if (!row) return []
-    const traj = decompressCharTrajectory(row.trajectory_data)
+    let traj
+    try {
+      traj = decompressCharTrajectory(row.trajectory_data)
+    } catch (e) {
+      console.warn(`汉字 ${ziId} 轨迹解压失败（按无笔画处理）: ${e.message}`)
+      return []
+    }
     return traj.strokes.map((s, i) => ({
       id: i + 1,
       zi_id: ziId,
@@ -39,13 +46,19 @@ export const strokeService = {
     return this.findByZi(ziId).find(s => s.id === Number(id)) || null
   },
 
-  // 读取单行轨迹并解压: 返回 { r, strokes: [{ o, t, d: { b, p } }] }（绝对坐标）或 null
+  // 读取单行轨迹并解压: 返回 { r, strokes: [{ o, t, d: { b, p } }] }（绝对坐标）或 null;
+  // 单行轨迹损坏时按无数据处理（读路径不抛错）
   _loadChar(ziId) {
     const db = getDb()
     const row = db.prepare('SELECT * FROM strokes WHERE zi_id = ?').get(ziId)
     if (!row) return null
-    const traj = decompressCharTrajectory(row.trajectory_data)
-    return { r: traj.r, strokes: traj.strokes }
+    try {
+      const traj = decompressCharTrajectory(row.trajectory_data)
+      return { r: traj.r, strokes: traj.strokes }
+    } catch (e) {
+      console.warn(`汉字 ${ziId} 轨迹解压失败（按无数据处理）: ${e.message}`)
+      return null
+    }
   },
 
   // 按 stroke_order 排序并重编号 1..N 后写回单行（序号 = 数组下标，必须连续）
@@ -66,16 +79,19 @@ export const strokeService = {
     return ordered
   },
 
+  // 新增单笔: 仅接受顺序追加（序号 = 现存最大序号 + 1）——
+  // 中间插入/跳号会触发静默重编号（连带改变既有笔画 id），统一经 /reorder 调整
   create(ziId, data) {
     this.assertZiExists(ziId)
     const loaded = this._loadChar(ziId)
     const strokes = loaded?.strokes ?? []
-    if (data.stroke_order !== undefined && strokes.some(s => s.o === data.stroke_order)) {
-      throw new AppError(409, 'CONFLICT', `stroke_order conflict: ${data.stroke_order}`)
+    const nextOrder = Math.max(0, ...strokes.map(s => s.o)) + 1
+    if (data.stroke_order !== nextOrder) {
+      throw new AppError(400, 'VALIDATION_ERROR',
+        `Invalid stroke_order ${data.stroke_order}: 新笔画仅支持顺序追加（下一序号 ${nextOrder}），调整顺序请用 /reorder`)
     }
-    const order = data.stroke_order ?? Math.max(0, ...strokes.map(s => s.o)) + 1
     strokes.push({
-      o: order,
+      o: nextOrder,
       t: data.stroke_type,
       d: { b: data.trajectory_data.b ?? 0, p: data.trajectory_data.p }
     })
@@ -83,25 +99,22 @@ export const strokeService = {
     this._saveChar(ziId, r, strokes)
     // 同步到静态数据 strokes 分片（仅分片文件已存在时更新）
     syncZiStrokes(ziId, this.findByZi(ziId))
-    return this.findByIdAndZi(order, ziId)
+    return this.findByIdAndZi(nextOrder, ziId)
   },
 
-  // 批量创建（事务）
+  // 批量创建（顺序追加一组: nextOrder..，事务）; 返回该字全部笔画
   createBatch(ziId, strokesData) {
     this.assertZiExists(ziId)
-    // 顺序唯一性校验
-    const orders = strokesData.map(s => s.stroke_order)
-    if (new Set(orders).size !== orders.length) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Duplicate stroke_order in batch')
-    }
     const loaded = this._loadChar(ziId)
     const strokes = loaded?.strokes ?? []
-    // 与已存在笔画冲突校验
-    const existing = strokes.map(s => s.o)
-    const dup = orders.filter(o => existing.includes(o))
-    if (dup.length > 0) {
-      throw new AppError(409, 'CONFLICT', `stroke_order conflict: ${dup.join(', ')}`)
-    }
+    const nextOrder = strokes.length + 1   // 现存笔画序号恒为连续 1..N
+    // 新增须为自 nextOrder 起的连续序号（跳号/重排请走 reorder）
+    strokesData.forEach((s, i) => {
+      if (s.stroke_order !== nextOrder + i) {
+        throw new AppError(400, 'VALIDATION_ERROR',
+          `Invalid stroke_order ${s.stroke_order}: 新笔画须自序号 ${nextOrder} 起连续追加（调整顺序请用 /reorder）`)
+      }
+    })
     strokes.push(...strokesData.map(s => ({
       o: s.stroke_order,
       t: s.stroke_type,
@@ -117,6 +130,7 @@ export const strokeService = {
     return this.findByZi(ziId)
   },
 
+  // 更新单笔（类型/轨迹）; 序号的调整统一经 /reorder（不经本接口）
   update(ziId, id, data) {
     this.assertZiExists(ziId)
     const loaded = this._loadChar(ziId)

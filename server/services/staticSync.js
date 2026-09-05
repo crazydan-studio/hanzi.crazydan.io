@@ -12,17 +12,20 @@ function indexPath() {
   return path.join(ZI_ASSETS_DIR, 'index.json')
 }
 
-function strokesShardPath(ziId) {
+// 码点分片文件路径（码点 >> 12 分片，与 export-zi / web 端加载路径一致）
+export function strokesShardPath(ziId) {
   return path.join(ZI_ASSETS_DIR, 'strokes', `${ziId >> 12}.json`)
 }
 
-// 读取并解析 index.json（结构: { v, p: 读音字典, r: 部首字典, s: 结构字典, z: 行数组 }）
+// 读取并解析 index.json（结构: { v, p: 读音字典, r: 部首字典, s: 结构字典, z: 行数组 }）;
+// 文件缺失/损坏返回 null（调用方按“无静态数据”处理）
 function readIndex() {
   const file = indexPath()
   if (!fs.existsSync(file)) return null
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'))
-  } catch {
+  } catch (e) {
+    console.warn(`index.json 解析失败（跳过同步）: ${e.message}`)
     return null
   }
 }
@@ -37,7 +40,7 @@ function dictIndex(dict, value) {
   return idx
 }
 
-// 同步部首/结构/读音/笔画数到 index.json（仅文件存在时）:
+// 同步部首/结构/读音/笔画数到 index.json（仅文件存在且含该字时更新）:
 // 行结构 [id, 读音索引(多音为数组), 笔画数, 部首索引, 结构索引, 繁体标记]
 export function syncZiMeta(zi) {
   if (!zi) return false
@@ -47,9 +50,8 @@ export function syncZiMeta(zi) {
     const row = index.z.find(r => r[0] === zi.id)
     if (!row) return false
     if (zi.pinyin !== undefined) {
-      const p = Array.isArray(zi.pinyin)
-        ? zi.pinyin.map(reading => dictIndex(index.p, reading))
-        : [zi.pinyin].map(reading => dictIndex(index.p, reading))
+      // pinyin 经 schema 恒为数组（脚本直插场景亦为 JSON 数组）
+      const p = zi.pinyin.map(reading => dictIndex(index.p, reading))
       row[1] = p.length === 1 ? p[0] : p
     }
     if (zi.total_stroke_count !== undefined) row[2] = zi.total_stroke_count
@@ -57,8 +59,36 @@ export function syncZiMeta(zi) {
     if (zi.structure !== undefined) row[4] = dictIndex(index.s, zi.structure)
     fs.writeFileSync(indexPath(), JSON.stringify(index))
     return true
-  } catch {
+  } catch (e) {
+    console.warn(`index.json 同步失败: ${e.message}`)
     return false
+  }
+}
+
+// 从静态数据移除某汉字（DB 删除后调用，保持静态与库一致）:
+// index.json 删除对应行；笔画分片删除对应条目
+export function removeZiStatic(ziId) {
+  const index = readIndex()
+  if (index) {
+    const before = index.z.length
+    index.z = index.z.filter(r => r[0] !== ziId)
+    if (index.z.length < before) {
+      try {
+        fs.writeFileSync(indexPath(), JSON.stringify(index))
+      } catch (e) {
+        console.warn(`index.json 删除行失败: ${e.message}`)
+      }
+    }
+  }
+  const file = strokesShardPath(ziId)
+  try {
+    if (!fs.existsSync(file)) return
+    const shard = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (shard.z?.[String(ziId)] === undefined) return
+    delete shard.z[String(ziId)]
+    fs.writeFileSync(file, JSON.stringify(shard))
+  } catch (e) {
+    console.warn(`笔画分片移除条目失败（码点 ${ziId}）: ${e.message}`)
   }
 }
 
@@ -92,7 +122,8 @@ export function syncZiStrokes(ziId, strokes) {
     fs.mkdirSync(path.dirname(file), { recursive: true })
     fs.writeFileSync(file, JSON.stringify(shard))
     return true
-  } catch {
+  } catch (e) {
+    console.warn(`笔画分片同步失败（码点 ${ziId}）: ${e.message}`)
     return false
   }
 }

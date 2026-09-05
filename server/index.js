@@ -6,23 +6,12 @@ import ziRouter from './routes/zi.js'
 import strokesRouter from './routes/strokes.js'
 import syncRouter from './routes/sync.js'
 import { errorHandler } from './middleware/errorHandler.js'
-import { BACKEND_PORT, DIST_DIR, HANZI_DB_PATH, PAGES } from '../paths.js'
+import { BACKEND_PORT, DIST_DIR, HANZI_DB_PATH, PAGES, resolvePortArg } from '../paths.js'
 
 const app = express()
 
 // 端口解析优先级: 命令行 --port <n> > 环境变量 PORT > 默认 3001
-function resolvePort() {
-  const idx = process.argv.indexOf('--port')
-  if (idx !== -1 && process.argv[idx + 1]) {
-    const p = Number(process.argv[idx + 1])
-    if (Number.isInteger(p) && p > 0 && p < 65536) return p
-    console.warn(`Invalid --port value "${process.argv[idx + 1]}", falling back`)
-  }
-  const env = Number(process.env.PORT)
-  if (Number.isInteger(env) && env > 0 && env < 65536) return env
-  return BACKEND_PORT
-}
-const PORT = resolvePort()
+const PORT = resolvePortArg(process.argv, ['--port'], 'PORT', BACKEND_PORT)
 
 // 数据库路径解析优先级: 命令行 --db <path> > 环境变量 HANZI_DB > 默认 data/hanzi.db
 // （相对路径基于当前工作目录解析）
@@ -48,9 +37,16 @@ app.use('/api/sync', syncRouter)
 if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR))
   // SPA fallback: 目录式多页结构，未知路径按页面前缀回到对应 index.html
-  // （最长前缀优先，如 /strokes/write 先于 /strokes）
+  // （最长前缀优先，如 /strokes/write 先于 /strokes）;
+  // 未知 /api/* 不落入页面回退（返回 JSON 404，避免 HTML 误导 API 调用方）
   const pageRoutes = [...PAGES].sort((a, b) => b.length - a.length)
   app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Not found', details: {} }
+      })
+    }
     const p = req.path
     for (const page of pageRoutes) {
       if (p === '/' + page || p.startsWith('/' + page + '/')) {
