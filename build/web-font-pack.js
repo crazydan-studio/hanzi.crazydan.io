@@ -5,7 +5,7 @@
 // 用法:
 //   pnpm web:font                # 目标已存在则跳过
 //   pnpm web:font -- --force     # 强制重新生成
-// 已注册为 pnpm dev/build/dev:all 的前置脚本（predev/prebuild/predev:all 自动执行）
+// 已作为 pnpm dev/dev:all/build 的首个前置命令执行（见 package.json scripts）
 import fontverter from 'fontverter'
 import path from 'path'
 import fs from 'fs'

@@ -1,5 +1,5 @@
 // 打包「汉字信息」数据库到 App 资源目录（App 内置库; 笔画数据为独立库，另行导出/下载）
-// 数据源: server/data/hanzi_stroke.db（WAL 模式）
+// 数据源: data/hanzi.db（WAL 模式）
 // 产物:   app/android/src/main/assets/db/hanzi.db（仅 meta_zi 实体表 + zi 视图）+
 //         hanzi.db.sha256
 // 说明:

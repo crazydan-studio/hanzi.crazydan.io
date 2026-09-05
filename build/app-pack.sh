@@ -7,7 +7,7 @@
 #   2. 拷贝赞助页收款码图片 → app/android/src/main/assets/donate（缺失时从站点下载）
 #   3. 拷贝中易楷体（全量 TTF，不精简）到 app 资源目录（已存在则跳过;
 #      web 端 woff2 由 pnpm dev/build/dev:all 前置脚本单独生成，见 build/web-font-pack.js）
-#   4. 打包开发数据库 server/data/hanzi_stroke.db → app/android/src/main/assets/db/hanzi.db
+#   4. 打包开发数据库 data/hanzi.db → app/android/src/main/assets/db/hanzi.db
 #   5. 构建 Android App（Gradle，Compose Multiplatform 原生 UI）
 #   6. 移动安装包并写入版本信息文件
 #      - debug:   public/assets/app/android/hanzi-debug.apk（web dev 本地下载）

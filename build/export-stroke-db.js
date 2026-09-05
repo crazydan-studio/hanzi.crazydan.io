@@ -1,5 +1,5 @@
 // 导出「汉字笔画数据」独立数据库（App 端按需下载使用）
-// 数据源: server/data/hanzi_stroke.db（笔画数据开发库，与 app-db-pack.js 同源）
+// 数据源: data/hanzi.db（笔画数据开发库，与 app-db-pack.js 同源）
 // 产物:   {输出目录}/hanzi-stroke-{数量}.db（如 hanzi-stroke-1500.db）/ hanzi-stroke-full.db
 // 结构:   仅包含 strokes 表（汉字信息由 App 内置库 hanzi.db 提供，不重复携带）
 // 排序:   汉字按其所有拼音中权重最大的值（zi.used_weight）降序排列，
