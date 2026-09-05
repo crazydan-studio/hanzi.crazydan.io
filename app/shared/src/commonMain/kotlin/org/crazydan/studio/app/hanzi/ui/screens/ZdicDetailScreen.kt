@@ -27,6 +27,7 @@ fun ZdicDetailScreen(
         TopBar(title = "汉字详情", dark = dark, onToggleTheme = onToggleTheme, onBack = onBack)
         ZdicWebView(
             url = url,
+            dark = dark,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
