@@ -47,11 +47,16 @@ private fun themeScript(dark: Boolean): String {
         "})()"
 }
 
+// WebView 默认背景为白色——暗色主题下首帧/未填充区域会闪白，
+// 按应用主题设置背景色（暗色取面板色 Gray-900，与 App 暗色一致）;
+// 明亮主题保持白色
+private fun themeBackgroundColor(dark: Boolean): Int =
+    if (dark) 0xFF111827.toInt() else 0xFFFFFFFF.toInt()
+
 /**
  * 受限 WebView（仅 Android）: 页面跳转与资源加载均限制在 zdic.net 及其子域名，
  * 外部域名导航被拦截、外部资源请求被取消;
- * 暗黑/明亮主题经 JS 在 <html> 上设置 data-theme 属性跟随应用（切换即时生效，不重载页面），
- * 由页面自身配色实现主题
+ * 暗黑/明亮主题经 JS 在 <html> 上设置 data-theme 属性跟随应用（由页面自身配色实现）
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -65,9 +70,12 @@ actual fun ZdicWebView(
     // 主题最新值（供 WebViewClient 回调读取——回调在非组合作用域，不能直接捕获组合参数）
     var darkNow by remember { mutableStateOf(dark) }
     SideEffect { darkNow = dark }
-    // 主题切换即时重放注入脚本（不重载页面）
+    // 主题切换: 同步 WebView 背景色并即时重放注入脚本（不重载页面）
     LaunchedEffect(dark, webView) {
-        webView?.evaluateJavascript(themeScript(dark), null)
+        webView?.let { view ->
+            view.setBackgroundColor(themeBackgroundColor(dark))
+            view.evaluateJavascript(themeScript(dark), null)
+        }
     }
 
     AndroidView(
@@ -78,6 +86,8 @@ actual fun ZdicWebView(
                 settings.allowFileAccess = false
                 settings.allowContentAccess = false
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                // 首帧即用应用主题背景色，避免暗色下 WebView 默认白色闪屏
+                setBackgroundColor(themeBackgroundColor(dark))
                 webViewClient = object : WebViewClient() {
                     // 页面导航: 仅 zdic 域名在应用内加载，其余拦截（不再跳转系统浏览器）
                     override fun shouldOverrideUrlLoading(
@@ -105,10 +115,12 @@ actual fun ZdicWebView(
                         super.onPageStarted(view, url, favicon)
                     }
 
-                    // 页面加载完成后按当前主题注入样式
+                    // 页面加载完成后注入当前主题; 注入为异步执行，须等页面按主题
+                    // 重排重绘完成后再隐藏遮罩，否则默认（明亮）主题会闪现一瞬
                     override fun onPageFinished(view: WebView, url: String?) {
-                        view.evaluateJavascript(themeScript(darkNow), null)
-                        onLoading(false)
+                        view.evaluateJavascript(themeScript(darkNow)) {
+                            view.postDelayed({ onLoading(false) }, 60L)
+                        }
                     }
                 }
                 loadUrl(safeZdicUrl(url))
