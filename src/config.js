@@ -25,3 +25,10 @@ export const PINYIN_AUDIO_DIR = '/assets/audio/pinyin'
 // 中易楷体（统一字体族名与预加载字号，字体加载/墨迹测量共用）
 export const KAI_FONT_FAMILY = '"ZhongYiKaiTi"'
 export const KAI_FONT_SIZE = 300
+
+// 单个汉字（汉字数据源实际覆盖: CJK 基本区 + 扩展A 区 + 〇，见 data/hanzi.db）;
+// 查询路由判定与 server 端 zi 参数校验共用（跨语言镜像: App HomeScreen 按此范围判定）
+export const HANZI_SINGLE_RE = /^[\u3007\u3400-\u4dbf\u4e00-\u9fff]$/
+
+// 首页常用字速览数量（与 App 首页一致）
+export const HOME_COMMONS_COUNT = 20

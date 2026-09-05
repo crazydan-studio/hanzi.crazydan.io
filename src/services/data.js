@@ -1,6 +1,7 @@
 // ============ 静态数据加载（public/assets，由 build/export-zi.js 导出生成） ============
 // 静态文件采用紧凑结构（降低存储开销），在此归一化为完整字段供页面使用
 import { structureDisplayName } from '@components/ZiStructures.js'
+import { deltaDecode, unflattenPoints } from '../../shared/stroke-format.js'
 
 async function loadJson(url) {
   const res = await fetch(url)
@@ -52,29 +53,7 @@ function normalizeMeta(index, row) {
 // 分片结构: { v, z: { 码点: [r, [[t, [b, 扁平点阵]], ...]] } }
 // 轨迹点为增量编码的扁平一维数组（每 4 个一组: x/y/pr/t）;
 // 笔画序号由数组下标推出; r 为光栅实测盒 [w, h] 或 null
-
-// 扁平点阵 → 增量编码点数组
-function unflattenPoints(flat) {
-  const out = []
-  for (let i = 0; i + 3 < flat.length; i += 4) {
-    out.push([flat[i], flat[i + 1], flat[i + 2], flat[i + 3]])
-  }
-  return out
-}
-
-// 增量编码点 → 绝对坐标点
-function deltaDecode(points) {
-  const out = []
-  let prev = null
-  for (const p of points) {
-    const point = prev
-      ? [p[0] + prev[0], p[1] + prev[1], p[2] + prev[2], p[3] + prev[3]]
-      : [p[0], p[1], p[2], p[3]]
-    out.push(point)
-    prev = point
-  }
-  return out
-}
+// （扁平点阵还原与增量解码共用 shared/stroke-format.js，与 server/build 一致）
 
 // 分片条目 → 完整笔画数组（trajectory_data 含 v/b/r/p 绝对坐标）
 function normalizeStrokes(v, entry) {

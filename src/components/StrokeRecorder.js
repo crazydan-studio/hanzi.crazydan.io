@@ -1,4 +1,4 @@
-import { TRAJECTORY_VERSION, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE, BRUSH_MIN, BRUSH_MAX } from './Constants.js'
+import { TRAJECTORY_VERSION, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE, BRUSH_MIN, BRUSH_MAX, COORD_MIN, COORD_MAX } from './Constants.js'
 
 // 抽稀降采样阈值: 与上一保留点距离小于 0.001（盒相对归一化坐标，盒宽约 0.4-0.5px）
 // 的点丢弃，0.5px 粒度对笔触渲染不可感知，可显著降低轨迹点数与存储占用
@@ -6,9 +6,9 @@ const MIN_POINT_DIST = 0.001
 const MIN_POINT_DIST_SQ = MIN_POINT_DIST * MIN_POINT_DIST
 
 // 盒相对坐标取值范围 [-2, 3]（允许笔画落在盒外 2 倍宽/高范围内），
-// 与 server 校验（COORD_MIN/COORD_MAX）一致
-export const NORM_MIN = -2
-export const NORM_MAX = 3
+// 由格式常量（COORD_MIN/MAX 为 ×COORD_SCALE 整数）推导，与 server 校验同一来源
+export const NORM_MIN = COORD_MIN / COORD_SCALE
+export const NORM_MAX = COORD_MAX / COORD_SCALE
 
 function clampNorm(v) {
   return Math.max(NORM_MIN, Math.min(NORM_MAX, v))
