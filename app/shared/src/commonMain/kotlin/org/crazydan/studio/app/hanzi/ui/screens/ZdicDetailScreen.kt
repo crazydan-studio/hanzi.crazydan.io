@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import org.crazydan.studio.app.hanzi.ui.ZdicWebView
 import org.crazydan.studio.app.hanzi.ui.components.LoadingBox
 import org.crazydan.studio.app.hanzi.ui.components.TopBar
@@ -31,11 +33,16 @@ fun ZdicDetailScreen(
     var loading by remember { mutableStateOf(true) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxSize()
     ) {
-        TopBar(title = "汉字详情", dark = dark, onToggleTheme = onToggleTheme, onBack = onBack)
+        // 顶部栏与其余页面一致: 内容两侧 16dp 留白（WebView 区域保持全宽）
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        ) {
+            TopBar(title = "汉字详情", dark = dark, onToggleTheme = onToggleTheme, onBack = onBack)
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
