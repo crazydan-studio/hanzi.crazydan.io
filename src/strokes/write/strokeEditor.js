@@ -9,14 +9,15 @@ import { createSyncClient } from '@services/syncClient.js'
 import { strokeTypesMap } from '@components/StrokeTypes.js'
 import { ZI_STRUCTURES, structureLabel } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
-import { copyText } from '@services/clipboard.js'
+import { copyFlashMixin } from '@services/clipboard.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 import { TRAJECTORY_VERSION } from '@components/Constants.js'
 import { STROKE_REF_URL, ZDIC_URL } from '../../config.js'
-import { playPinyinAudio, stopPinyinAudio, hasPinyinAudio } from '@services/pinyinAudio.js'
+import { playPinyinAudio, stopPinyinAudio, audioMapOf } from '@services/pinyinAudio.js'
 
 export function registerStrokeEditor() {
   Alpine.data('strokeEditor', () => ({
+    ...copyFlashMixin(),
     zi: null,
     strokes: [],
     strokeTypesMap: strokeTypesMap,
@@ -247,31 +248,16 @@ export function registerStrokeEditor() {
     // ---- 读音编辑（与汉字信息页一致的 chip 形式: 试听/编辑/删除） ----
     editingPinyin: null,          // 编辑中的读音索引（-1 = 添加新读音）
     pinyinDraft: '',
-    copiedValue: null,            // 最近复制成功的值（用于「已复制」反馈）
-    _copyTimer: null,
     audio: null,                  // 当前试听音频
     audioMap: {},                 // 读音试听可用性（无音频的读音禁用试听按钮）: 读音 → 是否有音频
 
     // 读音试听可用性刷新（读音可编辑，变更后重查）
     async refreshPinyinAudio() {
-      const list = this.zi?.pinyin || []
-      this.audioMap = Object.fromEntries(await Promise.all(
-        list.map(async p => [p, await hasPinyinAudio(p)])
-      ))
+      this.audioMap = await audioMapOf(this.zi?.pinyin || [])
     },
 
     // 数字声调拼音 → 符号声调（展示用）
     symbolPinyin: numberToSymbolTonePinyin,
-
-    // 复制到剪贴板（含非安全上下文回退），成功后提示「已复制」
-    async copy(value) {
-      const ok = await copyText(value)
-      if (ok) {
-        this.copiedValue = String(value)
-        clearTimeout(this._copyTimer)
-        this._copyTimer = setTimeout(() => { this.copiedValue = null }, 1500)
-      }
-    },
 
     // 试听读音（雪碧图分片 + 偏移索引定位）
     async playPinyin(p) {
@@ -406,6 +392,11 @@ export function registerStrokeEditor() {
   // v1 轨迹未记录光栅实测盒，且盒无法仅从轨迹数据还原——须在真实背景字
   // 光栅实测盒就绪后（书写页字体渲染）补记，保证记录盒与实际光栅实测盒一致
   scheduleLegacyUpgrade() {
+    // 无旧轨迹时无需轮询等待
+    if (this.strokes.every(s => !Number.isInteger(s.id) ||
+        (s.trajectory_data.r && s.trajectory_data.v === TRAJECTORY_VERSION))) {
+      return
+    }
     if (this._upgradeTimer) return   // 升级轮询已在进行
     let tries = 0
     this._upgradeTimer = setInterval(async () => {

@@ -57,6 +57,13 @@ export async function hasPinyinAudio(p) {
   return clips.has(p)
 }
 
+// 读音列表的试听可用性表（读音 → 是否有音频），供汉字信息页/书写页共用
+export async function audioMapOf(readings) {
+  const unique = [...new Set(readings || [])]
+  return Object.fromEntries(
+    await Promise.all(unique.map(async p => [p, await hasPinyinAudio(p)])))
+}
+
 // 播放令牌: 每次播放/停止递增，使仍在下载或等待元数据的旧播放失效
 // （音频下载慢于用户连点时，旧 Audio 的 loadedmetadata 到达后不再起播）
 let activeToken = 0

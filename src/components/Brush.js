@@ -95,9 +95,9 @@ export function computeBrushWidths(points, baseWidth = BASE_WIDTH) {
 
     const inHead = i < headN
     const inTail = i >= n - tailN
+    // 头尾重叠（短笔画）时顿笔（head）优先
     let factor = 1
-    if (inHead && inTail) factor = headFactor    // 短笔画(头尾重叠): 顿笔优先(粗)
-    else if (inHead) factor = headFactor
+    if (inHead) factor = headFactor
     else if (inTail) factor = tailFactor
 
     widths[i] = baseWidth * pressureFactor[i] * speedSmoothed[i] * factor

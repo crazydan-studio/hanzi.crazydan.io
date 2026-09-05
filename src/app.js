@@ -3,8 +3,8 @@
 import Alpine from 'alpinejs'
 import { loadCommons } from '@services/data.js'
 import {
-  GITHUB_ISSUES, GITHUB_RELEASES, KUAII_IME_URL, SITE_URL,
-  STUDIO_URL, SUPPORT_EMAIL, ZDIC_TERMS_URL, ZDIC_URL
+  GITHUB_ISSUES, GITHUB_RELEASES, HANZI_SINGLE_RE, HOME_COMMONS_COUNT, KUAII_IME_URL,
+  SITE_URL, STUDIO_URL, SUPPORT_EMAIL, ZDIC_TERMS_URL, ZDIC_URL
 } from './config.js'
 
 // Android 系统图标（App 下载按钮）
@@ -56,8 +56,8 @@ Alpine.data('homeApp', () => ({
   init() {
     loadCommons()
       .then((list) => {
-        // 常用字速览: 按权重显示前 20 个常用汉字
-        this.commons = (list || []).slice(0, 20)
+        // 常用字速览: 按权重显示前 N 个常用汉字
+        this.commons = (list || []).slice(0, HOME_COMMONS_COUNT)
       })
       .catch(() => {
         this.commonsError = '常用字数据加载失败'
@@ -73,7 +73,7 @@ Alpine.data('homeApp', () => ({
   search() {
     const q = this.query.trim().replace(/v/g, 'ü')
     if (!q) return
-    if (/^[\u4e00-\u9fff]$/.test(q)) {
+    if (HANZI_SINGLE_RE.test(q)) {
       location.href = `/zi/?v=${encodeURIComponent(q)}`
     } else if (/^[a-z\u00fc]+$/i.test(q)) {
       location.href = `/pinyin/?v=${q.toLowerCase()}`

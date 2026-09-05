@@ -8,7 +8,7 @@
 // （主题初始化由 vite 插件注入的内联脚本在 head 阻塞执行，避免刷新跳闪）
 import { KAI_FONT_FAMILY, KAI_FONT_SIZE } from './config.js'
 
-const FONT_LOAD_SPEC = `${KAI_FONT_SIZE}px ${KAI_FONT_FAMILY}`;
+const FONT_LOAD_SPEC = `${KAI_FONT_SIZE}px ${KAI_FONT_FAMILY}`
 
 (function () {
   function addOverlay() {
@@ -34,8 +34,6 @@ const FONT_LOAD_SPEC = `${KAI_FONT_SIZE}px ${KAI_FONT_FAMILY}`;
       .catch(() => finishLoading(el))
   }
 
-  // 兜底: 页面 HTML 未带 boot-loading 类（如旧缓存）时补加，保证遮罩生效
-  document.documentElement.classList.add('boot-loading')
   if (document.body) {
     initFontLoading(addOverlay())
   } else {

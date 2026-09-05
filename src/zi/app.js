@@ -7,13 +7,14 @@ import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { STROKE_HIGHLIGHT_COLOR } from '@components/Constants.js'
 import { strokeTypeName } from '@components/StrokeTypes.js'
 import { loadZiMeta, loadZiStrokes } from '@services/data.js'
-import { playPinyinAudio, stopPinyinAudio, hasPinyinAudio } from '@services/pinyinAudio.js'
+import { playPinyinAudio, stopPinyinAudio, audioMapOf } from '@services/pinyinAudio.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
-import { copyText } from '@services/clipboard.js'
+import { copyFlashMixin } from '@services/clipboard.js'
 import { setBackUrl } from '@services/session.js'
 import { GITHUB_ISSUES, ZDIC_URL } from '../config.js'
 
 Alpine.data('ziApp', () => ({
+  ...copyFlashMixin(),
   zi: '',
   unicode: 0,
   zdicUrl: '',
@@ -31,12 +32,10 @@ Alpine.data('ziApp', () => ({
   playing: false,
   // 播放中当前笔画名（田字格上方悬浮提示；未命名提示笔画类型未知）
   strokeName: '',
-  audio: null,
-  audioHint: '',
   // 读音试听可用性（无音频的读音禁用试听按钮）: 读音 → 是否有音频
   audioMap: {},
-  copiedValue: null,
-  _copyTimer: null,
+  audio: null,
+  audioHint: '',
   // 本地开发模式下显示跳转笔画书写页的浮动按钮
   writeButton: import.meta.env.DEV,
   writeUrl: '',
@@ -68,9 +67,7 @@ Alpine.data('ziApp', () => ({
     }
     this.hasStrokes = Array.isArray(this.strokes) && this.strokes.length > 0
     // 读音试听可用性（加载音频索引，无音频的试听按钮置灰）
-    this.audioMap = Object.fromEntries(await Promise.all(
-      this.meta.pinyin.map(async p => [p, await hasPinyinAudio(p)])
-    ))
+    this.audioMap = await audioMapOf(this.meta.pinyin)
     this.loading = false
     await this.ensureFont()
     this.$nextTick(() => this.initEngine())
@@ -224,15 +221,5 @@ Alpine.data('ziApp', () => ({
   },
 
   // 数字声调拼音 → 符号声调拼音（展示用）
-  symbolPinyin: numberToSymbolTonePinyin,
-
-  // 复制到剪贴板（含非安全上下文回退），成功后提示「已复制」
-  async copy(value) {
-    const ok = await copyText(value)
-    if (ok) {
-      this.copiedValue = String(value)
-      clearTimeout(this._copyTimer)
-      this._copyTimer = setTimeout(() => { this.copiedValue = null }, 1500)
-    }
-  }
+  symbolPinyin: numberToSymbolTonePinyin
 }))

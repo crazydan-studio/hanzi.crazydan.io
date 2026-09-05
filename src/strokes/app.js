@@ -11,15 +11,19 @@ import { THEME_CHANGE_EVENT } from '@components/ThemeToggle.js'
 import { setBackUrl } from '@services/session.js'
 import { numberToSymbolTonePinyin } from '@services/pinyin.js'
 
+// 每页条数选项与默认值
+const LIMIT_OPTIONS = [20, 50, 100, 500]
+const DEFAULT_LIMIT = LIMIT_OPTIONS[0]
+
 Alpine.data('ziList', () => ({
   zi: [],
   search: '',
   page: 1,
-  limit: 20,
+  limit: DEFAULT_LIMIT,
   hasStrokes: '',          // ''全部 | '1'完整 | '2'仅含部分笔画图 | '0'无笔画图
   totalPages: 1,
   jumpPage: 1,             // 分页跳转输入
-  LIMIT_OPTIONS: [20, 50, 100, 500],
+  LIMIT_OPTIONS: LIMIT_OPTIONS,
   themeVersion: 0,         // 主题版本号（x-effect 依赖，主题切换时重绘笔画缩略图）
   loadError: '',           // 列表加载失败提示（与加载中/无结果互斥）
   structureLabel: structureLabel,               // 结构名显示
@@ -31,7 +35,7 @@ Alpine.data('ziList', () => ({
     const params = new URLSearchParams(window.location.search)
     this.page = parseInt(params.get('page')) || 1
     this.jumpPage = this.page          // 跳转输入框与 URL 解析的当前页同步
-    this.limit = parseInt(params.get('limit')) || 20
+    this.limit = parseInt(params.get('limit')) || DEFAULT_LIMIT
     this.search = params.get('search') || ''
     const hs = params.get('has_strokes')
     if (hs === '1' || hs === '0' || hs === '2') this.hasStrokes = hs
@@ -59,7 +63,7 @@ Alpine.data('ziList', () => ({
   updateUrl() {
     const params = new URLSearchParams()
     if (this.page > 1) params.set('page', String(this.page))
-    if (this.limit !== 20) params.set('limit', String(this.limit))
+    if (this.limit !== DEFAULT_LIMIT) params.set('limit', String(this.limit))
     if (this.search) params.set('search', this.search)
     if (this.hasStrokes !== '') params.set('has_strokes', this.hasStrokes)
     const qs = params.toString()
@@ -175,10 +179,9 @@ Alpine.data('ziList', () => ({
   // 记录来源 URL（含过滤/分页参数），书写页"返回"按钮据此恢复进入前的页面
   // 广播 navigate: 其他端的列表/书写页同步跳转到该字的书写页
   openWriter(zi) {
+    const url = `write/?zi=${encodeURIComponent(zi.zi)}&mode=write`
     setBackUrl()
-    this.sync?.emit('navigate', {
-      url: `write/?zi=${encodeURIComponent(zi.zi)}&mode=write`
-    })
-    location.href = `write/?zi=${encodeURIComponent(zi.zi)}&mode=write`
+    this.sync?.emit('navigate', { url })
+    location.href = url
   }
 }))

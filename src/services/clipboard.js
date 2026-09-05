@@ -26,3 +26,21 @@ export async function copyText(text) {
     return false
   }
 }
+
+// 复制成功提示（「已复制」闪烁）: 各页面组件共用字段与方法——
+// 用法: Alpine.data('x', () => ({ ...copyFlashMixin(), ... }))，
+// 模板: x-text="copiedValue === v ? '已复制' : '复制'"，点击时调用 copy(value)
+export function copyFlashMixin() {
+  return {
+    copiedValue: null,   // 最近复制成功的值（用于「已复制」反馈）
+    _copyTimer: null,
+    async copy(value) {
+      const ok = await copyText(value)
+      if (ok) {
+        this.copiedValue = String(value)
+        clearTimeout(this._copyTimer)
+        this._copyTimer = setTimeout(() => { this.copiedValue = null }, 1500)
+      }
+    }
+  }
+}
