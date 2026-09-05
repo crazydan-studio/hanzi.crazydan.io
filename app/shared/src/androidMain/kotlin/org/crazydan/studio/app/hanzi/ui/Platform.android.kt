@@ -359,18 +359,32 @@ actual object Platform {
 
     actual fun sha256Hex(path: String): String? {
         return try {
+            // 输入流由 sha256HexOf 内部关闭
+            sha256HexOf(File(path).inputStream())
+        } catch (e: Exception) {
+            Log.w(TAG, "计算文件 SHA-256 失败: $path", e)
+            null
+        }
+    }
+
+    /**
+     * 计算输入流内容的 SHA-256（十六进制小写）; 使用后关闭输入流。
+     * 供文件与内置 asset 两种来源共用（MainActivity 校验内置库 hash 时亦调用）
+     */
+    fun sha256HexOf(input: java.io.InputStream): String? {
+        return try {
             val digest = MessageDigest.getInstance("SHA-256")
-            File(path).inputStream().use { input ->
+            input.use { stream ->
                 val buf = ByteArray(8192)
                 while (true) {
-                    val n = input.read(buf)
+                    val n = stream.read(buf)
                     if (n < 0) break
                     digest.update(buf, 0, n)
                 }
             }
             digest.digest().joinToString("") { "%02x".format(it) }
         } catch (e: Exception) {
-            Log.w(TAG, "计算文件 SHA-256 失败: $path", e)
+            Log.w(TAG, "计算输入流 SHA-256 失败", e)
             null
         }
     }

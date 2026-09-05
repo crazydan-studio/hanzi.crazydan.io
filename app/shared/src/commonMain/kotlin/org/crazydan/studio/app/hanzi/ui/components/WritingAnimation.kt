@@ -186,7 +186,7 @@ private fun brushWidths(points: List<StrokePoint>, baseWidth: Float): List<Float
     }
     val speedSmoothed = smooth3(speedFactor.toList())
 
-    // 3) 起笔顿笔 + 收笔出锋（各占 12% 长度）
+    // 3) 起笔顿笔 + 收笔出锋（各占 12% 长度）; 头尾重叠（短笔画）时顿笔优先
     val headN = maxOf(2, (n * 0.12f).toInt())
     val tailN = maxOf(2, (n * 0.12f).toInt())
     val out = ArrayList<Float>(n)
@@ -195,10 +195,13 @@ private fun brushWidths(points: List<StrokePoint>, baseWidth: Float): List<Float
         val headFactor = 1.35f - 0.35f * headPos
         val tailPos = ((n - 1 - i).toFloat() / tailN).coerceAtMost(1f)
         val tailFactor = 0.5f + 0.5f * tailPos
-        val factor = if (i < headN && i >= n - tailN) headFactor
-            else if (i < headN) headFactor
-            else if (i >= n - tailN) tailFactor
-            else 1f
+        val inHead = i < headN
+        val inTail = i >= n - tailN
+        val factor = when {
+            inHead -> headFactor
+            inTail -> tailFactor
+            else -> 1f
+        }
         out.add(baseWidth * pressureFactor[i] * speedSmoothed[i] * factor)
     }
     // 输出前整体 5 点平滑（减少宽度抖动造成的毛刺）

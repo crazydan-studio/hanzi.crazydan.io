@@ -36,7 +36,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.crazydan.studio.app.hanzi.shared.ZiEntry
 import org.crazydan.studio.app.hanzi.shared.HanziDb
-import org.crazydan.studio.app.hanzi.shared.StrokeDbInfo
+import org.crazydan.studio.app.hanzi.shared.StrokeDbState
+import org.crazydan.studio.app.hanzi.shared.StrokeDbStatus
 import org.crazydan.studio.app.hanzi.ui.Gray400
 import org.crazydan.studio.app.hanzi.ui.Gray500
 import org.crazydan.studio.app.hanzi.ui.SiteLinks
@@ -75,7 +76,7 @@ fun HomeScreen(
     var commonsError by remember { mutableStateOf(false) }
 
     // 笔画数据状态（进入首页时检查已配置的笔画数据库）
-    var strokeInfo by remember { mutableStateOf<StrokeDbInfo?>(null) }
+    var strokeStatus by remember { mutableStateOf<StrokeDbStatus?>(null) }
     var strokeChecked by remember { mutableStateOf(false) }
 
     // 进入首页时不自动聚焦搜索框（避免弹出键盘）；常用字速览仅首次加载（缓存复用）
@@ -90,7 +91,7 @@ fun HomeScreen(
             onCommonsLoaded(list)
         }
         // 笔画数据库状态（重新进入首页时刷新）
-        strokeInfo = withContext(Dispatchers.Default) { db.strokeDbStatus().info }
+        strokeStatus = withContext(Dispatchers.Default) { db.strokeDbStatus() }
         strokeChecked = true
     }
 
@@ -158,7 +159,8 @@ fun HomeScreen(
                     onSearch(query, onOpenZi, onOpenPinyin) { error = it }
                 }
             )
-        }        // 提示说明（汉字用楷体，英文/拼音用系统字体，避免字符间隔过大）
+        }
+        // 提示说明（汉字用楷体，英文/拼音用系统字体，避免字符间隔过大）
         MixedFontText(
             text = "仅可输入单个汉字或单个无声调拼音；拼音中的 ü 可用 v 代替（如 lv 等同于 lü）",
             style = MaterialTheme.typography.labelSmall.copy(
@@ -227,14 +229,30 @@ fun HomeScreen(
                         )
                     }
                 )
-                // 附加说明: 已配置且完整时显示可访问的汉字数量；缺失/无效时警示
-                val info = strokeInfo
+                // 笔画数据说明: 已配置且完整时显示可访问规模；缺失/损坏时分别警示
                 when {
                     !strokeChecked -> Unit
-                    info != null -> Text(
-                        text = "当前可访问 ${info.ziCount} 个汉字的笔画数据（共 ${info.strokeCount} 笔）。",
+                    strokeStatus?.state == StrokeDbState.READY -> {
+                        val info = strokeStatus?.info
+                        Text(
+                            text = if (info != null) {
+                                "当前可访问 ${info.ziCount} 个汉字的笔画数据（共 ${info.strokeCount} 笔）。"
+                            } else {
+                                "笔画数据状态异常，建议重新导入。"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (info != null) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                    strokeStatus?.state == StrokeDbState.INVALID -> Text(
+                        text = "笔画数据无效或已损坏：汉字信息页暂无法显示笔画书写动画与笔画分解图，建议尽快重新导入。",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 8.dp)
                     )
                     else -> Text(
@@ -284,7 +302,7 @@ fun HomeScreen(
                     }
                     AboutBlock("许可协议", dark) {
                         InlineLinkText(
-                            text = "本站点（https://hanzi.crazydan.io）所提供的资源和源代码，仅限用于个人学习、师生教学等非商业用途；商业使用本站点所提供的汉字笔画数据，需获得商业授权。本站点所提供的汉字信息数据、拼音音频文件来源于「汉典网」（https://zdic.net/），直接使用需遵从其「使用条款」。",
+                            text = "本站点（${SiteLinks.SITE}）所提供的资源和源代码，仅限用于个人学习、师生教学等非商业用途；商业使用本站点所提供的汉字笔画数据，需获得商业授权。本站点所提供的汉字信息数据、拼音音频文件来源于「汉典网」（${SiteLinks.ZDIC}），直接使用需遵从其「使用条款」。",
                             links = mapOf(
                                 "汉典网" to SiteLinks.ZDIC,
                                 "使用条款" to SiteLinks.ZDIC_TERMS
@@ -303,7 +321,7 @@ fun HomeScreen(
                     }
                     AboutBlock("联系我们", dark) {
                         InlineLinkText(
-                            text = "如有合作或商务需求，可发送邮件至 support@studio.crazydan.org。",
+                            text = "如有合作或商务需求，可发送邮件至 ${SiteLinks.SUPPORT_EMAIL}。",
                             links = mapOf("support@studio.crazydan.org" to "mailto:${SiteLinks.SUPPORT_EMAIL}"),
                             style = aboutTextStyle
                         )
@@ -340,8 +358,17 @@ private fun AboutBlock(title: String, dark: Boolean, content: @Composable () -> 
     }
 }
 
-// 首页常用字速览数量（与 web 首页一致: 前 20 个常用汉字）
+// 首页常用字速览数量（与 web 首页 src/config.js HOME_COMMONS_COUNT 一致）
 private const val HOME_COMMONS_LIMIT = 20
+
+// 单个汉字判定（与 server/JS 端 src/config.js HANZI_SINGLE_RE 覆盖范围一致:
+// CJK 基本区 + 扩展A 区 + 〇）
+private val HANZI_RANGES = listOf(
+    '\u3400'..'\u4dbf', '\u4e00'..'\u9fff'
+)
+
+private fun isHanziChar(c: Char): Boolean =
+    c == '\u3007' || HANZI_RANGES.any { c in it }
 
 // 查询路由: 单个汉字 → 汉字信息页；纯拼音（允许 ü）→ 拼音字列表页
 private fun onSearch(
@@ -353,7 +380,7 @@ private fun onSearch(
     val q = raw.trim().replace("v", "ü")
     if (q.isEmpty()) return
     when {
-        q.length == 1 && q[0] in '\u4e00'..'\u9fff' -> onOpenZi(q)
+        q.length == 1 && isHanziChar(q[0]) -> onOpenZi(q)
         q.all { it.lowercaseChar() in 'a'..'z' || it == 'ü' } -> onOpenPinyin(q.lowercase())
         else -> onError("请输入单个汉字或纯拼音（不带声调）")
     }

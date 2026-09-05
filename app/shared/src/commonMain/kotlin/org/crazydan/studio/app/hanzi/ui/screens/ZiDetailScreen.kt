@@ -46,7 +46,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -60,6 +59,7 @@ import org.crazydan.studio.app.hanzi.shared.unicodePointAt
 import org.crazydan.studio.app.hanzi.ui.Blue500
 import org.crazydan.studio.app.hanzi.ui.KaiTiFontFamily
 import org.crazydan.studio.app.hanzi.ui.Platform
+import org.crazydan.studio.app.hanzi.ui.floatBadgeColors
 import org.crazydan.studio.app.hanzi.ui.logError
 import org.crazydan.studio.app.hanzi.ui.SiteLinks
 import org.crazydan.studio.app.hanzi.ui.components.AppFooter
@@ -98,12 +98,24 @@ fun ZiDetailScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var audioHint by remember { mutableStateOf<String?>(null) }
     var copied by remember { mutableStateOf<String?>(null) }
+    // 复制成功提示定时（连续复制取消前一次，避免提前清除后一次的「已复制」）
+    var copiedJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     // 读音试听可用性（无音频的读音禁用试听按钮）; null = 尚未确定（保守禁用）
     var audioSet by remember { mutableStateOf<Set<String>?>(null) }
     // 笔画分解图单笔播放（与 web 一致）: 在格子自身内循环播放，点击停止或继续
     var cellPlayIndex by remember { mutableIntStateOf(-1) }
     var cellProgress by remember { mutableFloatStateOf(0f) }
     val scope = rememberCoroutineScope()
+
+    // 复制成功提示: 置位「已复制」并在 1.5s 后清除; 连续复制时取消前一次定时
+    fun flashCopied(key: String, set: (String?) -> Unit) {
+        set(key)
+        copiedJob?.cancel()
+        copiedJob = scope.launch {
+            delay(1500)
+            set(null)
+        }
+    }
 
     LaunchedEffect(zi) {
         loading = true
@@ -237,7 +249,7 @@ fun ZiDetailScreen(
                                 text = if (copied == "zi") "已复制" else "复制",
                                 onClick = {
                                     Platform.copyToClipboard(m.zi)
-                                    flashCopied(scope, "zi") { copied = it }
+                                    flashCopied("zi") { copied = it }
                                 }
                             )
                         }
@@ -278,7 +290,7 @@ fun ZiDetailScreen(
                                             text = if (copied == p) "已复制" else "复制",
                                             onClick = {
                                                 Platform.copyToClipboard(display)
-                                                flashCopied(scope, p) { copied = it }
+                                                flashCopied(p) { copied = it }
                                             }
                                         )
                                     }
@@ -306,14 +318,14 @@ fun ZiDetailScreen(
                             DividerDot()
                             InlineInfoItem("部首", m.radical, onCopy = {
                                 Platform.copyToClipboard(m.radical)
-                                flashCopied(scope, "radical") { copied = it }
+                                flashCopied("radical") { copied = it }
                             }, copied = copied == "radical")
                             DividerDot()
                             InlineInfoItem("字型结构", HanziLabels.structureName(m.structure))
                             DividerDot()
                             InlineInfoItem("Unicode", unicodeLabel, onCopy = {
                                 Platform.copyToClipboard(unicodeLabel)
-                                flashCopied(scope, "unicode") { copied = it }
+                                flashCopied("unicode") { copied = it }
                             }, copied = copied == "unicode")
                         }
                     }
@@ -437,18 +449,18 @@ private fun WritingPanel(
                 modifier = Modifier.fillMaxWidth()
             )
             strokeName?.let { name ->
+                // 徽标配色与 web .float-badge 一致（深底浅字，暗色反色）
+                val (badgeText, badgeBg) = floatBadgeColors(dark)
                 Text(
                     text = name,
-                    color = if (dark) Color(0xFF111827) else Color.White,
+                    color = badgeText,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(top = 8.dp)
                         .clip(RoundedCornerShape(999.dp))
-                        .background(
-                            if (dark) Color(0xCCF3F4F6) else Color(0xB3111827)
-                        )
+                        .background(badgeBg)
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                 )
             }
@@ -677,17 +689,6 @@ private fun DividerDot() {
     )
 }
 
-// 复制成功提示: 1.5s 后清除；连续复制时取消前一次定时（避免提前清除后一次的「已复制」）
-private var copiedFlashJob: kotlinx.coroutines.Job? = null
-
-private fun flashCopied(scope: CoroutineScope, key: String, set: (String?) -> Unit) {
-    set(key)
-    copiedFlashJob?.cancel()
-    copiedFlashJob = scope.launch {
-        delay(1500)
-        set(null)
-    }
-}
 private fun encodeUrl(text: String): String {
     return buildString {
         text.forEach { ch ->

@@ -413,6 +413,11 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                 Log.w(TAG, "解压笔画轨迹失败（数据损坏，返回空）: unicode=$unicode", e)
                 return@queryFirst emptyList()
             }
+            // 版本防御: 解压结构按当前版本解析；版本不符仅告警（旧数据仍按同构结构容错读取）
+            val version = traj.optInt("v", 0)
+            if (version != StrokeFormat.TRAJECTORY_VERSION) {
+                Log.w(TAG, "笔画轨迹版本异常（v$version，期望 v${StrokeFormat.TRAJECTORY_VERSION}）: unicode=$unicode")
+            }
             val strokes = traj.optJSONArray("s") ?: return@queryFirst emptyList()
             val out = ArrayList<ZiStroke>(strokes.length())
             for (i in 0 until strokes.length()) {
@@ -424,9 +429,9 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
         } ?: emptyList()
     }
 
-    // 扁平点阵增量编码 → 绝对坐标点（首点绝对，后续为与上一点的差值，
-    // 与 server/services/Trajectory.js 一致）; x/y 盒相对归一化 ×1000、时间戳 ×10 存储，
-    // 还原为盒相对浮点与毫秒
+    // 扁平点阵增量编码 → 绝对坐标点（首点绝对，后续点四元组 x/y/pressure/timestamp
+    // 均为与上一点的差值，与 server shared/stroke-format.js deltaEncode 一致）;
+    // x/y 盒相对归一化 ×1000、pressure ×100、时间戳 ×10 存储，还原为盒相对浮点与毫秒
     private fun decodeFlatPoints(flat: JSONArray): List<StrokePoint> {
         val out = ArrayList<StrokePoint>(flat.length() / 4)
         var prev: StrokePoint? = null
@@ -436,7 +441,7 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
                 StrokePoint(
                     x = it.x + flat.getDouble(i).toFloat(),
                     y = it.y + flat.getDouble(i + 1).toFloat(),
-                    pressure = flat.getDouble(i + 2).toFloat() / StrokeFormat.PRESSURE_SCALE,
+                    pressure = it.pressure + flat.getDouble(i + 2).toFloat() / StrokeFormat.PRESSURE_SCALE,
                     timestamp = it.timestamp + flat.getDouble(i + 3).toFloat() / StrokeFormat.TIMESTAMP_SCALE
                 )
             } ?: StrokePoint(
@@ -563,7 +568,8 @@ private class AndroidHanziDb(private val dbPath: String) : HanziDb {
 
     private fun stripTone(pinyin: String): String = pinyin.replace(STRIP_TONE_REGEX, "")
 
-    // zlib 解压（node 端 zlib.deflateSync 压缩的轨迹 JSON {version, points}）
+    // zlib 解压（node 端 compressCharTrajectory 压缩的整字轨迹 JSON:
+    // { v, r: [w,h], s: [[t, [b, 扁平增量点阵]], ...] }，见 shared/stroke-format.js）
     private fun decompress(data: ByteArray): JSONObject {
         val inflater = Inflater()
         try {

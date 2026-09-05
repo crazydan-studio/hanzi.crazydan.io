@@ -115,3 +115,8 @@ val strokeHighlightColor = Red600
 
 /** 弹窗遮罩色（放大查看等全屏遮罩背景） */
 val OverlayScrim = Color(0xB3000000)
+
+/** 悬浮提示徽标配色（对应 web .float-badge: 深底浅字，暗色反转为浅底深字）: (文字, 背景) */
+fun floatBadgeColors(dark: Boolean): Pair<Color, Color> =
+    if (dark) Gray100.copy(alpha = 0.8f) to Gray900
+    else Gray900.copy(alpha = 0.7f) to Color.White

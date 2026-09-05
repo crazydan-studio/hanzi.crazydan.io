@@ -15,7 +15,7 @@ import org.crazydan.studio.app.hanzi.shared.StrokeDbInfo
  * 笔画数据在线下载/导入任务:
  *  - 全局单例持有任务状态，页面退出再进入时任务不中断，遮罩与结果提示持续生效
  *  - 点击数据规模卡片后自动下载对应笔画数据库并经 [HanziDb.importStrokeDb] 导入；
- *    任务期间禁止返回导航（见 MainActivity），成功/失败后由页面提示
+ *    任务期间系统返回键被禁用（见 MainActivity.BackHandler），成功/失败后由页面提示
  */
 object StrokeDbDownloader {
 
@@ -40,7 +40,7 @@ object StrokeDbDownloader {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    /** 当前是否有进行中的任务（页面据此禁止返回导航/显示遮罩） */
+    /** 当前是否有进行中的任务（页面据此禁止系统返回/显示遮罩） */
     val isWorking: Boolean
         get() = state is State.Working
 
@@ -67,6 +67,8 @@ object StrokeDbDownloader {
             val ok = withContext(Dispatchers.Default) { db.importStrokeDb(file) }
             if (!ok) {
                 state = State.Failed("笔画数据导入失败，请重试")
+                // 清理下载的临时文件（导入失败后文件不再需要）
+                withContext(Dispatchers.IO) { Platform.deleteDownloadedFile(file) }
                 return@launch
             }
             // 导入成功后清理下载的临时文件

@@ -50,13 +50,12 @@ import org.crazydan.studio.app.hanzi.ui.components.FullscreenWait
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import java.security.MessageDigest
 
 /**
  * 汉字 App 主界面（Compose Multiplatform 原生 UI）
  * 启动流程:
  *   1. 立即显示开屏页（logo + 暗色背景，固定展示时间），同时后台检查/准备数据库
- *   2. 等待首页渲染完成（首帧绘制）后，开屏平滑淡出，首页不做淡入
+ *   2. 等待首页渲染完成（首帧绘制）后，开屏平滑淡出（首页不做淡入）
  *   3. 数据库异常时显示初始化失败提示（正常流程由开屏覆盖等待期）
  *  - 数据库同源检测基于构建时记录的 SHA-256（见 build/app-db-pack.js）
  */
@@ -253,6 +252,8 @@ class MainActivity : ComponentActivity() {
                 val expected = info.sha256
                 val actual = withContext(Dispatchers.IO) { Platform.sha256Hex(apk) }
                 if (expected != null && (actual == null || !actual.equals(expected, ignoreCase = true))) {
+                    // 校验失败: 清理损坏的安装包后提示
+                    withContext(Dispatchers.IO) { Platform.deleteDownloadedFile(apk) }
                     downloading = false
                     failedUpgrade = info
                     failedReason = "安装包完整性校验失败（SHA-256 不匹配），请重试或改在浏览器中下载"
@@ -263,6 +264,7 @@ class MainActivity : ComponentActivity() {
                     failedUpgrade = info
                     failedReason = "无法启动系统安装，请在浏览器中下载后手动安装"
                 }
+                // 安装成功后不删除安装包（系统安装流程可能仍在读取文件），留待覆盖/后续清理
             }
         }
 
@@ -397,19 +399,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 内置库 SHA-256（流式计算，不加载全量到内存；hash 文件缺失时的兜底）
+    // 内置库 SHA-256（hash 文件缺失时的兜底; 计算逻辑共用 Platform.sha256HexOf）
     private fun sha256Asset(assetPath: String): String? {
         return try {
-            val digest = MessageDigest.getInstance("SHA-256")
-            assets.open(assetPath).use { input ->
-                val buf = ByteArray(8192)
-                while (true) {
-                    val n = input.read(buf)
-                    if (n < 0) break
-                    digest.update(buf, 0, n)
-                }
-            }
-            digest.digest().joinToString("") { "%02x".format(it) }
+            Platform.sha256HexOf(assets.open(assetPath))
         } catch (e: Exception) {
             Log.w(TAG, "计算内置库 SHA-256 失败: $assetPath", e)
             null   // 计算失败时不记录 hash，下次启动重新检测
@@ -435,7 +428,7 @@ class MainActivity : ComponentActivity() {
         /** 开屏页固定展示时间（毫秒） */
         private const val SPLASH_MIN_MS = 900L
 
-        /** 开屏淡出/首页淡入时长（毫秒） */
+        /** 开屏淡出时长（毫秒） */
         private const val SPLASH_FADE_MS = 300L
     }
 

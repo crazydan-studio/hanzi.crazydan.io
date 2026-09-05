@@ -1,13 +1,15 @@
 package org.crazydan.studio.app.hanzi.shared
 
 /**
- * 笔画轨迹格式常量（与 web src/components/Constants.js、server/services/Trajectory.js 一致）:
+ * 笔画轨迹格式常量（与 JS 端 shared/stroke-format.js 为同一格式的两份跨语言镜像:
+ * web 用 src/components/Constants.js 重导出、server 用 services/Trajectory.js 重导出，
+ * 改动须三端同步）:
  * 轨迹属性为单字符（v 版本 / b 笔刷面积比 / r 光栅实测盒 / p 坐标点）;
  * x/y 以背景汉字墨迹盒为坐标系分别归一化 ×1000（x 按盒宽、y 按盒高），
  * 压力 ×100、时间戳 ×10、笔刷面积比 ×100000 存整数
  */
 object StrokeFormat {
-    /** 轨迹格式版本（v2: 记录绘制时背景字光栅实测盒 r，见 server/services/Trajectory.js） */
+    /** 轨迹格式版本（v2: 记录绘制时背景字光栅实测盒 r，见 shared/stroke-format.js） */
     const val TRAJECTORY_VERSION = 2
 
     /** 内部坐标系尺寸（所有画布内部恒为 500×500，显示尺寸由宿主缩放） */

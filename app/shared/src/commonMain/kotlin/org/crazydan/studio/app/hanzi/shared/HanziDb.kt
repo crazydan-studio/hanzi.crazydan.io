@@ -26,11 +26,11 @@ data class ZiMeta(
     val pinyin: List<String>,
     val totalStrokeCount: Int,
     val radical: String,
-    val structure: Int,          // 结构编码 0-9（展示名见 HanziLabels.structureNames）
+    val structure: Int,          // 结构编码 0-16（含半包围按方向细分，展示名见 HanziLabels.structureNames）
     val isTraditional: Boolean = false
 )
 
-/** 轨迹坐标点（绝对坐标，x/y 盒相对归一化 0..1000；pressure 0..1；timestamp 毫秒） */
+/** 轨迹坐标点（绝对坐标，x/y 盒相对归一化、允许超出盒 2 倍范围；pressure 0..1；timestamp 毫秒） */
 data class StrokePoint(
     val x: Float,
     val y: Float,

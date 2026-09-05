@@ -384,16 +384,16 @@ private fun ScaleOption(
 
 // 数据规模选项（与 build/export-stroke-db.js 的 --count 导出规模一致）;
 // 前三档标题为静态，仅「全部」随汉字总数动态生成
-private data class ScaleOption(val title: String, val desc: String, val scale: String)
+private data class ScaleSpec(val title: String, val desc: String, val scale: String)
 
 private val SCALE_OPTIONS = listOf(
-    ScaleOption("1500 字", "约 1500 个高频常用汉字（小规模）", "1500"),
-    ScaleOption("3000 字", "约 3000 个高频汉字（中规模）", "3000"),
-    ScaleOption("5000 字", "约 5000 个高频汉字（大规模）", "5000")
+    ScaleSpec("1500 字", "约 1500 个高频常用汉字（小规模）", "1500"),
+    ScaleSpec("3000 字", "约 3000 个高频汉字（中规模）", "3000"),
+    ScaleSpec("5000 字", "约 5000 个高频汉字（大规模）", "5000")
 )
 
-private fun scaleOptions(totalZi: Int): List<ScaleOption> =
-    SCALE_OPTIONS + ScaleOption(
+private fun scaleOptions(totalZi: Int): List<ScaleSpec> =
+    SCALE_OPTIONS + ScaleSpec(
         "全部（约 ${formatWan(totalZi)}）", "全部汉字的笔画数据（完整规模）", "full"
     )
 
@@ -401,10 +401,11 @@ private fun scaleOptions(totalZi: Int): List<ScaleOption> =
 private fun scaleTitle(scale: String): String =
     SCALE_OPTIONS.firstOrNull { it.scale == scale }?.title ?: "全部"
 
-/** 数字格式化为「万」表述（如 26223 → 2.6 万+） */
+/** 数字格式化为「万」表述（如 26223 → 2.6 万+ 字）; 整数运算，不依赖平台 Locale */
 private fun formatWan(total: Int): String {
     if (total < 10000) return "$total 字"
-    val wan = total / 10000.0
-    val text = String.format("%.1f", wan)
-    return "${text.trimEnd('0').trimEnd('.')} 万+ 字"
+    val tenths = (total + 500) / 1000   // 一位小数（四舍五入）
+    val whole = tenths / 10
+    val frac = tenths % 10
+    return if (frac == 0) "$whole 万+ 字" else "$whole.$frac 万+ 字"
 }
