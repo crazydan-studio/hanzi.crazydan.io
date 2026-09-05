@@ -8,9 +8,11 @@
 // （主题初始化由 vite 插件注入的内联脚本在 head 阻塞执行，避免刷新跳闪）
 import { KAI_FONT_FAMILY, KAI_FONT_SIZE } from './config.js'
 
-const FONT_LOAD_SPEC = `${KAI_FONT_SIZE}px ${KAI_FONT_FAMILY}`
-
 (function () {
+  // 等待加载的字体规格（模块内专用; 注意保持本表达式在语句中的终止，
+  // 避免压缩后与后续语句粘连被解析为函数调用）
+  const FONT_LOAD_SPEC = `${KAI_FONT_SIZE}px ${KAI_FONT_FAMILY}`
+
   function addOverlay() {
     const el = document.createElement('div')
     el.id = 'boot-overlay'
