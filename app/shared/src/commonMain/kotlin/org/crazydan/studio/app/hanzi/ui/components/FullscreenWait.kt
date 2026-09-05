@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import org.crazydan.studio.app.hanzi.ui.OverlayScrim
 
 /**
- * 全屏等待遮罩（联网变体下载笔画数据/更新安装包时使用）:
+ * 全屏等待遮罩（下载笔画数据/更新安装包时使用）:
  * 覆盖整个页面并拦截所有触摸，禁止其他操作，直到任务结束
  */
 @Composable

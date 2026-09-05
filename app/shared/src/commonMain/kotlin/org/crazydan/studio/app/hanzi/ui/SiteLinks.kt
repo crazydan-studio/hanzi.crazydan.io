@@ -25,9 +25,9 @@ object SiteLinks {
     const val APP_VERSION_CHECK = "https://hanzi.crazydan.io/assets/app/version"
 
     /**
-     * App 安装包下载地址: {version}/hanzi-{variant}-{os}-{version}.{suffix}
+     * App 安装包下载地址: {version}/hanzi-android-{version}.apk
      * （命名与 build/app-pack.sh 产物一致，随 GitHub Releases 发布）
      */
-    fun apkDownloadUrl(version: String, variant: String): String =
-        "$REPO/releases/download/v$version/hanzi" + (if (variant.isEmpty()) "" else "-$variant") + "-android-$version.apk"
+    fun apkDownloadUrl(version: String): String =
+        "$REPO/releases/download/v$version/hanzi-android-$version.apk"
 }

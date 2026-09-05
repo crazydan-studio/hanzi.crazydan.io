@@ -13,9 +13,6 @@ object AppContextHolder {
             field = value?.applicationContext
         }
 
-    /** 当前构建是否为可联网变体（MainActivity 经 Platform.init 注入） */
-    var onlineVariant: Boolean = false
-
     /** 当前 App 版本号（构建 versionName，MainActivity 经 Platform.init 注入） */
     var appVersion: String = ""
 

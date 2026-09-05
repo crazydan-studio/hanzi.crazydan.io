@@ -25,22 +25,9 @@ android {
         versionCode = hanziVersion.replace(".", "").toIntOrNull() ?: 1
     }
 
-    // 变体拆分（两变体 applicationId 一致，可互相覆盖安装且保留数据）:
-    //   pure - 纯净版（无任何权限），仅使用内置数据
-    //   net  - 可联网变体（INTERNET/安装应用权限，见 src/net/AndroidManifest.xml），
-    //          支持启动检查更新、在线下载笔画数据
-    flavorDimensions += "variant"
-    productFlavors {
-        create("pure") {
-            dimension = "variant"
-            buildConfigField("boolean", "NET_VARIANT", "false")
-        }
-        create("net") {
-            dimension = "variant"
-            buildConfigField("boolean", "NET_VARIANT", "true")
-        }
-    }
-
+    // 单一变体（不区分纯净/联网版）: App 直接支持网络访问
+    // （INTERNET/安装应用权限见主 AndroidManifest.xml），
+    // 支持启动检查更新、在线下载笔画数据等
     signingConfigs {
         create("release") {
             // 配置期惰性读取 keystore 配置: 文件缺失（如全新克隆）时仅警告，

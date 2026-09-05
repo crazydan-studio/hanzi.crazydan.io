@@ -291,8 +291,6 @@ actual object Platform {
         }
     }
 
-    actual fun isOnlineVariant(): Boolean = AppContextHolder.onlineVariant
-
     // 清理导入临时副本（文件选择器兜底复制到缓存目录的文件）
     actual fun cleanStrokeImportCache() {
         val context = AppContextHolder.appContext ?: return
@@ -405,11 +403,9 @@ actual object Platform {
     fun init(
         activity: ComponentActivity,
         strokeDbPicker: ActivityResultLauncher<Array<String>>,
-        onlineVariant: Boolean,
         appVersion: String
     ) {
         AppContextHolder.appContext = activity
-        AppContextHolder.onlineVariant = onlineVariant
         AppContextHolder.appVersion = appVersion
         pickLauncher = strokeDbPicker
     }

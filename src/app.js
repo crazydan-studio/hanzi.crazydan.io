@@ -13,36 +13,25 @@ const ANDROID_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24
 // App 版本号（构建时注入，见 vite.config.js: __HANZI_APP_VERSION__，与 app/version.txt 一致）
 const APP_VERSION = __HANZI_APP_VERSION__
 
-// 变体展示信息（纯净版/可联网变体）: 安装包由 build/app-pack.sh 生成
-//   - development: public/assets/app/android/ 下的 debug 双变体
-//     （hanzi-debug.apk 纯净版 / hanzi-net-debug.apk 联网版，applicationId 一致可互相覆盖）
-//   - production:  随 GitHub Releases 发布（tag 为 v{version}）;
-//     纯净版无变体标识（hanzi-android-{version}.apk），联网版带 net 前缀
-const VARIANTS = {
-  pure: { name: 'Android 纯净版', desc: '无任何权限，仅使用内置数据' },
-  net: { name: 'Android 联网版', desc: '可联网：支持检查更新、在线下载笔画数据' }
-}
-
-// 安装包文件名（纯净版无变体标识，与 app-pack.sh 命名约定一致）
+// Android App 下载（安装包由 build/app-pack.sh 生成，单一版本直接支持网络访问）:
+//   - development: public/assets/app/android/hanzi-debug.apk
+//   - production:  随 GitHub Releases 发布（tag 为 v{version}）: hanzi-android-{version}.apk
 const IS_DEV = import.meta.env.DEV
-const apkFile = (variant, dev) => {
-  const prefix = variant === 'pure' ? '' : `${variant}-`
-  return dev
-    ? `hanzi-${prefix}debug.apk`
-    : `hanzi-${prefix}android-${APP_VERSION}.apk`
-}
+const apkFile = (dev) => (dev ? 'hanzi-debug.apk' : `hanzi-android-${APP_VERSION}.apk`)
 
-const APP_PLATFORMS = Object.entries(VARIANTS).map(([variant, info]) => ({
-  variant,
-  name: info.name,
+const APP_PLATFORMS = [{
+  variant: 'android',
+  name: 'Android App',
   icon: ANDROID_ICON,
-  file: apkFile(variant, IS_DEV),
+  file: apkFile(IS_DEV),
   version: IS_DEV ? `${APP_VERSION}-debug` : APP_VERSION,
-  desc: IS_DEV ? `${info.desc}（开发构建）` : info.desc,
+  desc: IS_DEV
+    ? '支持检查更新、在线下载笔画数据（开发构建）'
+    : '支持检查更新、在线下载笔画数据',
   url: IS_DEV
-    ? `/assets/app/android/${apkFile(variant, true)}`
-    : `${GITHUB_RELEASES}/v${APP_VERSION}/${apkFile(variant, false)}`
-}))
+    ? `/assets/app/android/${apkFile(true)}`
+    : `${GITHUB_RELEASES}/v${APP_VERSION}/${apkFile(false)}`
+}]
 
 Alpine.data('homeApp', () => ({
   commons: [],

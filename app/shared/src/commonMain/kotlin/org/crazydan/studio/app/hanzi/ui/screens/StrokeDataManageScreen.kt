@@ -48,9 +48,8 @@ import org.crazydan.studio.app.hanzi.ui.components.TopBar
 /**
  * 笔画数据管理页:
  *  - 显示已导入笔画数据的状态（可访问汉字数量/笔画总数；未导入或数据损坏时提示）
- *  - 数据规模卡片: 联网变体点击后后台自动下载并导入（全屏等待遮罩，跨页面保持）；
- *    纯净版跳转浏览器下载页面
- *  - 手动选择本地文件导入（两变体均支持）: 校验数据有效性、二次确认后导入
+ *  - 数据规模卡片: 点击后后台自动下载并导入（全屏等待遮罩，跨页面保持）；
+ *    亦支持手动选择本地文件导入: 校验数据有效性、二次确认后导入
  */
 @Composable
 fun StrokeDataManageScreen(
@@ -64,7 +63,6 @@ fun StrokeDataManageScreen(
     var totalZi by remember { mutableStateOf(0) }
     var notice by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val onlineVariant = Platform.isOnlineVariant()
 
     // 导入流程弹窗: 校验中 → 确认 → 导入中 → 成功
     var dialog by remember { mutableStateOf<ImportDialog?>(null) }
@@ -211,15 +209,10 @@ fun StrokeDataManageScreen(
                         ScaleOption(
                             title = title,
                             desc = desc,
-                            buttonText = if (onlineVariant) "下载并导入" else "点击下载",
+                            buttonText = "下载并导入",
                             onClick = {
-                                // 联网变体: 后台自动下载并导入（全屏任务遮罩）；
-                                // 纯净版: 跳转浏览器下载页面
-                                if (onlineVariant) {
-                                    StrokeDbDownloader.start(scale, db)
-                                } else {
-                                    downloadScale(scale)
-                                }
+                                // 后台自动下载并导入（全屏任务遮罩，跨页面保持）
+                                StrokeDbDownloader.start(scale, db)
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -295,7 +288,7 @@ fun StrokeDataManageScreen(
         }
     }
 
-    // 联网变体在线下载/导入任务（全局状态，退出页面再进入仍持续显示）
+    // 在线下载/导入任务（全局状态，退出页面再进入仍持续显示）
     when (val s = StrokeDbDownloader.state) {
         is StrokeDbDownloader.State.Working -> FullscreenWait(
             text = when (s.phase) {
@@ -387,11 +380,6 @@ private fun ScaleOption(
             )
         }
     }
-}
-
-private fun downloadScale(scale: String) {
-    // 纯净版: 跳转浏览器下载与当前 App 版本对应的笔画数据库
-    Platform.openUrl(SiteLinks.strokeDbDownloadUrl(Platform.appVersion(), scale))
 }
 
 // 数据规模选项（与 build/export-stroke-db.js 的 --count 导出规模一致）;

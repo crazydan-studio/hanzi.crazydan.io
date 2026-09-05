@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
         ) { uri ->
             Platform.onStrokeDbPicked(uri)
         }
-        Platform.init(this, strokeDbPicker, BuildConfig.NET_VARIANT, BuildConfig.VERSION_NAME)
+        Platform.init(this, strokeDbPicker, BuildConfig.VERSION_NAME)
         // 主题（开屏淡出前加载完毕，首页直接应用）
         val savedDark = ThemeStore.load() ?: isSystemDark()
         // 开屏为暗色品牌页: 窗口背景先置为暗色
@@ -170,11 +170,9 @@ class MainActivity : ComponentActivity() {
                     SplashScreen()
                 }
             }
-            // 联网变体: 后台检查更新，仅在首页时弹窗提示（含下载遮罩与结果提示）
-            if (BuildConfig.NET_VARIANT) {
-                HanziTheme(darkTheme = appDark) {
-                    AppUpdateOverlay(scope = scope, navigator = navigator)
-                }
+            // 后台检查更新，仅在首页时弹窗提示（含下载遮罩与结果提示）
+            HanziTheme(darkTheme = appDark) {
+                AppUpdateOverlay(scope = scope, navigator = navigator)
             }
         }
     }
@@ -187,7 +185,7 @@ class MainActivity : ComponentActivity() {
         onRendered: () -> Unit
     ) {
         // 返回键: 页面内返回；无上一页时退出
-        // 联网变体笔画数据下载/导入任务进行中禁止返回（任务跨页面保持，防止退出中断）
+        // 笔画数据下载/导入任务进行中禁止返回（任务跨页面保持，防止退出中断）
         BackHandler(enabled = !StrokeDbDownloader.isWorking) {
             if (!navigator.back()) {
                 finish()
@@ -205,11 +203,11 @@ class MainActivity : ComponentActivity() {
     private data class UpdateInfo(
         val version: String,
         val changelog: String,
-        val sha256: String?   // 当前变体安装包 sha256（十六进制，用于完整性校验）
+        val sha256: String?   // 安装包 sha256（十六进制，用于完整性校验）
     )
 
     /**
-     * 更新检查与升级覆盖层（仅联网变体）:
+     * 更新检查与升级覆盖层:
      * 后台检查站点最新版本（https://hanzi.crazydan.io/assets/app/version），检查失败静默忽略；
      * 仅当存在可更新版本且当前处于首页时弹窗，提供 升级/忽略/延迟到下次 三个选择
      */
@@ -225,7 +223,7 @@ class MainActivity : ComponentActivity() {
             val json = withContext(Dispatchers.IO) {
                 Platform.fetchText(SiteLinks.APP_VERSION_CHECK)
             } ?: return@LaunchedEffect
-            val info = parseUpdateInfo(json, VARIANT_NAME) ?: return@LaunchedEffect
+            val info = parseUpdateInfo(json) ?: return@LaunchedEffect
             if (compareVersions(info.version, BuildConfig.VERSION_NAME) > 0 &&
                 info.version != ignoredUpdateVersion()
             ) {
@@ -235,7 +233,7 @@ class MainActivity : ComponentActivity() {
 
         // 升级: 全屏遮罩等待下载 → 完整性校验 → 触发系统安装；失败给出具体原因
         fun upgrade(info: UpdateInfo) {
-            val url = SiteLinks.apkDownloadUrl(info.version, VARIANT_NAME)
+            val url = SiteLinks.apkDownloadUrl(info.version)
             scope.launch {
                 downloading = true
                 updateInfo = null
@@ -251,7 +249,7 @@ class MainActivity : ComponentActivity() {
                         return@launch
                     }
                 }
-                // 完整性校验（version 文件提供当前变体安装包 sha256）
+                // 完整性校验（version 文件提供安装包 sha256）
                 val expected = info.sha256
                 val actual = withContext(Dispatchers.IO) { Platform.sha256Hex(apk) }
                 if (expected != null && (actual == null || !actual.equals(expected, ignoreCase = true))) {
@@ -321,23 +319,22 @@ class MainActivity : ComponentActivity() {
                     TextButton(onClick = {
                         failedUpgrade = null
                         failedReason = null
-                        Platform.openUrl(SiteLinks.apkDownloadUrl(info.version, VARIANT_NAME))
+                        Platform.openUrl(SiteLinks.apkDownloadUrl(info.version))
                     }) { Text("浏览器下载") }
                 }
             )
         }
     }
 
-    // 解析 version 单行 JSON: {"name":"1.0.0","changelog":"...","checksum":{"android":{"pure":"sha256:...","net":"sha256:..."}}}
-    private fun parseUpdateInfo(json: String, variant: String): UpdateInfo? {
+    // 解析 version 单行 JSON: {"name":"1.0.0","changelog":"...","checksum":{"android":"sha256:..."}}
+    private fun parseUpdateInfo(json: String): UpdateInfo? {
         return try {
             val root = JSONObject(json)
             val version = root.getString("name")
             val changelog = root.optString("changelog", "")
             // 取出的 hash 带 "sha256:" 前缀，比较前剥离
             val sha256 = root.optJSONObject("checksum")
-                ?.optJSONObject("android")
-                ?.optString(variant, null)
+                ?.optString("android", null)
                 ?.removePrefix("sha256:")
             UpdateInfo(version, changelog, sha256)
         } catch (e: Exception) {
@@ -434,9 +431,6 @@ class MainActivity : ComponentActivity() {
 
         /** 用户忽略升级的版本号（存 SharedPreferences，忽略后不再提示该版本） */
         private const val PREF_IGNORED_UPDATE = "ignored_update_version"
-
-        /** 当前变体名（与 app-pack.sh 安装包命名约定一致） */
-        private val VARIANT_NAME = if (BuildConfig.NET_VARIANT) "net" else ""
 
         /** 开屏页固定展示时间（毫秒） */
         private const val SPLASH_MIN_MS = 900L

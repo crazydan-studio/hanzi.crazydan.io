@@ -132,18 +132,17 @@ HANZI_DB=/path/db.db node server/dist/index.cjs   # 亦可通过环境变量指�
 ### App 打包（Android）
 
 ```bash
-build/app-pack.sh debug     # 构建 pure/net 双变体 debug 安装包
-build/app-pack.sh release   # 构建 pure/net 双变体 release 安装包并写入版本信息
+build/app-pack.sh debug     # 构建 debug 安装包
+build/app-pack.sh release   # 构建 release 安装包并写入版本信息
 ```
 
-- **变体**：`pure`（纯净版，无任何权限）/ `net`（可联网变体，支持检查更新、在线下载笔画数据）；
-  两变体 `applicationId` 一致，可互相覆盖安装且保留数据
+- App 为单一版本，直接支持网络访问（自动检查更新、在线下载笔画数据、应用内查看汉字详情）
 - **产物**：
-  - debug：`public/assets/app/android/hanzi-debug.apk`、`hanzi-net-debug.apk`（web 开发环境下载）
-  - release：`dist/assets/app/hanzi-android-{version}.apk`、`hanzi-net-android-{version}.apk`（纯净版无变体标识，随 GitHub Releases 发布）
+  - debug：`public/assets/app/android/hanzi-debug.apk`（web 开发环境下载）
+  - release：`dist/assets/app/hanzi-android-{version}.apk`（随 GitHub Releases 发布）
 - **版本信息**（`pnpm app:version` 生成 `public/assets/app/version`，单行 JSON：
-  `{"name":"...","changelog":"...","checksum":{"android":{"pure":"sha256:...","net":"sha256:..."}}}`）：
-  联网变体启动时据此检查更新并校验安装包完整性；更新日志可选写入 `app/notes.txt`
+  `{"name":"...","changelog":"...","checksum":{"android":"sha256:..."}}`）：
+  App 启动时据此检查更新并校验安装包完整性；更新日志可选写入 `app/notes.txt`
 - 打包步骤包含：拷贝拼音读音/收款码资源、拷贝中易楷体 TTF（目标已存在则跳过）、
   打包内置数据库（`data/hanzi.db` → `app/android/src/main/assets/db/hanzi.db`）、Gradle 构建、移动安装包
 

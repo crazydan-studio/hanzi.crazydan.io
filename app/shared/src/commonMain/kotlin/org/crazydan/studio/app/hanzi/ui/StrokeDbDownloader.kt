@@ -12,7 +12,7 @@ import org.crazydan.studio.app.hanzi.shared.HanziDb
 import org.crazydan.studio.app.hanzi.shared.StrokeDbInfo
 
 /**
- * 笔画数据在线下载/导入任务（仅联网变体使用）:
+ * 笔画数据在线下载/导入任务:
  *  - 全局单例持有任务状态，页面退出再进入时任务不中断，遮罩与结果提示持续生效
  *  - 点击数据规模卡片后自动下载对应笔画数据库并经 [HanziDb.importStrokeDb] 导入；
  *    任务期间禁止返回导航（见 MainActivity），成功/失败后由页面提示
