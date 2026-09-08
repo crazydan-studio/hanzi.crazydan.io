@@ -202,10 +202,10 @@ function meshSides(chain, widths) {
 }
 
 // 圆帽弧点: 方向 d 绕中心旋转 θ（0° = d，±90° = 两侧法线）采样圆弧。
-// 调用方按需扫过“向前(+d)”或“向后(-d)”: 收笔端向前鼓出圆帽，
-// 起笔端向后（笔落点后方）鼓出圆帽。默认 from/to 为 -90°→+90°（扫过 +d）;
+// 默认自左端点(π/2)递减扫过运笔前方(0)到右端点(-π/2)——与「左侧轮廓→弧→
+// 右侧轮廓(反向)」的周长顺序一致; 起笔端反向扫过笔尾由调用方显式指定。
 // 仅取弧内采样点，两端点由相邻轮廓点衔接
-function capArc(p, d, radius, steps, from = -Math.PI / 2, to = Math.PI / 2) {
+function capArc(p, d, radius, steps, from = Math.PI / 2, to = -Math.PI / 2) {
   const out = []
   for (let k = 1; k <= steps; k++) {
     const theta = from + (to - from) * k / (steps + 1)
@@ -264,7 +264,10 @@ export function meshOutline(points, widthPx, opts) {
   const poly = []
   for (const p of left) poly.push(p)
   if (rn > 0.001) {
-    poly.push(...capArc(list[n - 1], lastDir, rn, CAP_SEGMENTS))
+    // 收笔圆帽: 沿轮廓方向自左端点(π/2)递减扫过运笔前方(0)到右端点(-π/2)，
+    // 与左侧→弧→右侧(反向)的周长顺序一致，避免弧点反向回绕造成自交空隙
+    poly.push(...capArc(list[n - 1], lastDir, rn, CAP_SEGMENTS,
+      Math.PI * 0.5, -Math.PI * 0.5))
   }
   for (let i = right.length - 1; i >= 0; i--) poly.push(right[i])
   if (r0 > 0.001) {
