@@ -201,9 +201,11 @@ function meshSides(chain, widths) {
   return { left, right }
 }
 
-// 圆帽弧点: θ 从 from 扫到 to（默认 0.5π → 1.5π，绕运笔方向 d 从左侧法线到右侧法线，
-// 经过笔尾方向）; 仅取弧内采样点，两端点由相邻轮廓点衔接
-function capArc(p, d, radius, steps, from = Math.PI / 2, to = Math.PI * 1.5) {
+// 圆帽弧点: 方向 d 绕中心旋转 θ（0° = d，±90° = 两侧法线）采样圆弧。
+// 调用方按需扫过“向前(+d)”或“向后(-d)”: 收笔端向前鼓出圆帽，
+// 起笔端向后（笔落点后方）鼓出圆帽。默认 from/to 为 -90°→+90°（扫过 +d）;
+// 仅取弧内采样点，两端点由相邻轮廓点衔接
+function capArc(p, d, radius, steps, from = -Math.PI / 2, to = Math.PI / 2) {
   const out = []
   for (let k = 1; k <= steps; k++) {
     const theta = from + (to - from) * k / (steps + 1)
@@ -255,9 +257,10 @@ export function meshOutline(points, widthPx, opts) {
   const r0 = widths[0] / 2
   const rn = widths[n - 1] / 2
 
-  // 沿周长连续拼接: 左侧轮廓 → 收笔圆帽(π/2→3π/2，扫过笔尾) → 右侧轮廓(反向) →
-  // 起笔圆帽(3π/2→π/2 递减，同样扫过笔尾) → 闭合到左起点
-  // （弧段两端点与相邻轮廓点重合，由 closePath 自然闭合）
+  // 沿周长连续拼接: 左侧轮廓 → 收笔圆帽 → 右侧轮廓(反向) → 起笔圆帽 → 闭合到左起点。
+  // 收笔圆帽沿 +lastDir 扫过（-90°→+90°，在末点前方向外鼓出）;
+  // 起笔圆帽沿 -firstDir 扫过（270°→90° 递减经过 180°，在第一点后方鼓出）;
+  // 弧段两端点与相邻轮廓点重合，由 closePath 自然闭合
   const poly = []
   for (const p of left) poly.push(p)
   if (rn > 0.001) {
@@ -265,7 +268,6 @@ export function meshOutline(points, widthPx, opts) {
   }
   for (let i = right.length - 1; i >= 0; i--) poly.push(right[i])
   if (r0 > 0.001) {
-    // 起笔圆帽: 从右端点(3π/2)递减扫过笔尾(-π)回到左端点(π/2)
     poly.push(...capArc(list[0], firstDir, r0, CAP_SEGMENTS,
       Math.PI * 1.5, Math.PI * 0.5))
   }
