@@ -451,12 +451,16 @@ Alpine.data('strokePad', (opts = {}) => ({
   onPointerMove(event) {
     if (this.mode !== 'write' || !this.isActive || event.pointerId !== this.activePointerId) return
     event.preventDefault()
-    const pressure = this.computePressure(event)
-    const point = this.getPointFromEvent(event, pressure)
-    // currentStroke.points 与 recorder.points 为同一数组（onPointerDown 建立引用），
-    // addPoint 内部已 push —— 不能再次 push point，否则重复点且
-    // 时间戳计算时机不同（addPoint 内部更晚）导致相邻递减非单调
-    this.recorder.addPoint(point.x, point.y, point.pressure)
+    // 高频物理采样: 读取帧间隔内流式产生的合并事件（Coalesced Events），
+    // 主动笔采样率可高于屏幕刷新率; 未提供时回退为当前事件。
+    // 录制端自带抽稀（MIN_POINT_DIST），过近的重复点不会放大存储
+    const events = event.getCoalescedEvents ? event.getCoalescedEvents() : [event]
+    for (const ev of events) {
+      const pressure = this.computePressure(ev)
+      const point = this.getPointFromEvent(ev, pressure)
+      if (!point) continue
+      this.recorder.addPoint(point.x, point.y, point.pressure)
+    }
     this.renderCurrentSegment()
   },
 
@@ -488,7 +492,9 @@ Alpine.data('strokePad', (opts = {}) => ({
   //   mouse → 0.5
   computePressure(event) {
     if (event.pointerType === 'pen') {
-      return event.pressure
+      // 部分设备 hover/触点起始压力为 0（无压感信号），按 0.5 中性压力处理
+      const pressure = event.pressure || 0
+      return pressure > 0 ? Math.min(1, pressure) : 0.5
     }
     if (event.pointerType === 'touch' &&
         event.width > 0 && event.height > 0) {
@@ -583,7 +589,8 @@ Alpine.data('strokePad', (opts = {}) => ({
     const color = this.strokeColor || strokeInkColor()
     this.inkCtx.fillStyle = color
     this.inkCtx.clearRect(0, 0, this.width, this.height)
-    this.inkCtx.fill(strokePath(px, this.penWidth))
+    // 书写中为未完结笔画（last=false，收笔尖尾在抬手落笔后的完整重绘中呈现）
+    this.inkCtx.fill(strokePath(px, this.penWidth, { last: false }))
     // 离屏层按内部坐标系绘制，叠加到主画布
     this.ctx.drawImage(this.inkLayer, 0, 0, this.width, this.height)
   },

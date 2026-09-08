@@ -323,7 +323,8 @@ export class AnimationEngine {
       return
     }
 
-    this.ctx.fill(strokePath(visible, stroke.pxBrushWidth))
+    // 进度露出片段: 未完结（last=false），不做收笔尖尾
+    this.ctx.fill(strokePath(visible, stroke.pxBrushWidth, { last: false }))
   }
 
   // 完整笔画渲染（已完成笔画）: 压力笔触轮廓（缓存 Path2D，逐帧填充不同颜色）
@@ -339,7 +340,7 @@ export class AnimationEngine {
     }
     // 完整笔画的轮廓与坐标同时换算，仅在坐标/笔宽变化后重算
     if (!stroke._strokePath) {
-      stroke._strokePath = strokePath(pts, stroke.pxBrushWidth)
+      stroke._strokePath = strokePath(pts, stroke.pxBrushWidth, { last: true })
     }
     this.ctx.fill(stroke._strokePath)
   }
