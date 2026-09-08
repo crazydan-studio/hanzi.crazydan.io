@@ -1,19 +1,23 @@
 // ============ 笔画渲染门面（web 书写/回放统一入口） ============
 // 笔触轮廓后端可选（同一接口，StrokePad/AnimationEngine 无需改动）:
-//   - 'mesh'     自研笔触网格（默认）: 动态笔宽 + 曲线细分 + 法线斜接网格 + 收笔尖尾，
+//   - 'atrament'  atrament 算法（默认）: 平滑回拉 + 自适应/压感厚度 + 圆帽线段，
+//               见 AtramentStroke.js
+//   - 'mesh'     自研笔触网格: 动态笔宽 + 曲线细分 + 法线斜接网格 + 收笔尖尾，
 //               见 StrokeMesh.js（文档方案）
 //   - 'perfect'  perfect-freehand: 压力轮廓多边形，见 PerfectStroke.js
 //   - 'signature' signature_pad 算法: 速度滤波笔宽 + 四点三次贝塞尔 + 圆盘填充，
 //               见 SignatureStroke.js
 // 书写中/回放进度露出等“未完结”片段经 opts.last=false 传递，避免末端提前收笔。
+import { strokePath as atramentStrokePath } from './AtramentStroke.js'
 import { strokePath as meshStrokePath } from './StrokeMesh.js'
 import { strokePath as perfectStrokePath } from './PerfectStroke.js'
 import { strokePath as signatureStrokePath } from './SignatureStroke.js'
 import { BASE_WIDTH } from './Constants.js'
 
-const STROKE_BACKEND = 'mesh'
+const STROKE_BACKEND = 'atrament'
 
 const backends = {
+  atrament: atramentStrokePath,
   mesh: meshStrokePath,
   perfect: perfectStrokePath,
   signature: signatureStrokePath
