@@ -20,10 +20,11 @@
 import Alpine from 'alpinejs'
 import { StrokeRecorder } from './StrokeRecorder.js'
 import { AnimationEngine } from './AnimationEngine.js'
-import { computeBrushWidths, drawBrushStroke, normalizeBrush, brushBaseWidth } from './Brush.js'
+import { normalizeBrush, brushBaseWidth } from './Brush.js'
 import { drawCanvasBackground, drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
+import { strokePath } from './StrokeRenderer.js'
 
 Alpine.data('strokePad', (opts = {}) => ({
   width: opts.width || CANVAS_SIZE.width,
@@ -565,8 +566,8 @@ Alpine.data('strokePad', (opts = {}) => ({
   },
 
   // ---- 渲染 ----
-  // 实时书写渲染: 在离屏层上用笔触模拟（轮廓法）绘制当前笔画，再叠到主画布
-  // 笔触颜色适配主题（明亮黑色，暗黑近白色）
+  // 实时书写渲染: 在离屏层上用 perfect-freehand 压力笔触绘制当前笔画，
+  // 再叠到主画布（笔触颜色适配主题: 明亮黑色，暗黑近白色）
   // 录制点为盒相对归一化坐标，先换算为内部像素坐标再绘制
   renderCurrentSegment() {
     const pts = this.currentStroke.points
@@ -579,9 +580,10 @@ Alpine.data('strokePad', (opts = {}) => ({
       pressure: p.pressure,
       timestamp: p.timestamp
     }))
-    const widths = computeBrushWidths(px, this.penWidth)
+    const color = this.strokeColor || strokeInkColor()
+    this.inkCtx.fillStyle = color
     this.inkCtx.clearRect(0, 0, this.width, this.height)
-    drawBrushStroke(this.inkCtx, px, widths, this.strokeColor || strokeInkColor())
+    this.inkCtx.fill(strokePath(px, this.penWidth))
     // 离屏层按内部坐标系绘制，叠加到主画布
     this.ctx.drawImage(this.inkLayer, 0, 0, this.width, this.height)
   },
@@ -632,7 +634,7 @@ Alpine.data('strokePad', (opts = {}) => ({
     }
   },
 
-  // 与动画引擎共享的轨迹渲染函数（笔触模拟: 压力/速度/锥形轮廓）
+  // 与动画引擎共享的轨迹渲染函数（perfect-freehand 压力笔触轮廓）
   // 轨迹坐标为元组数组 [x,y,pressure,timestamp]（盒相对归一化 ×1000），
   // 此处 ÷1000 还原到背景字墨迹盒并映射为画布像素；基准笔宽由轨迹
   // brush（面积比）按盒面积还原（忠实显示录制笔宽）；颜色为前端展示配置
@@ -648,10 +650,9 @@ Alpine.data('strokePad', (opts = {}) => ({
       pressure: (p[2] ?? PRESSURE_SCALE / 2) / PRESSURE_SCALE,
       timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
     }))
-    const strokeColor = highlight ? this.HIGHLIGHT_COLOR : color
     const baseWidth = brushBaseWidth(trajectory.b, box.w, box.h)
-    const widths = computeBrushWidths(px, baseWidth)
-    drawBrushStroke(this.ctx, px, widths, strokeColor)
+    this.ctx.fillStyle = highlight ? this.HIGHLIGHT_COLOR : color
+    this.ctx.fill(strokePath(px, baseWidth))
   },
 
   // 回放背景: 当前汉字（楷体半透明，颜色适配主题色）作为书写参照，而非书写笔画

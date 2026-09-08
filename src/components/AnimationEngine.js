@@ -1,5 +1,6 @@
 import { BASE_WIDTH, CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
-import { computeBrushWidths, drawBrushStroke, brushBaseWidth } from './Brush.js'
+import { brushBaseWidth } from './Brush.js'
+import { strokePath, drawDot } from './StrokeRenderer.js'
 
 // 单一RAF状态机。不使用 async/await + Promise 链，全部状态显式管理，
 // pause/resume/seek 均为状态切换，天然安全。
@@ -69,6 +70,7 @@ export class AnimationEngine {
     this.boxReady = !!(box && box.w > 0 && box.h > 0)
     for (const s of this.strokes) {
       const traj = s.trajectory_data
+      s._strokePath = null   // 坐标换算变化，作废缓存的笔触轮廓
       if (this.boxReady) {
         s.pxPoints = traj.p.map(p => ({
           x: box.x0 + (p[0] / COORD_SCALE) * box.w,
@@ -93,6 +95,7 @@ export class AnimationEngine {
     this.boxReady = !!(box && box.w > 0 && box.h > 0)
     for (const s of this.strokes) {
       const traj = s.trajectory_data
+      s._strokePath = null   // 坐标换算变化，作废缓存的笔触轮廓
       if (this.boxReady) {
         s.pxPoints = traj.p.map(p => ({
           x: box.x0 + (p[0] / COORD_SCALE) * box.w,
@@ -280,30 +283,18 @@ export class AnimationEngine {
     return last
   }
 
-  // 单点宽度（前端基准笔宽 × 压力），展示配置
-  // 基准笔宽来自该笔画轨迹的笔刷面积比，忠实还原录制笔宽
-  strokeWidthAt(stroke, p) {
-    const base = stroke?.pxBrushWidth ?? BASE_WIDTH
-    const pressure = p?.pressure ?? 0.5
-    return base * (0.4 + 0.6 * pressure)
-  }
-
-  // 部分渲染: 绘制从起点到插值位置的所有轨迹（笔触模拟）
-  // colorOverride: 可选，动画进行中传高亮色
-  // pts 为 loadStrokes 时换算好的像素坐标
+  // 部分渲染: 绘制从起点到插值位置的压力笔触（perfect-freehand 轮廓），
+  // 末点随进度向前（露出部分端头收圆帽，与完成笔画同源渲染）
   renderPartial(stroke, progress, colorOverride) {
     const pts = stroke.pxPoints
     if (!pts || pts.length === 0) return
     const color = colorOverride || this.resolveCompletedColor()
+    this.ctx.fillStyle = color
 
-    // 单点笔画: 圆点半径随进度增长
     if (pts.length === 1) {
-      const r = Math.max(
-        (this.strokeWidthAt(stroke, pts[0]) / 2) * Math.max(progress, 0.02), 0.5)
-      this.ctx.beginPath()
-      this.ctx.arc(pts[0].x, pts[0].y, r, 0, Math.PI * 2)
-      this.ctx.fillStyle = color
-      this.ctx.fill()
+      // 单点笔画: 圆点半径随进度增长
+      drawDot(this.ctx, pts[0].x, pts[0].y, pts[0].pressure,
+        stroke.pxBrushWidth, Math.max(progress, 0.02))
       return
     }
 
@@ -327,35 +318,30 @@ export class AnimationEngine {
     if (visible.length <= 1) {
       // 刚开始: 圆点随进度
       const p = visible[0] || pts[0]
-      const r = Math.max(this.strokeWidthAt(stroke, p) / 2 * Math.max(progress, 0.02), 0.5)
-      this.ctx.beginPath()
-      this.ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
-      this.ctx.fillStyle = color
-      this.ctx.fill()
+      drawDot(this.ctx, p.x, p.y, p.pressure,
+        stroke.pxBrushWidth, Math.max(progress, 0.02))
       return
     }
 
-    // 笔触渲染（压力/速度/起收笔），基准宽度为轨迹笔刷还原值
-    const widths = computeBrushWidths(visible, stroke.pxBrushWidth)
-    drawBrushStroke(this.ctx, visible, widths, color)
+    this.ctx.fill(strokePath(visible, stroke.pxBrushWidth))
   }
 
-  // 完整笔画渲染（已完成笔画）— 笔触模拟
+  // 完整笔画渲染（已完成笔画）: 压力笔触轮廓（缓存 Path2D，逐帧填充不同颜色）
   renderFullStroke(stroke, colorOverride) {
     const pts = stroke.pxPoints
     if (!pts || pts.length === 0) return
     const color = colorOverride || this.resolveCompletedColor()
+    this.ctx.fillStyle = color
 
     if (pts.length === 1) {
-      // 单点: 画个小圆点
-      this.ctx.beginPath()
-      this.ctx.arc(pts[0].x, pts[0].y, this.strokeWidthAt(stroke, pts[0]) / 2, 0, Math.PI * 2)
-      this.ctx.fillStyle = color
-      this.ctx.fill()
-    } else {
-      const widths = computeBrushWidths(pts, stroke.pxBrushWidth)
-      drawBrushStroke(this.ctx, pts, widths, color)
+      drawDot(this.ctx, pts[0].x, pts[0].y, pts[0].pressure, stroke.pxBrushWidth)
+      return
     }
+    // 完整笔画的轮廓与坐标同时换算，仅在坐标/笔宽变化后重算
+    if (!stroke._strokePath) {
+      stroke._strokePath = strokePath(pts, stroke.pxBrushWidth)
+    }
+    this.ctx.fill(stroke._strokePath)
   }
 
   redrawCompleted() {
