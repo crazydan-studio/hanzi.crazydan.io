@@ -1,6 +1,8 @@
 // ============ 笔画渲染门面（web 书写/回放统一入口） ============
 // 笔触轮廓后端可选（同一接口，StrokePad/AnimationEngine 无需改动）:
-//   - 'atrament'  atrament 算法（默认）: 平滑回拉 + 自适应/压感厚度 + 圆帽线段，
+//   - 'brush'     原始自研笔触（默认）: 压力×速度×起收笔锥形宽度 + 逐段圆帽线段，
+//               见 BrushStroke.js（仓库最初实现）
+//   - 'atrament'  atrament 算法: 平滑回拉 + 自适应/压感厚度 + 圆帽线段，
 //               见 AtramentStroke.js
 //   - 'mesh'     自研笔触网格: 动态笔宽 + 曲线细分 + 法线斜接网格 + 收笔尖尾，
 //               见 StrokeMesh.js（文档方案）
@@ -8,15 +10,17 @@
 //   - 'signature' signature_pad 算法: 速度滤波笔宽 + 四点三次贝塞尔 + 圆盘填充，
 //               见 SignatureStroke.js
 // 书写中/回放进度露出等“未完结”片段经 opts.last=false 传递，避免末端提前收笔。
+import { strokePath as brushStrokePath } from './BrushStroke.js'
 import { strokePath as atramentStrokePath } from './AtramentStroke.js'
 import { strokePath as meshStrokePath } from './StrokeMesh.js'
 import { strokePath as perfectStrokePath } from './PerfectStroke.js'
 import { strokePath as signatureStrokePath } from './SignatureStroke.js'
 import { BASE_WIDTH } from './Constants.js'
 
-const STROKE_BACKEND = 'atrament'
+const STROKE_BACKEND = 'brush'
 
 const backends = {
+  brush: brushStrokePath,
   atrament: atramentStrokePath,
   mesh: meshStrokePath,
   perfect: perfectStrokePath,
