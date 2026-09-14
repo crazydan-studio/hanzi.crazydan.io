@@ -26,7 +26,7 @@
 
 1. **中易楷体（全量 TTF）**：将全量中易楷体放置于 `build/fonts/ZhongYiKaiTi.ttf`（构建资源，不随 App 打包）。
    该字体为 App 内置字体与 web 端显示字体的来源（不做精简，保证全部字形可用）。
-2. **汉字词典数据源**：将 `pinyin-dict.sqlite` 放置于 `data/` 目录（含表 `pinyin_zi`：读音/权重/结构/部首/笔画数）。
+2. **汉字词典数据源**：将 `pinyin-dict.sqlite`（由 [kuaizi-ime/tools/pinyin-dict](https://github.com/crazydan-studio/kuaizi-ime/tree/master/tools/pinyin-dict) 生成）放置于 `data/` 目录（含表 `pinyin_zi`：读音/权重/结构/部首/笔画数）。
 
 ### 数据准备
 
