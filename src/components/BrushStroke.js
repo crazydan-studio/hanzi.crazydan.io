@@ -1,18 +1,32 @@
 // ============ 笔画轮廓后端 E: 原始自研笔触（仓库最初实现） ============
 // 恢复自 perfect-freehand 接入前仓库自带的 Brush.js 算法（原 computeBrushWidths
-// + drawBrushStroke）: 逐点计算 压力×速度×起收笔锥形 的笔宽序列，原实现以
-// 逐段 round-cap 描边渲染; 本模块把同样的宽度序列渲染为“逐段圆帽线段的
-// 圆盘链”填充几何（胶囊等宽逼近，一次 fill 合成），形状与原始描边一致。
+// + drawBrushStroke）并针对观感做两处调优（下方常量，标注“调优”）:
+// 逐点计算 压力×速度×起收笔锥形 的笔宽序列，以逐段圆帽线段的圆盘链填充渲染。
 // 宽度模型（模拟毛笔/钢笔楷书）:
-//   - 压力因子: 压力越大越宽 (0.4 + 0.6×p)
+//   - 压力因子: 压力越大越宽 (0.55 + 0.6×p; 中性压力 p=0.5 时为 0.85×基准)
 //   - 速度因子: 速度越快越细 (0.7 + 0.5×avgSpeed/local，三点平滑后 0.6..1.4)
-//   - 头尾形状: 起笔 12% 顿笔由 1.35× 渐变回 1.0×；收笔 12% 温和出锋到 0.5×
+//   - 头尾形状: 起笔 8% 区内“顿笔峰”1.15×（峰值在区内中部，首点不放大）;
+//     收笔 12% 温和出锋至 0.5×
 //   - 整笔宽度序列经 5 点平滑去毛刺
 // 与 AtramentStroke/PerfectStroke/StrokeMesh/SignatureStroke 同接口，
 // 由 StrokeRenderer.js 按开关选用。widthPx 语义: 基准笔宽（宽度基准值）
 import { BASE_WIDTH } from './Constants.js'
 
 const SEGMENT_DISK_STEP_RATIO = 0.6   // 圆帽线段采样步距 ≤ 0.6×半径（凹陷 <0.05×半径）
+
+// ---- 相对原始实现的两处调优（针对实际观感反馈）----
+// 调优 1: 基准宽对齐其它方案 —— 原压力因子 0.4+0.6p 在 p=0.5 时仅 0.7×基准，
+//   线宽整体偏细; 改为 0.55+0.6p（p=0.5 → 0.85×基准），配合匀速时的
+//   速度因子（1.2×）后典型线宽 ≈ 基准
+const PRESSURE_BASE = 0.55
+const PRESSURE_GAIN = 0.6
+// 调优 2: 起笔形态 —— 原起笔峰值 1.35× 直接落在首点，叠加圆帽后呈大圆球;
+//   改为“峰值内移”的三角顿笔（首点不放大，峰值位于起笔区中部），
+//   端帽与线宽同径，顿笔表现为笔内轻微加粗
+const HEAD_RATIO = 0.08
+const HEAD_PEAK = 1.15
+const TAIL_RATIO = 0.12
+const TAIL_MIN = 0.5
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v))
@@ -49,8 +63,8 @@ function brushWidthsOf(points, baseWidth) {
 
   const avgSpeed = computeAvgSpeed(points)
 
-  // 1) 压力因子（压力越大越宽）
-  const pressureFactor = points.map(p => 0.4 + 0.6 * (p.pressure ?? 0.5))
+  // 1) 压力因子（压力越大越宽; 中性压力 0.5 → 0.85×基准，见文件头“调优 1”）
+  const pressureFactor = points.map(p => PRESSURE_BASE + PRESSURE_GAIN * (p.pressure ?? 0.5))
 
   // 2) 速度因子（局部速度 vs 平均速度; 慢=顿笔→宽，快→细）
   const speedFactor = new Array(n).fill(1)
@@ -62,18 +76,20 @@ function brushWidthsOf(points, baseWidth) {
   }
   const speedSmoothed = smooth(speedFactor)
 
-  // 3) 起笔顿笔 + 收笔出锋（各占 12% 长度; 短笔画头尾重叠时顿笔优先）
-  const headN = Math.max(2, Math.floor(n * 0.12))
-  const tailN = Math.max(2, Math.floor(n * 0.12))
+  // 3) 起笔顿笔峰 + 收笔出锋（峰在起笔区中部，首点不放大，见文件头“调优 2”）;
+  //    短笔画头尾重叠时顿笔优先
+  const headN = Math.max(2, Math.floor(n * HEAD_RATIO))
+  const tailN = Math.max(2, Math.floor(n * TAIL_RATIO))
   const widths = new Array(n)
   for (let i = 0; i < n; i++) {
-    const headPos = Math.min(i / headN, 1)
-    const headFactor = 1.35 - 0.35 * headPos
-    const tailPos = Math.min((n - 1 - i) / tailN, 1)
-    const tailFactor = 0.5 + 0.5 * tailPos
     let factor = 1
-    if (i < headN) factor = headFactor
-    else if (i >= n - tailN) factor = tailFactor
+    if (i < headN) {
+      const t = i / headN
+      factor = 1 + (HEAD_PEAK - 1) * (1 - Math.abs(2 * t - 1))   // 0 → 峰值 → 0
+    } else if (i >= n - tailN) {
+      const tailPos = Math.min((n - 1 - i) / tailN, 1)
+      factor = TAIL_MIN + (1 - TAIL_MIN) * tailPos
+    }
     widths[i] = baseWidth * pressureFactor[i] * speedSmoothed[i] * factor
   }
 
