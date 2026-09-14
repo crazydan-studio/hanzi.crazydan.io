@@ -5,7 +5,7 @@
 //   pnpm import:pinyin -- /path/to/dict.sqlite            # 位置参数指定
 //   pnpm import:pinyin -- --source a.sqlite --db out.db   # 同时指定目标库
 // 数据源表 pinyin_zi 列: zi_(字) spell_value_(拼音无声调) spell_tone_(声调 0-4)
-//       used_weight_(该读音使用频率) total_stroke_count_(笔画数) glyph_struct_(结构) radical_(部首)
+//       used_weight_(该读音使用频率) total_stroke_count_(笔画数) glyph_struct_(结构编码) radical_(部首)
 // 聚合规则:
 //   - 读音: spell_value_ + spell_tone_ 构成数字声调拼音（如 di+2 → di2，轻声不带数字），
 //           按 used_weight_ 降序排序（该汉字读音的排序结果）
@@ -18,7 +18,7 @@ import * as fontkit from 'fontkit'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { STRUCTURE_MAP, numberTonePinyin } from '../services/PinyinDict.js'
+import { numberTonePinyin } from '../services/PinyinDict.js'
 import { initDatabase, getDb, withTransaction, closeDatabase } from '../services/database.js'
 import { removeZiStatic } from '../services/staticSync.js'
 import { HANZI_DB_PATH, KAI_FONT_WOFF2_PATH } from '../../paths.js'
@@ -104,9 +104,7 @@ function main() {
     }
     e.strokes = Math.max(e.strokes, r.total_stroke_count_ ?? 0)
     if (r.radical_ && !e.radical) e.radical = r.radical_
-    if (r.glyph_struct_ && STRUCTURE_MAP[r.glyph_struct_] !== undefined) {
-      e.struct = STRUCTURE_MAP[r.glyph_struct_]
-    }
+    if (r.glyph_struct_ !== undefined) e.struct = r.glyph_struct_
     // 繁体字标记（以词典为准）: 任一条记录标记为繁体即为繁体
     if (r.traditional_ === 1) e.traditional = true
   }
