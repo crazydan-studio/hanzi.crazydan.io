@@ -37,6 +37,12 @@ export class AnimationEngine {
     this.onProgress = null       // (index, progress) 笔画内进度 0-1
     this.onBeforeRender = null   // () 清屏后回调（宿主绘制田字格等背景）
 
+    // 已完成笔画缓存层（stroke 模式逐段描边逐帧重绘代价高）:
+    // 笔画完成后增量绘入离屏层，逐帧仅 blit 缓存 + 绘制当前笔画
+    this._completedLayer = null
+    this._completedCtx = null
+    this._completedDrawn = 0     // 已绘入缓存层的笔画数
+
     this.setupCanvas()
   }
 
@@ -118,6 +124,7 @@ export class AnimationEngine {
     this.startedIndex = -1
     this.lastFrameTime = null
     if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = null }
+    this._invalidateCompletedLayer()
     this.clearCanvas()
   }
 
@@ -232,16 +239,66 @@ export class AnimationEngine {
     }
   }
 
-  // 全帧重绘: 清屏 → 宿主背景（浅色完整字型）→ 已完成笔画(黑) → 当前笔画
+  // ---- 已完成笔画缓存层（离屏，尺寸/变换与主画布一致）----
+
+  _ensureCompletedLayer() {
+    if (this._completedLayer) return this._completedCtx
+    const layer = document.createElement('canvas')
+    layer.width = this.canvas.width
+    layer.height = this.canvas.height
+    const ctx = layer.getContext('2d')
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+    this._completedLayer = layer
+    this._completedCtx = ctx
+    return ctx
+  }
+
+  // 清空并作废缓存（笔画数据/坐标/颜色变化时）
+  _invalidateCompletedLayer() {
+    this._completedDrawn = 0
+    if (!this._completedLayer) return
+    const ctx = this._completedCtx
+    ctx.save()
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, this._completedLayer.width, this._completedLayer.height)
+    ctx.restore()
+  }
+
+  // 将已完成笔画（[已绘数, upTo)）增量绘入缓存层
+  _syncCompletedLayer(upTo) {
+    if (this._completedDrawn > upTo) this._invalidateCompletedLayer()
+    if (upTo <= this._completedDrawn) return
+    const ctx = this._ensureCompletedLayer()
+    const ink = this.resolveCompletedColor()
+    const end = Math.min(upTo, this.strokes.length)
+    for (let i = this._completedDrawn; i < end; i++) {
+      const s = this.strokes[i]
+      const pts = s.pxPoints
+      if (!pts || pts.length === 0) continue
+      if (pts.length === 1) {
+        ctx.fillStyle = ink
+        drawDot(ctx, pts[0].x, pts[0].y, pts[0].pressure, s.pxBrushWidth)
+      } else {
+        drawStroke(ctx, pts, s.pxBrushWidth, ink, { last: true })
+      }
+    }
+    this._completedDrawn = end
+  }
+
+  _blitCompletedLayer() {
+    if (this._completedLayer) {
+      this.ctx.drawImage(this._completedLayer, 0, 0, this.cssW, this.cssH)
+    }
+  }
+
+  // 全帧重绘: 清屏 → 宿主背景（浅色完整字型）→ 已完成笔画缓存 → 当前笔画
   // progress=null 表示当前笔画已完成（黑色）；否则按进度用高亮色绘制
   // 展示颜色为前端配置（数据中不存颜色字段）
   renderFrame(stroke, progress) {
     this.clearCanvas()
     const ink = this.resolveCompletedColor()
-    for (let i = 0; i < this.currentIndex && i < this.strokes.length; i++) {
-      // 已完成笔画: 永久墨色显示（主题适配）
-      this.renderFullStroke(this.strokes[i], ink)
-    }
+    this._syncCompletedLayer(this.currentIndex)
+    this._blitCompletedLayer()
     if (progress === null) {
       // 当前笔画刚完成: 墨色
       this.renderFullStroke(stroke, ink)
@@ -341,10 +398,9 @@ export class AnimationEngine {
 
   redrawCompleted() {
     this.clearCanvas()
-    const ink = this.resolveCompletedColor()
-    for (let i = 0; i < this.currentIndex && i < this.strokes.length; i++) {
-      this.renderFullStroke(this.strokes[i], ink)
-    }
+    this._invalidateCompletedLayer()
+    this._syncCompletedLayer(this.currentIndex)
+    this._blitCompletedLayer()
   }
 
   clearCanvas() {

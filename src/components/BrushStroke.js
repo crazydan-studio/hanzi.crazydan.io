@@ -93,8 +93,9 @@ function brushWidthsOf(points, baseWidth) {
 }
 
 // 逐段 round-cap 描边（原 drawBrushStroke 原样移植）: stroke 渲染模式使用，
-// 像素级等同原始实现（含零长度段的圆点行为、无点集过滤）
-export function drawBrushStroke(ctx, points, widthPx, color) {
+// 像素级等同原始实现（含零长度段的圆点行为、无点集过滤）。
+// from: 起始段序号（书写增量续绘用; 0 = 完整描边）
+export function drawBrushStroke(ctx, points, widthPx, color, from = 0) {
   const baseWidth = Math.max(1, widthPx || BASE_WIDTH)
   const n = points.length
   if (n === 0) return
@@ -107,10 +108,11 @@ export function drawBrushStroke(ctx, points, widthPx, color) {
   }
 
   const widths = brushWidthsOf(points, baseWidth)
+  const start = Math.max(0, Math.min(Math.floor(from) || 0, n - 1))
   ctx.strokeStyle = color
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  for (let i = 0; i < n - 1; i++) {
+  for (let i = start; i < n - 1; i++) {
     const w = (widths[i] + widths[i + 1]) / 2
     ctx.lineWidth = Math.max(w, 0.5)
     ctx.beginPath()
@@ -138,7 +140,7 @@ function capsulePath(path, ax, ay, bx, by, r) {
 }
 
 // 轨迹点 → 笔触轮廓 Path2D（书写/回放宿主统一入口）; opts 预留接口对齐（本后端忽略，
-// 头尾锥形由宽度序列天然呈现，不区分完结态）
+// 头尾锥形由宽度序列天然呈现，不区分完结态）; opts.from = 起始段序号（增量续绘用）
 // 渲染: 每段以两端均值宽作 round-cap 线段（同原 drawBrushStroke 的 lineWidth），
 // 单点笔画为半径 宽/2 的圆点
 export function strokePath(points, widthPx, opts) {
@@ -162,7 +164,8 @@ export function strokePath(points, widthPx, opts) {
   }
 
   const widths = brushWidthsOf(list, baseWidth)
-  for (let i = 0; i < n - 1; i++) {
+  const start = Math.max(0, Math.min(Math.floor(opts?.from) || 0, n - 1))
+  for (let i = start; i < n - 1; i++) {
     const a = list[i]
     const b = list[i + 1]
     // 该段线宽取两端均值（与原实现一致），圆帽半径 = 宽/2

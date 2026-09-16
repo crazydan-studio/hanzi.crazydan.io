@@ -24,7 +24,15 @@ import { normalizeBrush, brushBaseWidth } from './Brush.js'
 import { drawCanvasBackground, drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
-import { drawStroke } from './StrokeRenderer.js'
+import { drawStroke, drawStrokeFrom } from './StrokeRenderer.js'
+
+// 书写增量渲染参数（见 renderCurrentSegment）:
+//   INK_FULL_REDRAW_RENDERS: 每 N 次增量渲染做一次全量精确重绘（校正
+//     速度均值/头尾锥形等全局量随笔画增长带来的轻微漂移）
+//   INK_OVERLAP_RATIO: 增量起点回退窗口（末段宽度会随笔画增长变化，
+//     覆盖起收笔锥形区 12% + 平滑余量）
+const INK_FULL_REDRAW_RENDERS = 30
+const INK_OVERLAP_RATIO = 0.12
 
 Alpine.data('strokePad', (opts = {}) => ({
   width: opts.width || CANVAS_SIZE.width,
@@ -57,6 +65,12 @@ Alpine.data('strokePad', (opts = {}) => ({
   // 背景汉字墨迹盒（内部坐标系）: 笔画坐标以盒为坐标系归一化存储/还原
   ziBoxValue: null,            // { x0, y0, x1, y1, w, h } | null
 
+  // ---- 书写增量渲染状态（见 renderCurrentSegment）----
+  _renderRaf: null,            // rAF 渲染节流句柄（一帧至多渲染一次）
+  _inkDrawn: 0,                // 已绘制到主画布的段数（当前笔画）
+  _inkRenderCount: 0,          // 距上次全量重绘的增量渲染次数
+  _inkBox: null,               // 上次渲染使用的墨迹盒（变化则全量重绘）
+
   // 悬停高亮色（列表行 hover 时画布中对应笔画高亮；仅颜色，不加粗）
   HIGHLIGHT_COLOR: opts.highlightColor || '#3b82f6',   // blue-500
 
@@ -79,7 +93,7 @@ Alpine.data('strokePad', (opts = {}) => ({
     this.recorder = new StrokeRecorder()
     this.setupCanvas()
 
-    // 笔触离屏层: 实时书写时整个笔画用轮廓法重绘（避免与已存笔画叠加）
+    // 笔触离屏层: 当前笔画增量绘制（仅新段 + 末端回退窗口），再叠加到主画布
     const dpr = window.devicePixelRatio || 1
     this.inkLayer = document.createElement('canvas')
     this.inkLayer.width = this.width * dpr
@@ -310,6 +324,7 @@ Alpine.data('strokePad', (opts = {}) => ({
 
   // 书写模式重绘: 田字格 → 参考字 → 笔画（展示颜色/宽度均前端配置，墨色适配主题）
   // 悬停笔画提升至最上层绘制（避免被其他笔画遮挡），恢复后按原始顺序重绘
+  // 同时作为增量书写渲染的全量校正（含正在书写的笔画）并重置增量状态
   redrawCanvas() {
     this.ctx.clearRect(0, 0, this.width, this.height)
     this.drawTianZiGe()
@@ -331,6 +346,25 @@ Alpine.data('strokePad', (opts = {}) => ({
       const s = this.strokes.find(x => x.id === hovered)
       if (s) this.drawTrajectory(s.trajectory_data, this.HIGHLIGHT_COLOR, true)
     }
+    // 正在书写的笔画: 精确全量重绘（增量渲染的周期校正 / 笔宽或墨迹盒变化）
+    if (this.isActive && this.currentStroke && this.currentStroke.points.length > 0) {
+      const box = this.ziBoxValue
+      if (box) {
+        const px = this.currentStroke.points.map(p => ({
+          x: box.x0 + p.x * box.w,
+          y: box.y0 + p.y * box.h,
+          pressure: p.pressure,
+          timestamp: p.timestamp
+        }))
+        drawStroke(this.ctx, px, this.penWidth, this.strokeColor || strokeInkColor(), { last: false })
+        this._inkDrawn = px.length - 1
+        this._inkBox = box
+      }
+    } else {
+      this._inkDrawn = 0
+    }
+    this._inkRenderCount = 0
+    this.clearInkLayer()
   },
 
   // ============ 模式切换（URL mode 参数同步） ============
@@ -445,6 +479,10 @@ Alpine.data('strokePad', (opts = {}) => ({
     this.recorder.addPoint(point.x, point.y, point.pressure)
     // currentStroke 直接引用 recorder 的点数组
     this.currentStroke = { points: this.recorder.points }
+    // 新笔画: 重置增量渲染状态（从空白墨迹层开始）
+    this._inkDrawn = 0
+    this._inkRenderCount = 0
+    this._inkBox = this.ziBoxValue
     this.renderCurrentSegment()
   },
 
@@ -461,11 +499,13 @@ Alpine.data('strokePad', (opts = {}) => ({
       if (!point) continue
       this.recorder.addPoint(point.x, point.y, point.pressure)
     }
-    this.renderCurrentSegment()
+    // 渲染经 rAF 节流: 高采样率设备（240Hz+）一帧至多渲染一次
+    this.scheduleRender()
   },
 
   onPointerUp(event) {
     if (this.mode !== 'write' || !this.isActive || event.pointerId !== this.activePointerId) return
+    this.cancelScheduledRender()
     this.removeGlobalPointerListeners()
     this.finishStroke()
   },
@@ -473,6 +513,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   onPointerCancel(event) {
     if (this.mode !== 'write' || !this.isActive || event.pointerId !== this.activePointerId) return
     // 系统手势抢占: 丢弃当前未完成笔画
+    this.cancelScheduledRender()
     this.removeGlobalPointerListeners()
     this.cancelStroke()
   },
@@ -526,6 +567,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   },
 
   finishStroke() {
+    this.cancelScheduledRender()
     // 先取指针ID，再释放捕获（不能先置null再release）
     const pointerId = this.activePointerId
     this.isActive = false
@@ -562,6 +604,7 @@ Alpine.data('strokePad', (opts = {}) => ({
   },
 
   cancelStroke() {
+    this.cancelScheduledRender()
     this.isActive = false
     this.activePointerId = null
     this.currentStroke = null
@@ -572,14 +615,37 @@ Alpine.data('strokePad', (opts = {}) => ({
   },
 
   // ---- 渲染 ----
-  // 实时书写渲染: 在离屏层上用 perfect-freehand 压力笔触绘制当前笔画，
-  // 再叠到主画布（笔触颜色适配主题: 明亮黑色，暗黑近白色）
-  // 录制点为盒相对归一化坐标，先换算为内部像素坐标再绘制
+  // rAF 渲染节流: 一帧至多一次（高采样率指针事件在帧间合并）
+  scheduleRender() {
+    if (this._renderRaf) return
+    this._renderRaf = requestAnimationFrame(() => {
+      this._renderRaf = null
+      if (this.isActive && this.currentStroke) this.renderCurrentSegment()
+    })
+  },
+
+  cancelScheduledRender() {
+    if (this._renderRaf) {
+      cancelAnimationFrame(this._renderRaf)
+      this._renderRaf = null
+    }
+  },
+
+  // 实时书写渲染（增量）: 仅把“新出现的段 + 末端回退窗口”绘制到离屏层并叠加，
+  // 避免每次移动都重描整笔; 笔宽/墨迹盒变化或每 INK_FULL_REDRAW_RENDERS 次
+  // 走 redrawCanvas 全量精确重绘（同时校正速度均值/头尾锥形等全局量的漂移）
   renderCurrentSegment() {
-    const pts = this.currentStroke.points
-    if (pts.length === 0) return
+    const pts = this.currentStroke?.points
+    if (!pts || pts.length === 0) return
     const box = this.ziBoxValue
     if (!box) return
+
+    // 墨迹盒变化（字体就绪/尺寸变化）或周期校正: 全量精确重绘
+    if (this._inkBox !== box || this._inkRenderCount >= INK_FULL_REDRAW_RENDERS) {
+      this.redrawCanvas()
+      return
+    }
+
     const px = pts.map(p => ({
       x: box.x0 + p.x * box.w,
       y: box.y0 + p.y * box.h,
@@ -587,18 +653,24 @@ Alpine.data('strokePad', (opts = {}) => ({
       timestamp: p.timestamp
     }))
     const color = this.strokeColor || strokeInkColor()
-    this.inkCtx.clearRect(0, 0, this.width, this.height)
+    // 增量起点: 回退覆盖末端窗口（末段宽度随笔画增长而变）
+    const overlap = Math.max(4, Math.floor(px.length * INK_OVERLAP_RATIO) + 2)
+    const from = Math.max(0, this._inkDrawn - overlap)
+    if (from === 0) this.inkCtx.clearRect(0, 0, this.width, this.height)
     // 书写中为未完结笔画（last=false）; stroke 模式由后端逐段描边直接绘制
-    drawStroke(this.inkCtx, px, this.penWidth, color, { last: false })
+    drawStrokeFrom(this.inkCtx, px, this.penWidth, color, from, { last: false })
+    this._inkDrawn = px.length - 1
+    this._inkRenderCount++
     // 离屏层按内部坐标系绘制，叠加到主画布
     this.ctx.drawImage(this.inkLayer, 0, 0, this.width, this.height)
   },
 
-  // 切换笔触宽度（实时生效，正在书写的笔画立即重绘；回调输出供多端同步）
+  // 切换笔触宽度（实时生效，正在书写的笔画立即精确重绘；回调输出供多端同步）
   setPenWidth(w) {
     this.penWidth = w
     if (this.isActive && this.currentStroke) {
-      this.renderCurrentSegment()
+      // 笔宽影响整笔所有段: 全量重绘（同时重置增量状态）
+      this.redrawCanvas()
     }
     this._opts.onPenWidthChange?.(w)
   },

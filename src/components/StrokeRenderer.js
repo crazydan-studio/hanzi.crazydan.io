@@ -68,6 +68,24 @@ export function drawStroke(ctx, points, widthPx, color, opts) {
   ctx.fill(path)
 }
 
+// 增量绘制一笔（书写过程中按段续绘，避免每帧重描整笔）:
+// 仅 'brush' 后端支持按段续绘（stroke 模式逐段描边 / fill 模式胶囊段）;
+// 其他后端忽略 from 回退为完整绘制
+export function drawStrokeFrom(ctx, points, widthPx, color, from = 0, opts) {
+  if (!points || points.length === 0) return
+  if (STROKE_BACKEND === 'brush') {
+    if (useStrokeMode) {
+      drawBrushStroke(ctx, points, widthPx, color, from)
+      return
+    }
+    const width = Math.max(1, widthPx || BASE_WIDTH)
+    ctx.fillStyle = color
+    ctx.fill(brushStrokePath(points, width, { ...opts, from }))
+    return
+  }
+  drawStroke(ctx, points, widthPx, color, opts)
+}
+
 // 单点笔画圆点（半径 = 基准直径 × 压力映射 × 进度），供 1 点轨迹与起始帧
 export function drawDot(ctx, x, y, pressure, widthPx, radiusScale = 1) {
   const width = Math.max(1, widthPx || BASE_WIDTH)
