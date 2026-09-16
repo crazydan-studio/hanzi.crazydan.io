@@ -24,7 +24,7 @@ import { normalizeBrush, brushBaseWidth } from './Brush.js'
 import { drawCanvasBackground, drawTianZiGe, drawZiRef, drawZiBoxDebug, ziInkBox, ziRefColor, strokeInkColor, displayUnit, ensureKaiFont } from './StrokeBackground.js'
 import { THEME_CHANGE_EVENT } from './ThemeToggle.js'
 import { CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
-import { strokePath } from './StrokeRenderer.js'
+import { drawStroke } from './StrokeRenderer.js'
 
 Alpine.data('strokePad', (opts = {}) => ({
   width: opts.width || CANVAS_SIZE.width,
@@ -587,10 +587,9 @@ Alpine.data('strokePad', (opts = {}) => ({
       timestamp: p.timestamp
     }))
     const color = this.strokeColor || strokeInkColor()
-    this.inkCtx.fillStyle = color
     this.inkCtx.clearRect(0, 0, this.width, this.height)
-    // 书写中为未完结笔画（last=false，收笔尖尾在抬手落笔后的完整重绘中呈现）
-    this.inkCtx.fill(strokePath(px, this.penWidth, { last: false }))
+    // 书写中为未完结笔画（last=false）; stroke 模式由后端逐段描边直接绘制
+    drawStroke(this.inkCtx, px, this.penWidth, color, { last: false })
     // 离屏层按内部坐标系绘制，叠加到主画布
     this.ctx.drawImage(this.inkLayer, 0, 0, this.width, this.height)
   },
@@ -641,10 +640,9 @@ Alpine.data('strokePad', (opts = {}) => ({
     }
   },
 
-  // 与动画引擎共享的轨迹渲染函数（perfect-freehand 压力笔触轮廓）
+  // 与动画引擎共享的轨迹渲染（轮廓后端统一入口; 基准笔宽由轨迹 brush 面积比还原）
   // 轨迹坐标为元组数组 [x,y,pressure,timestamp]（盒相对归一化 ×1000），
-  // 此处 ÷1000 还原到背景字墨迹盒并映射为画布像素；基准笔宽由轨迹
-  // brush（面积比）按盒面积还原（忠实显示录制笔宽）；颜色为前端展示配置
+  // 此处 ÷1000 还原到背景字墨迹盒并映射为画布像素；颜色为前端展示配置
   // 盒仅用背景字光栅实测盒（与背景字严格对齐）; 实测盒不可用时笔画不绘制
   drawTrajectory(trajectory, color, highlight = false) {
     const box = this.ziBoxValue
@@ -658,8 +656,7 @@ Alpine.data('strokePad', (opts = {}) => ({
       timestamp: (p[3] ?? 0) / TIMESTAMP_SCALE
     }))
     const baseWidth = brushBaseWidth(trajectory.b, box.w, box.h)
-    this.ctx.fillStyle = highlight ? this.HIGHLIGHT_COLOR : color
-    this.ctx.fill(strokePath(px, baseWidth))
+    drawStroke(this.ctx, px, baseWidth, highlight ? this.HIGHLIGHT_COLOR : color)
   },
 
   // 回放背景: 当前汉字（楷体半透明，颜色适配主题色）作为书写参照，而非书写笔画

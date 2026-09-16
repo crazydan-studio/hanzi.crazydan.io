@@ -1,6 +1,6 @@
 import { BASE_WIDTH, CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
 import { brushBaseWidth } from './Brush.js'
-import { strokePath, drawDot } from './StrokeRenderer.js'
+import { drawStroke, drawDot } from './StrokeRenderer.js'
 
 // 单一RAF状态机。不使用 async/await + Promise 链，全部状态显式管理，
 // pause/resume/seek 均为状态切换，天然安全。
@@ -70,7 +70,6 @@ export class AnimationEngine {
     this.boxReady = !!(box && box.w > 0 && box.h > 0)
     for (const s of this.strokes) {
       const traj = s.trajectory_data
-      s._strokePath = null   // 坐标换算变化，作废缓存的笔触轮廓
       if (this.boxReady) {
         s.pxPoints = traj.p.map(p => ({
           x: box.x0 + (p[0] / COORD_SCALE) * box.w,
@@ -95,7 +94,6 @@ export class AnimationEngine {
     this.boxReady = !!(box && box.w > 0 && box.h > 0)
     for (const s of this.strokes) {
       const traj = s.trajectory_data
-      s._strokePath = null   // 坐标换算变化，作废缓存的笔触轮廓
       if (this.boxReady) {
         s.pxPoints = traj.p.map(p => ({
           x: box.x0 + (p[0] / COORD_SCALE) * box.w,
@@ -283,7 +281,7 @@ export class AnimationEngine {
     return last
   }
 
-  // 部分渲染: 绘制从起点到插值位置的压力笔触（perfect-freehand 轮廓），
+  // 部分渲染: 绘制从起点到插值位置的压力笔触（轮廓后端统一入口），
   // 末点随进度向前（露出部分端头收圆帽，与完成笔画同源渲染）
   renderPartial(stroke, progress, colorOverride) {
     const pts = stroke.pxPoints
@@ -323,26 +321,22 @@ export class AnimationEngine {
       return
     }
 
-    // 进度露出片段: 未完结（last=false），不做收笔尖尾
-    this.ctx.fill(strokePath(visible, stroke.pxBrushWidth, { last: false }))
+    // 进度露出片段: 未完结（last=false）
+    drawStroke(this.ctx, visible, stroke.pxBrushWidth, color, { last: false })
   }
 
-  // 完整笔画渲染（已完成笔画）: 压力笔触轮廓（缓存 Path2D，逐帧填充不同颜色）
+  // 完整笔画渲染（已完成笔画）: 轮廓缓存由门面按点集维护，逐帧填充不同颜色
   renderFullStroke(stroke, colorOverride) {
     const pts = stroke.pxPoints
     if (!pts || pts.length === 0) return
     const color = colorOverride || this.resolveCompletedColor()
-    this.ctx.fillStyle = color
 
     if (pts.length === 1) {
+      this.ctx.fillStyle = color
       drawDot(this.ctx, pts[0].x, pts[0].y, pts[0].pressure, stroke.pxBrushWidth)
       return
     }
-    // 完整笔画的轮廓与坐标同时换算，仅在坐标/笔宽变化后重算
-    if (!stroke._strokePath) {
-      stroke._strokePath = strokePath(pts, stroke.pxBrushWidth, { last: true })
-    }
-    this.ctx.fill(stroke._strokePath)
+    drawStroke(this.ctx, pts, stroke.pxBrushWidth, color, { last: true })
   }
 
   redrawCompleted() {

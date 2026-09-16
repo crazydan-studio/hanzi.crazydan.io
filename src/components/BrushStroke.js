@@ -1,8 +1,11 @@
 // ============ 笔画轮廓后端 E: 原始自研笔触（仓库最初实现） ============
 // 恢复自 perfect-freehand 接入前仓库自带的 Brush.js 算法（原 computeBrushWidths
 // + drawBrushStroke，参数与 commit f98f4ad 之前完全一致）:
-// 逐点计算 压力×速度×起收笔锥形 的笔宽序列，再以每段 round-cap 线段的胶囊轮廓
-// 渲染（与原始逐段 ctx.stroke 描边严格等价，差异仅在 fill 求并集）。
+// 逐点计算 压力×速度×起收笔锥形 的笔宽序列。提供两种渲染出口（几何一致）:
+//   - drawBrushStroke: 原样逐段 ctx.stroke（round cap），供门面 'stroke' 模式
+//     （像素级等同原始实现）
+//   - strokePath: 逐段 round-cap 线段的胶囊轮廓 Path2D，供门面 'fill' 模式
+//     （一次 fill 求并集，可缓存）
 // 宽度模型（模拟毛笔/钢笔楷书）:
 //   - 压力因子: 压力越大越宽 (0.4 + 0.6×p)
 //   - 速度因子: 速度越快越细 (0.7 + 0.5×avgSpeed/local，三点平滑后 0.6..1.4)
@@ -87,6 +90,34 @@ function brushWidthsOf(points, baseWidth) {
     out[i] = sum / cnt
   }
   return out
+}
+
+// 逐段 round-cap 描边（原 drawBrushStroke 原样移植）: stroke 渲染模式使用，
+// 像素级等同原始实现（含零长度段的圆点行为、无点集过滤）
+export function drawBrushStroke(ctx, points, widthPx, color) {
+  const baseWidth = Math.max(1, widthPx || BASE_WIDTH)
+  const n = points.length
+  if (n === 0) return
+  if (n === 1) {
+    ctx.beginPath()
+    ctx.arc(points[0].x, points[0].y, baseWidth / 2, 0, Math.PI * 2)
+    ctx.fillStyle = color
+    ctx.fill()
+    return
+  }
+
+  const widths = brushWidthsOf(points, baseWidth)
+  ctx.strokeStyle = color
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  for (let i = 0; i < n - 1; i++) {
+    const w = (widths[i] + widths[i + 1]) / 2
+    ctx.lineWidth = Math.max(w, 0.5)
+    ctx.beginPath()
+    ctx.moveTo(points[i].x, points[i].y)
+    ctx.lineTo(points[i + 1].x, points[i + 1].y)
+    ctx.stroke()
+  }
 }
 
 // 圆帽线段（capsule）轮廓: 与原始 drawBrushStroke 的逐段 round-cap 描边严格等价
