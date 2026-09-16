@@ -1,6 +1,5 @@
 import { BASE_WIDTH, CANVAS_SIZE, COORD_SCALE, PRESSURE_SCALE, TIMESTAMP_SCALE } from './Constants.js'
-import { brushBaseWidth } from './Brush.js'
-import { drawStroke, drawDot } from './StrokeRenderer.js'
+import { computeBrushWidths, drawBrushStroke, brushBaseWidth } from './Brush.js'
 
 // 单一RAF状态机。不使用 async/await + Promise 链，全部状态显式管理，
 // pause/resume/seek 均为状态切换，天然安全。
@@ -36,12 +35,6 @@ export class AnimationEngine {
     this.onComplete = null       // () 全部完成
     this.onProgress = null       // (index, progress) 笔画内进度 0-1
     this.onBeforeRender = null   // () 清屏后回调（宿主绘制田字格等背景）
-
-    // 已完成笔画缓存层（stroke 模式逐段描边逐帧重绘代价高）:
-    // 笔画完成后增量绘入离屏层，逐帧仅 blit 缓存 + 绘制当前笔画
-    this._completedLayer = null
-    this._completedCtx = null
-    this._completedDrawn = 0     // 已绘入缓存层的笔画数
 
     this.setupCanvas()
   }
@@ -124,7 +117,6 @@ export class AnimationEngine {
     this.startedIndex = -1
     this.lastFrameTime = null
     if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = null }
-    this._invalidateCompletedLayer()
     this.clearCanvas()
   }
 
@@ -239,66 +231,16 @@ export class AnimationEngine {
     }
   }
 
-  // ---- 已完成笔画缓存层（离屏，尺寸/变换与主画布一致）----
-
-  _ensureCompletedLayer() {
-    if (this._completedLayer) return this._completedCtx
-    const layer = document.createElement('canvas')
-    layer.width = this.canvas.width
-    layer.height = this.canvas.height
-    const ctx = layer.getContext('2d')
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
-    this._completedLayer = layer
-    this._completedCtx = ctx
-    return ctx
-  }
-
-  // 清空并作废缓存（笔画数据/坐标/颜色变化时）
-  _invalidateCompletedLayer() {
-    this._completedDrawn = 0
-    if (!this._completedLayer) return
-    const ctx = this._completedCtx
-    ctx.save()
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
-    ctx.clearRect(0, 0, this._completedLayer.width, this._completedLayer.height)
-    ctx.restore()
-  }
-
-  // 将已完成笔画（[已绘数, upTo)）增量绘入缓存层
-  _syncCompletedLayer(upTo) {
-    if (this._completedDrawn > upTo) this._invalidateCompletedLayer()
-    if (upTo <= this._completedDrawn) return
-    const ctx = this._ensureCompletedLayer()
-    const ink = this.resolveCompletedColor()
-    const end = Math.min(upTo, this.strokes.length)
-    for (let i = this._completedDrawn; i < end; i++) {
-      const s = this.strokes[i]
-      const pts = s.pxPoints
-      if (!pts || pts.length === 0) continue
-      if (pts.length === 1) {
-        ctx.fillStyle = ink
-        drawDot(ctx, pts[0].x, pts[0].y, pts[0].pressure, s.pxBrushWidth)
-      } else {
-        drawStroke(ctx, pts, s.pxBrushWidth, ink, { last: true })
-      }
-    }
-    this._completedDrawn = end
-  }
-
-  _blitCompletedLayer() {
-    if (this._completedLayer) {
-      this.ctx.drawImage(this._completedLayer, 0, 0, this.cssW, this.cssH)
-    }
-  }
-
-  // 全帧重绘: 清屏 → 宿主背景（浅色完整字型）→ 已完成笔画缓存 → 当前笔画
+  // 全帧重绘: 清屏 → 宿主背景（浅色完整字型）→ 已完成笔画(黑) → 当前笔画
   // progress=null 表示当前笔画已完成（黑色）；否则按进度用高亮色绘制
   // 展示颜色为前端配置（数据中不存颜色字段）
   renderFrame(stroke, progress) {
     this.clearCanvas()
     const ink = this.resolveCompletedColor()
-    this._syncCompletedLayer(this.currentIndex)
-    this._blitCompletedLayer()
+    for (let i = 0; i < this.currentIndex && i < this.strokes.length; i++) {
+      // 已完成笔画: 永久墨色显示（主题适配）
+      this.renderFullStroke(this.strokes[i], ink)
+    }
     if (progress === null) {
       // 当前笔画刚完成: 墨色
       this.renderFullStroke(stroke, ink)
@@ -338,18 +280,30 @@ export class AnimationEngine {
     return last
   }
 
-  // 部分渲染: 绘制从起点到插值位置的压力笔触（轮廓后端统一入口），
-  // 末点随进度向前（露出部分端头收圆帽，与完成笔画同源渲染）
+  // 单点宽度（前端基准笔宽 × 压力），展示配置
+  // 基准笔宽来自该笔画轨迹的笔刷面积比，忠实还原录制笔宽
+  strokeWidthAt(stroke, p) {
+    const base = stroke?.pxBrushWidth ?? BASE_WIDTH
+    const pressure = p?.pressure ?? 0.5
+    return base * (0.4 + 0.6 * pressure)
+  }
+
+  // 部分渲染: 绘制从起点到插值位置的所有轨迹（笔触模拟）
+  // colorOverride: 可选，动画进行中传高亮色
+  // pts 为 loadStrokes 时换算好的像素坐标
   renderPartial(stroke, progress, colorOverride) {
     const pts = stroke.pxPoints
     if (!pts || pts.length === 0) return
     const color = colorOverride || this.resolveCompletedColor()
-    this.ctx.fillStyle = color
 
+    // 单点笔画: 圆点半径随进度增长
     if (pts.length === 1) {
-      // 单点笔画: 圆点半径随进度增长
-      drawDot(this.ctx, pts[0].x, pts[0].y, pts[0].pressure,
-        stroke.pxBrushWidth, Math.max(progress, 0.02))
+      const r = Math.max(
+        (this.strokeWidthAt(stroke, pts[0]) / 2) * Math.max(progress, 0.02), 0.5)
+      this.ctx.beginPath()
+      this.ctx.arc(pts[0].x, pts[0].y, r, 0, Math.PI * 2)
+      this.ctx.fillStyle = color
+      this.ctx.fill()
       return
     }
 
@@ -373,34 +327,43 @@ export class AnimationEngine {
     if (visible.length <= 1) {
       // 刚开始: 圆点随进度
       const p = visible[0] || pts[0]
-      drawDot(this.ctx, p.x, p.y, p.pressure,
-        stroke.pxBrushWidth, Math.max(progress, 0.02))
+      const r = Math.max(this.strokeWidthAt(stroke, p) / 2 * Math.max(progress, 0.02), 0.5)
+      this.ctx.beginPath()
+      this.ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+      this.ctx.fillStyle = color
+      this.ctx.fill()
       return
     }
 
-    // 进度露出片段: 未完结（last=false）
-    drawStroke(this.ctx, visible, stroke.pxBrushWidth, color, { last: false })
+    // 笔触渲染（压力/速度/起收笔），基准宽度为轨迹笔刷还原值
+    const widths = computeBrushWidths(visible, stroke.pxBrushWidth)
+    drawBrushStroke(this.ctx, visible, widths, color)
   }
 
-  // 完整笔画渲染（已完成笔画）: 轮廓缓存由门面按点集维护，逐帧填充不同颜色
+  // 完整笔画渲染（已完成笔画）— 笔触模拟
   renderFullStroke(stroke, colorOverride) {
     const pts = stroke.pxPoints
     if (!pts || pts.length === 0) return
     const color = colorOverride || this.resolveCompletedColor()
 
     if (pts.length === 1) {
+      // 单点: 画个小圆点
+      this.ctx.beginPath()
+      this.ctx.arc(pts[0].x, pts[0].y, this.strokeWidthAt(stroke, pts[0]) / 2, 0, Math.PI * 2)
       this.ctx.fillStyle = color
-      drawDot(this.ctx, pts[0].x, pts[0].y, pts[0].pressure, stroke.pxBrushWidth)
-      return
+      this.ctx.fill()
+    } else {
+      const widths = computeBrushWidths(pts, stroke.pxBrushWidth)
+      drawBrushStroke(this.ctx, pts, widths, color)
     }
-    drawStroke(this.ctx, pts, stroke.pxBrushWidth, color, { last: true })
   }
 
   redrawCompleted() {
     this.clearCanvas()
-    this._invalidateCompletedLayer()
-    this._syncCompletedLayer(this.currentIndex)
-    this._blitCompletedLayer()
+    const ink = this.resolveCompletedColor()
+    for (let i = 0; i < this.currentIndex && i < this.strokes.length; i++) {
+      this.renderFullStroke(this.strokes[i], ink)
+    }
   }
 
   clearCanvas() {
