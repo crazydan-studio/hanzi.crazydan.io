@@ -1,11 +1,10 @@
 // ============ 书写页编排组件（持有后端状态；组合公共书写板组件） ============
-// 职责: 汉字信息/笔画列表的服务端同步（API 耦合留在此层）
+// 职责: 汉字信息/笔画列表的后端读写（API 耦合留在此层）
 //   - 组合 src/components/StrokePad.js（公共书写板，零后端耦合）
 //   - 通过 padOpts 回调接收书写板输出（录入笔画/悬停/模式/回放进度）
-//   - 通过 $refs.pad 调用书写板实例方法注入数据（loadStrokes/setZi/setMode...）
+//   - 通过 pad 实例方法注入数据（loadStrokes/setZi/setMode...）
 import Alpine from 'alpinejs'
 import { api } from '@services/api.js'
-import { createSyncClient } from '@services/syncClient.js'
 import { strokeTypesMap } from '@components/StrokeTypes.js'
 import { ZI_STRUCTURES, structureLabel } from '@components/ZiStructures.js'
 import { takeBackUrl } from '@services/session.js'
@@ -31,9 +30,6 @@ export function registerStrokeEditor() {
     clearedStrokes: [],                   // 清空时备份的全部笔画（支持恢复）
     isDeleting: 0,                        // 进行中的笔画删除数（重做需等删除完成，避免竞争）
     _lastOp: null,                        // 最近一次操作: draw | remove | delete | clear | redo | restore | reorder
-    sync: null,                          // 多端同步客户端
-    _remoteConfig: false,                // 远端配置回显标志（防广播回环）
-    _pendingWidth: null,                 // pad 未就绪时暂存的远端笔宽
     _upgradeTimer: null,                 // 旧轨迹升级轮询（等待实测盒就绪）
 
     // 触摸设备检测: 移动端无 HTML5 拖拽，列表排序改用上移/下移按钮
@@ -53,19 +49,14 @@ export function registerStrokeEditor() {
     init() {
       // 注入书写板回调（闭包引用本组件；数据经此回传到编辑器）
       this.padOpts = {
-        onReady: (pad) => {
-          this.pad = pad
-          // 应用 pad 就绪前到达的远端笔宽
-          if (this._pendingWidth) { pad.setPenWidth(this._pendingWidth); this._pendingWidth = null }
-        },
+        onReady: (pad) => { this.pad = pad },
         onStrokeRecorded: (stroke) => this.onStrokeRecorded(stroke),
         onStrokeRemoveRequest: (p) => this.onStrokeRemoveRequest(p),
         onStrokeClearAll: (strokes) => this.onStrokeClearAll(strokes),
         onStrokeHover: (strokeId) => this.hoverStroke(strokeId),
         onModeChanged: (mode) => this.onPadModeChanged(mode),
         onPlaybackProgress: (p) => this.onPlaybackProgress(p),
-        onPlaybackToggle: (t) => this.onPlaybackToggle(t),
-        onPenWidthChange: (w) => this.onPenWidthChange(w)
+        onPlaybackToggle: (t) => this.onPlaybackToggle(t)
       }
       // 书写页独立加载: 从 URL ?zi= 解析目标汉字
       const zi = new URLSearchParams(window.location.search).get('zi')
@@ -75,44 +66,6 @@ export function registerStrokeEditor() {
       if (mode === 'playback') {
         this.$nextTick(() => this.pad?.setMode('playback'))
       }
-      this.setupSync()
-    },
-
-    // ---- 多端同步: 书写/配置/页面跳转 跨端实时同步 ----
-    setupSync() {
-      this.sync = createSyncClient()
-      const sync = this.sync
-      // 当前字符 id（数字），用于事件匹配（后端广播为 number）
-      const currentId = () => (typeof this.zi?.id === 'number' ? this.zi.id : null)
-      // 他端写入了该字笔画 → 重新加载（服务端为权威状态）
-      sync.on('strokes-changed', (p) => {
-        const id = currentId()
-        if (id !== null && Number(p.ziId) === id) {
-          this.loadZi({ id })
-        }
-      })
-      // 他端修改了该字信息（结构等）→ 重新加载
-      sync.on('zi-updated', (p) => {
-        const id = currentId()
-        if (id !== null && Number(p.id) === id) {
-          this.loadZi({ id })
-        }
-      })
-      // 他端页面跳转 → 跟随跳转
-      sync.on('navigate', (p) => {
-        if (p.url) location.href = p.url
-      })
-      // 他端修改笔触宽度 → 应用（标志防回环；pad 未就绪时暂存）
-      sync.on('pen-width', (p) => {
-        if (!p.width) return
-        this._remoteConfig = true
-        if (this.pad) {
-          this.pad.setPenWidth(p.width)
-        } else {
-          this._pendingWidth = p.width
-        }
-        queueMicrotask(() => { this._remoteConfig = false })
-      })
     },
 
     // 返回进入前的页面（入口页面写入返回地址: 笔画管理列表 / 汉字信息页等）；
@@ -120,7 +73,6 @@ export function registerStrokeEditor() {
     goBack() {
       const stored = takeBackUrl()
       if (stored) {
-        this.sync?.emit('navigate', { url: stored })
         location.href = stored
         return
       }
@@ -129,7 +81,6 @@ export function registerStrokeEditor() {
         return
       }
       const url = '/'
-      this.sync?.emit('navigate', { url })
       location.href = url
     },
 
@@ -194,7 +145,7 @@ export function registerStrokeEditor() {
 
     // ---- 书写板回调 ----
 
-    // strokePad 模式变化（列表据此只读/可编辑；不参与多端同步）
+    // strokePad 模式变化（列表据此只读/可编辑）
     onPadModeChanged(mode) {
       this.padMode = mode
       if (mode !== 'playback') {
@@ -202,14 +153,7 @@ export function registerStrokeEditor() {
       }
     },
 
-    // 笔触宽度变化（广播给其他端同步；远端回显不重发）
-    onPenWidthChange(width) {
-      if (!this._remoteConfig) {
-        this.sync?.emit('pen-width', { width })
-      }
-    },
-
-    // strokePad 回放进度（列表联动高亮正在绘制的笔画；不参与多端同步）
+    // strokePad 回放进度（列表联动高亮正在绘制的笔画）
     onPlaybackProgress({ strokeId }) {
       this.playbackActiveStrokeId = strokeId ?? null
     },
@@ -418,6 +362,9 @@ export function registerStrokeEditor() {
       Number.isInteger(s.id) &&
       (!s.trajectory_data.r || s.trajectory_data.v !== TRAJECTORY_VERSION))
     if (legacy.length === 0) return
+    // 有尚未保存的本地笔画（或删除在途）时不重载画布，避免用旧列表覆盖书写板
+    if (this.pad?.strokes.some(s => typeof s.id === 'string' && s.id.startsWith('local-'))) return
+    if (this.isDeleting > 0) return
     const box = this.pad?.ziBoxValue
     if (!box) return
     const r = { w: Math.round(box.w), h: Math.round(box.h) }
@@ -650,14 +597,25 @@ export function registerStrokeEditor() {
       this.deleteStroke(strokeId)
     },
 
+    // 删除已保存笔画: 列表与画布先同步移除（撤销/删除立即生效，不再等待服务端），
+    // 失败时回滚列表并重载画布 —— 避免删除在途期间被其它重绘用旧列表把
+    // 被撤销笔画重新画回（跳闪）
     async deleteStroke(strokeId) {
+      const idx = this.strokes.findIndex(s => s.id === strokeId)
+      if (idx === -1) return
+      const removed = this.strokes[idx]
+      this.strokes = this.strokes.filter(s => s.id !== strokeId)
+      this.pad.removeStroke(strokeId)
       this.isDeleting++
       try {
         await api.delete(`/api/zi/${this.zi.id}/strokes/${strokeId}`)
-        this.strokes = this.strokes.filter(s => s.id !== strokeId)
-        this.pad.removeStroke(strokeId)   // 书写板同步移除
       } catch (e) {
         this.error = e.message
+        // 回滚: 恢复列表顺序并重载画布（服务端状态未变）
+        const restored = [...this.strokes]
+        restored.splice(Math.min(idx, restored.length), 0, removed)
+        this.strokes = restored
+        this.pad.loadStrokes(this.strokes)
       } finally {
         this.isDeleting--
       }

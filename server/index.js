@@ -4,7 +4,6 @@ import fs from 'fs'
 import { initDatabase } from './services/database.js'
 import ziRouter from './routes/zi.js'
 import strokesRouter from './routes/strokes.js'
-import syncRouter from './routes/sync.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { BACKEND_PORT, DIST_DIR, HANZI_DB_PATH, PAGES, resolvePortArg } from '../paths.js'
 
@@ -31,7 +30,6 @@ app.use(express.json({ limit: '10mb' }))
 
 app.use('/api/zi', ziRouter)
 app.use('/api/zi/:ziId/strokes', strokesRouter)
-app.use('/api/sync', syncRouter)
 
 // 生产模式: 托管前端构建产物
 if (fs.existsSync(DIST_DIR)) {

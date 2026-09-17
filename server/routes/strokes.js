@@ -4,15 +4,10 @@ import { validateBody, validateParams } from '../middleware/validation.js'
 import { ok } from '../middleware/response.js'
 import { AppError } from '../middleware/errorHandler.js'
 import { strokeService } from '../services/StrokeService.js'
-import { broadcastSync, SYNC_EVENTS } from '../services/sync.js'
 import { createStrokeSchema, updateStrokeSchema, batchCreateStrokesSchema, reorderStrokesSchema } from '../schemas/StrokeSchema.js'
 
 // 挂载于 /api/zi/:ziId/strokes
 const router = Router({ mergeParams: true })
-
-// 写操作后广播: 其他端的同字书写页/列表页据此刷新
-const strokesChanged = (ziId) =>
-  broadcastSync(SYNC_EVENTS.STROKES_CHANGED, { ziId: Number(ziId) })
 
 // 注意: 必须显式声明 ziId —— Zod 的 z.object 默认剥离未声明键，
 // 若不声明，validateParams 会把 req.params 替换成 { id } 而丢掉 ziId，
@@ -36,24 +31,21 @@ router.get('/', validateParams(ziIdParamsSchema), (req, res) => {
   return ok(res, strokes)
 })
 
-// 清空该字全部笔画（原子单行删除，单次广播; 须定义于 '/:id' 前）
+// 清空该字全部笔画（原子单行删除; 须定义于 '/:id' 前）
 router.delete('/', validateParams(ziIdParamsSchema), (req, res) => {
   strokeService.clearAll(req.params.ziId)
-  strokesChanged(req.params.ziId)
   return ok(res, null)
 })
 
 // 新增单笔: 追加到末尾（序号 = 当前最大序号 + 1，仅接受顺序追加）
 router.post('/', validateParams(ziIdParamsSchema), validateBody(createStrokeSchema), (req, res) => {
   const stroke = strokeService.create(req.params.ziId, req.body)
-  strokesChanged(req.params.ziId)
   return ok(res, stroke, 201)
 })
 
 router.post('/batch', validateParams(ziIdParamsSchema),
   validateBody(batchCreateStrokesSchema), (req, res) => {
     const strokes = strokeService.createBatch(req.params.ziId, req.body.strokes)
-    strokesChanged(req.params.ziId)
     return ok(res, strokes, 201)
   })
 
@@ -61,7 +53,6 @@ router.post('/batch', validateParams(ziIdParamsSchema),
 router.post('/reorder', validateParams(ziIdParamsSchema),
   validateBody(reorderStrokesSchema), (req, res) => {
     const strokes = strokeService.reorder(req.params.ziId, req.body.strokeIds)
-    strokesChanged(req.params.ziId)
     return ok(res, strokes)
   })
 
@@ -71,7 +62,6 @@ router.patch('/:id', validateParams(strokeIdParamsSchema),
     strokeNotFoundIfMissing(strokeService.findByIdAndZi(
       req.params.id, req.params.ziId))
     const stroke = strokeService.update(req.params.ziId, req.params.id, req.body)
-    strokesChanged(req.params.ziId)
     return ok(res, stroke)
   })
 
@@ -79,7 +69,6 @@ router.delete('/:id', validateParams(strokeIdParamsSchema), (req, res) => {
   strokeNotFoundIfMissing(strokeService.findByIdAndZi(
     req.params.id, req.params.ziId))
   strokeService.delete(req.params.ziId, req.params.id)
-  strokesChanged(req.params.ziId)
   return ok(res, null)
 })
 

@@ -586,13 +586,12 @@ Alpine.data('strokePad', (opts = {}) => ({
     this.ctx.drawImage(this.inkLayer, 0, 0, this.width, this.height)
   },
 
-  // 切换笔触宽度（实时生效，正在书写的笔画立即重绘；回调输出供多端同步）
+  // 切换笔触宽度（实时生效，正在书写的笔画立即重绘）
   setPenWidth(w) {
     this.penWidth = w
     if (this.isActive && this.currentStroke) {
       this.renderCurrentSegment()
     }
-    this._opts.onPenWidthChange?.(w)
   },
 
   // 结束/取消书写时清空离屏层

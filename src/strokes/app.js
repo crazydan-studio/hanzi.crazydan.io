@@ -3,7 +3,6 @@
 // 过滤: 完整笔画图 + 字/拼音搜索；分页大小可选；过滤与分页均 URL 路由
 import Alpine from 'alpinejs'
 import { api } from '@services/api.js'
-import { createSyncClient } from '@services/syncClient.js'
 import { structureLabel } from '@components/ZiStructures.js'
 import { strokeInkColor, ziInkBox, ensureKaiFont } from '@components/StrokeBackground.js'
 import { COORD_SCALE } from '@components/Constants.js'
@@ -40,23 +39,12 @@ Alpine.data('ziList', () => ({
     const hs = params.get('has_strokes')
     if (hs === '1' || hs === '0' || hs === '2') this.hasStrokes = hs
     this.load()
-    this.setupSync()
     // 主题切换时递增版本号，驱动笔画缩略图 x-effect 重绘（颜色适配主题）
     window.addEventListener(THEME_CHANGE_EVENT, () => {
       this.themeVersion++
     })
     // 楷体加载完成后重绘缩略图（墨迹盒坐标还原依赖字体度量）
     ensureKaiFont().then(() => { this.themeVersion++ })
-  },
-
-  // ---- 多端同步: 他端写入笔画/修改信息 → 刷新列表；他端跳转 → 跟随 ----
-  setupSync() {
-    this.sync = createSyncClient()
-    this.sync.on('navigate', (p) => {
-      if (p.url) location.href = p.url
-    })
-    this.sync.on('strokes-changed', () => this.load())
-    this.sync.on('zi-updated', () => this.load())
   },
 
   // 更新 URL 路由参数（过滤/分页），并刷新列表
@@ -177,11 +165,9 @@ Alpine.data('ziList', () => ({
 
   // 点击行 → 跳转书写页（目录式: 指定目录 write/，自动定位 write/index.html）
   // 记录来源 URL（含过滤/分页参数），书写页"返回"按钮据此恢复进入前的页面
-  // 广播 navigate: 其他端的列表/书写页同步跳转到该字的书写页
   openWriter(zi) {
     const url = `write/?zi=${encodeURIComponent(zi.zi)}&mode=write`
     setBackUrl()
-    this.sync?.emit('navigate', { url })
     location.href = url
   }
 }))

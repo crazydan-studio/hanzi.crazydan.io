@@ -94,8 +94,7 @@ export const ziService = {
     return this.findById(id)
   },
 
-  // 更新: 结构/部首/读音/笔画数（其余只读，来自字典导入）
-  // 返回 { zi, changed }（无字段变更时不写库、不同步、不广播）
+  // 更新: 结构/部首/读音/笔画数（其余只读，来自字典导入）; 无字段变更时不写库/不同步
   update(id, data) {
     const db = getDb()
     const updates = []
@@ -117,7 +116,7 @@ export const ziService = {
       params.push(data.total_stroke_count)
     }
     if (updates.length === 0) {
-      return { zi: this.findById(id), changed: false }
+      return this.findById(id)
     }
     params.push(id)
     db.prepare(`
@@ -129,16 +128,16 @@ export const ziService = {
       // 同步到静态数据 index.json（仅文件已存在时更新）
       syncZiMeta(zi)
     }
-    return { zi, changed: zi !== null }
+    return zi
   },
 
   // 删除（幂等）: DB 行删除（笔画随外键级联），并同步移除静态数据条目
   delete(id) {
     const db = getDb()
     const existed = db.prepare('SELECT 1 FROM meta_zi WHERE id = ?').get(id)
-    if (!existed) return { success: true, changed: false }
+    if (!existed) return { success: true }
     db.prepare('DELETE FROM meta_zi WHERE id = ?').run(id)
     removeZiStatic(id)
-    return { success: true, changed: true }
+    return { success: true }
   }
 }

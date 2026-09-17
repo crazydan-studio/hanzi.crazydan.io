@@ -3,7 +3,6 @@ import { validateBody, validateParams, validateQuery } from '../middleware/valid
 import { ok, paginated } from '../middleware/response.js'
 import { AppError } from '../middleware/errorHandler.js'
 import { ziService } from '../services/ZiService.js'
-import { broadcastSync, SYNC_EVENTS } from '../services/sync.js'
 import {
   createZiSchema, updateZiSchema,
   idParamsSchema, ziParamSchema, listQuerySchema
@@ -36,21 +35,12 @@ router.post('/', validateBody(createZiSchema), (req, res) => {
 })
 
 router.patch('/:id', validateParams(idParamsSchema), validateBody(updateZiSchema), (req, res) => {
-  const { zi, changed } = ziService.update(req.params.id, req.body)
-  notFoundIfMissing(zi)
-  // 结构等字段实际修改后广播（列表页/书写页同步刷新）; 空 PATCH 不广播
-  if (changed) {
-    broadcastSync(SYNC_EVENTS.ZI_UPDATED, { id: zi.id })
-  }
-  return ok(res, zi)
+  return ok(res, notFoundIfMissing(ziService.update(req.params.id, req.body)))
 })
 
-// 删除（幂等）: 实际删除后同步静态数据并广播（打开的相关页面据此刷新）
+// 删除（幂等）: 实际删除后同步静态数据（静态页面与接口数据一致）
 router.delete('/:id', validateParams(idParamsSchema), (req, res) => {
-  const { changed } = ziService.delete(req.params.id)
-  if (changed) {
-    broadcastSync(SYNC_EVENTS.ZI_UPDATED, { id: req.params.id })
-  }
+  ziService.delete(req.params.id)
   return ok(res, null)
 })
 
